@@ -1,0 +1,582 @@
+.counter {
+  position: relative;
+  font-size: 16px;
+  padding: 6px 12px;
+  border-radius: 7px;
+  color: var(--accent);
+  background:
+    linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--accent-bg) 92%, white 8%),
+      var(--accent-bg)
+    );
+  border: 1px solid transparent;
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--accent) 5%, transparent),
+    0 4px 16px color-mix(in srgb, var(--accent) 5%, transparent);
+  transition:
+    border-color 0.35s ease,
+    box-shadow 0.35s ease,
+    transform 0.35s ease,
+    background 0.35s ease;
+  margin-bottom: 24px;
+
+  &:hover {
+    border-color: var(--accent-border);
+    transform: translateY(-2px);
+    box-shadow:
+      0 0 0 1px color-mix(in srgb, var(--accent) 8%, transparent),
+      0 8px 28px color-mix(in srgb, var(--accent) 12%, transparent);
+  }
+
+  &:active {
+    transform: translateY(0) scale(0.98);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 3px;
+    box-shadow:
+      0 0 0 5px color-mix(in srgb, var(--accent) 12%, transparent),
+      0 0 30px color-mix(in srgb, var(--accent) 18%, transparent);
+  }
+}
+
+
+/* =========================================================
+   HERO
+========================================================= */
+
+.hero {
+  position: relative;
+
+  /* subtle atmospheric glow behind the hero */
+  &::before {
+    content: '';
+    position: absolute;
+    inset: -60px;
+    margin: auto;
+    width: 220px;
+    height: 180px;
+    border-radius: 50%;
+    background: radial-gradient(
+      circle,
+      color-mix(in srgb, var(--accent) 12%, transparent),
+      transparent 70%
+    );
+    filter: blur(35px);
+    opacity: 0.7;
+    pointer-events: none;
+    animation: heroGlow 5s ease-in-out infinite;
+  }
+
+  .base,
+  .framework,
+  .vite {
+    inset-inline: 0;
+    margin: 0 auto;
+  }
+
+  .base {
+    width: 170px;
+    position: relative;
+    z-index: 0;
+
+    filter:
+      drop-shadow(
+        0 12px 25px color-mix(in srgb, var(--accent) 10%, transparent)
+      );
+
+    transition:
+      filter 0.5s ease,
+      transform 0.5s ease;
+  }
+
+  .framework,
+  .vite {
+    position: absolute;
+
+    transition:
+      filter 0.5s ease,
+      transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .framework {
+    z-index: 1;
+    top: 34px;
+    height: 28px;
+
+    transform:
+      perspective(2000px)
+      rotateZ(300deg)
+      rotateX(44deg)
+      rotateY(39deg)
+      scale(1.4);
+
+    filter:
+      drop-shadow(
+        0 0 12px color-mix(in srgb, var(--accent) 20%, transparent)
+      );
+
+    animation: frameworkFloat 6s ease-in-out infinite;
+  }
+
+  .vite {
+    z-index: 0;
+    top: 107px;
+    height: 26px;
+    width: auto;
+
+    transform:
+      perspective(2000px)
+      rotateZ(300deg)
+      rotateX(40deg)
+      rotateY(39deg)
+      scale(0.8);
+
+    filter:
+      drop-shadow(
+        0 0 10px color-mix(in srgb, var(--accent) 16%, transparent)
+      );
+
+    animation: viteFloat 6s ease-in-out infinite 0.4s;
+  }
+
+  &:hover {
+    .base {
+      filter:
+        drop-shadow(
+          0 18px 35px color-mix(in srgb, var(--accent) 18%, transparent)
+        );
+    }
+
+    .framework {
+      filter:
+        drop-shadow(
+          0 0 22px color-mix(in srgb, var(--accent) 32%, transparent)
+        );
+    }
+
+    .vite {
+      filter:
+        drop-shadow(
+          0 0 20px color-mix(in srgb, var(--accent) 28%, transparent)
+        );
+    }
+  }
+}
+
+
+/* =========================================================
+   CENTER
+========================================================= */
+
+#center {
+  display: flex;
+  flex-direction: column;
+  gap: 25px;
+  place-content: center;
+  place-items: center;
+  flex-grow: 1;
+
+  /* subtle entrance */
+  animation: centerReveal 0.8s cubic-bezier(0.16, 1, 0.3, 1) both;
+
+  @media (max-width: 1024px) {
+    padding: 32px 20px 24px;
+    gap: 18px;
+  }
+}
+
+
+/* =========================================================
+   NEXT STEPS
+========================================================= */
+
+#next-steps {
+  display: flex;
+  border-top: 1px solid var(--border);
+  text-align: left;
+
+  /* subtle top lighting */
+  position: relative;
+
+  &::before {
+    content: '';
+    position: absolute;
+    top: -1px;
+    left: 10%;
+    width: 80%;
+    height: 1px;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      color-mix(in srgb, var(--accent) 25%, transparent),
+      transparent
+    );
+    opacity: 0.5;
+    pointer-events: none;
+  }
+
+  & > div {
+    flex: 1 1 0;
+    padding: 32px;
+
+    position: relative;
+
+    transition:
+      background 0.4s ease,
+      transform 0.4s ease;
+
+    &:hover {
+      background:
+        linear-gradient(
+          135deg,
+          color-mix(in srgb, var(--accent) 3%, transparent),
+          transparent
+        );
+    }
+
+    @media (max-width: 1024px) {
+      padding: 24px 20px;
+    }
+  }
+
+  .icon {
+    margin-bottom: 16px;
+    width: 22px;
+    height: 22px;
+
+    transition:
+      transform 0.4s cubic-bezier(0.16, 1, 0.3, 1),
+      filter 0.4s ease;
+
+    filter:
+      drop-shadow(
+        0 0 0 transparent
+      );
+  }
+
+  & > div:hover .icon {
+    transform: translateY(-3px) scale(1.08);
+    filter:
+      drop-shadow(
+        0 0 10px color-mix(in srgb, var(--accent) 30%, transparent)
+      );
+  }
+
+  @media (max-width: 1024px) {
+    flex-direction: column;
+    text-align: center;
+  }
+}
+
+
+/* =========================================================
+   DOCUMENTATION
+========================================================= */
+
+#docs {
+  border-right: 1px solid var(--border);
+
+  @media (max-width: 1024px) {
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+  }
+}
+
+
+/* =========================================================
+   SOCIAL / LINKS
+========================================================= */
+
+#next-steps ul {
+  list-style: none;
+  padding: 0;
+  display: flex;
+  gap: 8px;
+  margin: 32px 0 0;
+
+  .logo {
+    height: 18px;
+
+    transition:
+      transform 0.35s ease,
+      filter 0.35s ease;
+  }
+
+  a {
+    position: relative;
+    overflow: hidden;
+
+    color: var(--text-h);
+    font-size: 16px;
+    border-radius: 7px;
+    background: var(--social-bg);
+    display: flex;
+    padding: 7px 13px;
+    align-items: center;
+    gap: 8px;
+    text-decoration: none;
+
+    border: 1px solid transparent;
+
+    transition:
+      box-shadow 0.35s ease,
+      border-color 0.35s ease,
+      transform 0.35s cubic-bezier(0.16, 1, 0.3, 1),
+      background 0.35s ease;
+
+    /* moving shine */
+    &::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      width: 45%;
+      transform: translateX(-180%) skewX(-20deg);
+      background: linear-gradient(
+        90deg,
+        transparent,
+        color-mix(in srgb, white 10%, transparent),
+        transparent
+      );
+      transition: transform 0.7s ease;
+      pointer-events: none;
+    }
+
+    &:hover {
+      transform: translateY(-2px);
+
+      border-color:
+        color-mix(
+          in srgb,
+          var(--accent) 20%,
+          transparent
+        );
+
+      box-shadow:
+        var(--shadow),
+        0 0 25px
+          color-mix(
+            in srgb,
+            var(--accent) 8%,
+            transparent
+          );
+
+      &::before {
+        transform: translateX(350%) skewX(-20deg);
+      }
+
+      .logo {
+        transform: scale(1.08);
+      }
+    }
+
+    &:active {
+      transform: translateY(0) scale(0.97);
+    }
+
+    .button-icon {
+      height: 18px;
+      width: 18px;
+
+      transition:
+        transform 0.35s ease,
+        filter 0.35s ease;
+    }
+
+    &:hover .button-icon {
+      transform: translateX(2px);
+      filter:
+        drop-shadow(
+          0 0 6px color-mix(in srgb, var(--accent) 25%, transparent)
+        );
+    }
+  }
+
+  @media (max-width: 1024px) {
+    margin-top: 20px;
+    flex-wrap: wrap;
+    justify-content: center;
+
+    li {
+      flex: 1 1 calc(50% - 8px);
+    }
+
+    a {
+      width: 100%;
+      justify-content: center;
+      box-sizing: border-box;
+    }
+  }
+}
+
+
+/* =========================================================
+   SPACER
+========================================================= */
+
+#spacer {
+  height: 88px;
+  border-top: 1px solid var(--border);
+
+  position: relative;
+
+  &::after {
+    content: '';
+    position: absolute;
+    top: -1px;
+    left: 50%;
+    width: 60px;
+    height: 1px;
+    transform: translateX(-50%);
+    background: var(--accent);
+    opacity: 0.15;
+    filter: blur(1px);
+  }
+
+  @media (max-width: 1024px) {
+    height: 48px;
+  }
+}
+
+
+/* =========================================================
+   TICKS
+========================================================= */
+
+.ticks {
+  position: relative;
+  width: 100%;
+
+  &::before,
+  &::after {
+    content: '';
+    position: absolute;
+    top: -4.5px;
+    border: 5px solid transparent;
+
+    transition:
+      filter 0.35s ease,
+      transform 0.35s ease;
+  }
+
+  &::before {
+    left: 0;
+    border-left-color: var(--border);
+  }
+
+  &::after {
+    right: 0;
+    border-right-color: var(--border);
+  }
+
+  &:hover {
+    &::before {
+      transform: translateX(2px);
+      filter:
+        drop-shadow(
+          0 0 5px color-mix(in srgb, var(--accent) 25%, transparent)
+        );
+    }
+
+    &::after {
+      transform: translateX(-2px);
+      filter:
+        drop-shadow(
+          0 0 5px color-mix(in srgb, var(--accent) 25%, transparent)
+        );
+    }
+  }
+}
+
+
+/* =========================================================
+   ANIMATIONS
+========================================================= */
+
+@keyframes heroGlow {
+  0%,
+  100% {
+    transform: scale(0.9);
+    opacity: 0.45;
+  }
+
+  50% {
+    transform: scale(1.15);
+    opacity: 0.8;
+  }
+}
+
+@keyframes frameworkFloat {
+  0%,
+  100% {
+    transform:
+      perspective(2000px)
+      rotateZ(300deg)
+      rotateX(44deg)
+      rotateY(39deg)
+      translateY(0)
+      scale(1.4);
+  }
+
+  50% {
+    transform:
+      perspective(2000px)
+      rotateZ(300deg)
+      rotateX(44deg)
+      rotateY(39deg)
+      translateY(-5px)
+      scale(1.43);
+  }
+}
+
+@keyframes viteFloat {
+  0%,
+  100% {
+    transform:
+      perspective(2000px)
+      rotateZ(300deg)
+      rotateX(40deg)
+      rotateY(39deg)
+      translateY(0)
+      scale(0.8);
+  }
+
+  50% {
+    transform:
+      perspective(2000px)
+      rotateZ(300deg)
+      rotateX(40deg)
+      rotateY(39deg)
+      translateY(5px)
+      scale(0.83);
+  }
+}
+
+@keyframes centerReveal {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+
+/* =========================================================
+   REDUCED MOTION
+========================================================= */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
