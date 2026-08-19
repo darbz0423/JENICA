@@ -47,42 +47,50 @@ export default function BootSequence({ onComplete }) {
   const [coordinateIndex, setCoordinateIndex] = useState(0);
   const [time, setTime] = useState(0);
 
-  const [pointer, setPointer] = useState({
-    x: 0,
-    y: 0,
-  });
-
+  const mainRef = useRef(null);
   const completeCalled = useRef(false);
 
+  const isMobile =
+    typeof window !== "undefined" &&
+    window.matchMedia("(max-width: 767px)").matches;
+
+  const reducedMotion =
+    typeof window !== "undefined" &&
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
   // ============================================================
-  // DETERMINISTIC STAR FIELD
+  // STAR FIELD
   // ============================================================
 
   const stars = useMemo(() => {
-    return Array.from({ length: 130 }, (_, i) => ({
+    const count = isMobile ? 42 : 85;
+
+    return Array.from({ length: count }, (_, i) => ({
       id: i,
-      x: `${(i * 43.719) % 100}%`,
-      y: `${(i * 71.391) % 100}%`,
-      size: 0.5 + (i % 4) * 0.45,
-      delay: `${(i % 13) * 0.31}s`,
-      duration: `${2.2 + (i % 6) * 0.8}s`,
+      x: `${(i * 47.31) % 100}%`,
+      y: `${(i * 73.17) % 100}%`,
+      size: 0.6 + (i % 3) * 0.4,
+      delay: `${(i % 12) * 0.4}s`,
+      duration: `${3 + (i % 5) * 0.8}s`,
     }));
-  }, []);
+  }, [isMobile]);
 
   // ============================================================
-  // FLOATING MEMORY PARTICLES
+  // MEMORY PARTICLES
   // ============================================================
 
   const memoryParticles = useMemo(() => {
-    return Array.from({ length: 26 }, (_, i) => ({
+    const count = isMobile ? 8 : 18;
+
+    return Array.from({ length: count }, (_, i) => ({
       id: i,
-      x: `${8 + ((i * 31.7) % 84)}%`,
-      y: `${12 + ((i * 47.3) % 76)}%`,
-      delay: `${(i % 9) * 0.45}s`,
-      duration: `${5 + (i % 5)}s`,
-      size: `${1 + (i % 3)}px`,
+      x: `${10 + ((i * 37.2) % 80)}%`,
+      y: `${14 + ((i * 51.4) % 72)}%`,
+      delay: `${(i % 8) * 0.6}s`,
+      duration: `${5 + (i % 4)}s`,
+      size: `${1 + (i % 2)}px`,
     }));
-  }, []);
+  }, [isMobile]);
 
   // ============================================================
   // CLOCK
@@ -97,32 +105,52 @@ export default function BootSequence({ onComplete }) {
   }, []);
 
   // ============================================================
-  // POINTER / PARALLAX
-  // MOBILE SAFE
+  // DESKTOP PARALLAX
   // ============================================================
 
   useEffect(() => {
+    if (isMobile || reducedMotion) return;
+
+    const element = mainRef.current;
+
+    if (!element) return;
+
+    let frame = null;
+
     const handlePointer = (event) => {
-      if (window.innerWidth < 768) return;
+      if (frame) return;
 
-      const x =
-        (event.clientX / window.innerWidth - 0.5) * 2;
+      frame = requestAnimationFrame(() => {
+        const x =
+          (event.clientX / window.innerWidth - 0.5) * 2;
 
-      const y =
-        (event.clientY / window.innerHeight - 0.5) * 2;
+        const y =
+          (event.clientY / window.innerHeight - 0.5) * 2;
 
-      setPointer({
-        x: Math.max(-1, Math.min(1, x)),
-        y: Math.max(-1, Math.min(1, y)),
+        element.style.setProperty(
+          "--pointer-x",
+          `${Math.max(-1, Math.min(1, x)) * -7}px`
+        );
+
+        element.style.setProperty(
+          "--pointer-y",
+          `${Math.max(-1, Math.min(1, y)) * -7}px`
+        );
+
+        frame = null;
       });
     };
 
-    window.addEventListener("pointermove", handlePointer);
+    window.addEventListener("pointermove", handlePointer, {
+      passive: true,
+    });
 
     return () => {
       window.removeEventListener("pointermove", handlePointer);
+
+      if (frame) cancelAnimationFrame(frame);
     };
-  }, []);
+  }, [isMobile, reducedMotion]);
 
   // ============================================================
   // BOOT SEQUENCE
@@ -130,26 +158,29 @@ export default function BootSequence({ onComplete }) {
 
   useEffect(() => {
     let timeout;
+    let finishTimeout;
+    let leaveTimeout;
+    let completeTimeout;
 
     const advance = (current) => {
       if (current >= messages.length - 1) {
         setIndex(messages.length - 1);
         setProgress(100);
 
-        timeout = setTimeout(() => {
+        finishTimeout = setTimeout(() => {
           setFinished(true);
-        }, 900);
+        }, 850);
 
-        timeout = setTimeout(() => {
+        leaveTimeout = setTimeout(() => {
           setLeaving(true);
 
-          setTimeout(() => {
+          completeTimeout = setTimeout(() => {
             if (!completeCalled.current) {
               completeCalled.current = true;
               onComplete?.();
             }
-          }, 1500);
-        }, 2900);
+          }, 1300);
+        }, 2800);
 
         return;
       }
@@ -166,58 +197,78 @@ export default function BootSequence({ onComplete }) {
 
       timeout = setTimeout(
         () => advance(next),
-        620 + Math.random() * 360
+        reducedMotion
+          ? 350
+          : 560 + Math.random() * 300
       );
     };
 
-    timeout = setTimeout(() => advance(0), 850);
+    timeout = setTimeout(
+      () => advance(0),
+      reducedMotion ? 150 : 700
+    );
 
-    return () => clearTimeout(timeout);
-  }, [onComplete]);
+    return () => {
+      clearTimeout(timeout);
+      clearTimeout(finishTimeout);
+      clearTimeout(leaveTimeout);
+      clearTimeout(completeTimeout);
+    };
+  }, [onComplete, reducedMotion]);
 
   // ============================================================
-  // GLITCH ENGINE
+  // GLITCH
   // ============================================================
 
   useEffect(() => {
+    if (reducedMotion) return;
+
     const trigger = () => {
       setGlitch(true);
 
-      setTimeout(() => {
+      const timeout = setTimeout(() => {
         setGlitch(false);
-      }, 70 + Math.random() * 150);
+      }, isMobile ? 70 : 110);
+
+      return timeout;
     };
 
     const interval = setInterval(
       trigger,
-      2200 + Math.random() * 3200
+      isMobile
+        ? 4200 + Math.random() * 3500
+        : 2600 + Math.random() * 3200
     );
 
     return () => clearInterval(interval);
-  }, []);
+  }, [isMobile, reducedMotion]);
 
   // ============================================================
-  // MEMORY CORE PULSE
+  // CORE PULSE
   // ============================================================
 
   useEffect(() => {
+    if (reducedMotion) return;
+
     const interval = setInterval(() => {
       setPulse(true);
 
-      setTimeout(() => {
+      const timeout = setTimeout(() => {
         setPulse(false);
-      }, 650);
-    }, 1900);
+      }, 600);
+
+      return () => clearTimeout(timeout);
+    }, 2100);
 
     return () => clearInterval(interval);
-  }, []);
+  }, [reducedMotion]);
 
   // ============================================================
   // MEMORY FRAGMENTS
   // ============================================================
 
   useEffect(() => {
-    if (index < 2) return;
+    if (index < 2 || reducedMotion) return;
 
     let hideTimer;
 
@@ -231,28 +282,31 @@ export default function BootSequence({ onComplete }) {
 
       hideTimer = setTimeout(() => {
         setFragment("");
-      }, 1700);
-    }, 2700);
+      }, 1600);
+    }, isMobile ? 3600 : 2800);
 
     return () => {
       clearInterval(interval);
       clearTimeout(hideTimer);
     };
-  }, [index]);
+  }, [index, isMobile, reducedMotion]);
 
   // ============================================================
-  // COORDINATE ROTATION
+  // COORDINATES
   // ============================================================
 
   useEffect(() => {
+    if (reducedMotion) return;
+
     const interval = setInterval(() => {
-      setCoordinateIndex((value) =>
-        (value + 1) % coordinates.length
+      setCoordinateIndex(
+        (value) =>
+          (value + 1) % coordinates.length
       );
-    }, 1800);
+    }, isMobile ? 2600 : 1900);
 
     return () => clearInterval(interval);
-  }, []);
+  }, [isMobile, reducedMotion]);
 
   const archiveNumber = String(
     Math.floor(progress * 37.21)
@@ -263,32 +317,37 @@ export default function BootSequence({ onComplete }) {
   return (
     <main
       className={`
-        fixed inset-0 z-[100] overflow-hidden
-        bg-[#010101] text-white
-        transition-all duration-[1500ms] ease-[cubic-bezier(.22,1,.36,1)]
+        fixed inset-0 z-[100]
+        overflow-hidden
+        bg-[#020202]
+        text-white
+        transition-all
+        duration-[1400ms]
+        ease-[cubic-bezier(.22,1,.36,1)]
         ${
           leaving
-            ? "scale-[1.16] opacity-0"
+            ? "scale-[1.12] opacity-0"
             : "scale-100 opacity-100"
         }
       `}
     >
+
       {/* ========================================================
-          PARTICLE UNIVERSE
+          UNIVERSE
       ======================================================== */}
 
       <ParticleCanvas
-        density={window.innerWidth < 768 ? 70 : 125}
-        speed={0.016}
+        density={isMobile ? 22 : 90}
+        speed={isMobile ? 0.006 : 0.012}
       />
 
       {/* ========================================================
           ATMOSPHERE
       ======================================================== */}
 
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_46%,rgba(255,255,255,.07),transparent_13%,rgba(0,0,0,.72)_58%,#000_100%)]" />
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_45%,rgba(255,255,255,.085),transparent_15%,rgba(0,0,0,.7)_58%,#000_100%)]" />
 
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_12%_18%,rgba(255,255,255,.025),transparent_28%),radial-gradient(circle_at_90%_85%,rgba(255,255,255,.02),transparent_30%)]" />
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(255,255,255,.025),transparent_25%),radial-gradient(circle_at_80%_80%,rgba(255,255,255,.02),transparent_25%)]" />
 
       {/* ========================================================
           STARS
@@ -304,54 +363,57 @@ export default function BootSequence({ onComplete }) {
               top: star.y,
               width: `${star.size}px`,
               height: `${star.size}px`,
-              animation: `
-                starPulse
-                ${star.duration}s
-                ease-in-out
-                ${star.delay}
-                infinite
-              `,
+              animation: reducedMotion
+                ? "none"
+                : `starPulse ${star.duration} ease-in-out ${star.delay} infinite`,
             }}
           />
         ))}
       </div>
 
       {/* ========================================================
-          FLOATING MEMORY DUST
+          MEMORY DUST
       ======================================================== */}
 
       <div className="pointer-events-none absolute inset-0">
         {memoryParticles.map((particle) => (
           <span
             key={particle.id}
-            className="absolute rounded-full bg-white/20 blur-[1px]"
+            className="absolute rounded-full bg-white/30"
             style={{
               left: particle.x,
               top: particle.y,
               width: particle.size,
               height: particle.size,
-              animation: `
-                memoryFloat
-                ${particle.duration}s
-                ease-in-out
-                ${particle.delay}
-                infinite
-              `,
+              animation: reducedMotion
+                ? "none"
+                : `memoryFloat ${particle.duration} ease-in-out ${particle.delay} infinite`,
             }}
           />
         ))}
       </div>
 
       {/* ========================================================
-          CRT SCANLINES
+          CINEMATIC LIGHT
       ======================================================== */}
 
       <div
-        className="pointer-events-none absolute inset-0 z-40 opacity-[0.035]"
-        style={{
-          backgroundImage:
-            "repeating-linear-gradient(0deg, transparent 0px, transparent 3px, rgba(255,255,255,.5) 4px)",
-        }}
+        className="
+          pointer-events-none
+          absolute
+          left-1/2
+          top-1/2
+          h-[260px]
+          w-[260px]
+          -translate-x-1/2
+          -translate-y-1/2
+          rounded-full
+          bg-white/[0.035]
+          blur-[60px]
+          sm:h-[420px]
+          sm:w-[420px]
+          sm:blur-[90px]
+        "
       />
 
       {/* ========================================================
@@ -359,22 +421,22 @@ export default function BootSequence({ onComplete }) {
       ======================================================== */}
 
       <div
-        className="pointer-events-none absolute left-0 right-0 z-30 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent"
+        className="
+          pointer-events-none
+          absolute
+          left-0
+          right-0
+          z-30
+          h-px
+          bg-gradient-to-r
+          from-transparent
+          via-white/30
+          to-transparent
+        "
         style={{
-          animation:
-            "scanDown 6s linear infinite",
-        }}
-      />
-
-      {/* ========================================================
-          FILM GRAIN
-      ======================================================== */}
-
-      <div
-        className="pointer-events-none absolute inset-0 z-30 opacity-[0.04] mix-blend-screen"
-        style={{
-          backgroundImage:
-            "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E\")",
+          animation: reducedMotion
+            ? "none"
+            : "scanDown 7s linear infinite",
         }}
       />
 
@@ -382,7 +444,7 @@ export default function BootSequence({ onComplete }) {
           VIGNETTE
       ======================================================== */}
 
-      <div className="pointer-events-none absolute inset-0 z-20 bg-[radial-gradient(circle,transparent_12%,rgba(0,0,0,.3)_50%,rgba(0,0,0,.97)_100%)]" />
+      <div className="pointer-events-none absolute inset-0 z-20 bg-[radial-gradient(circle,transparent_10%,rgba(0,0,0,.28)_48%,rgba(0,0,0,.96)_100%)]" />
 
       {/* ========================================================
           GLITCH FLASH
@@ -390,143 +452,174 @@ export default function BootSequence({ onComplete }) {
 
       <div
         className={`
-          pointer-events-none absolute inset-0 z-[90]
-          bg-white mix-blend-screen
-          transition-opacity duration-75
-          ${glitch ? "opacity-[0.035]" : "opacity-0"}
+          pointer-events-none
+          absolute
+          inset-0
+          z-[90]
+          bg-white
+          mix-blend-screen
+          transition-opacity
+          duration-75
+          ${
+            glitch
+              ? "opacity-[0.035]"
+              : "opacity-0"
+          }
         `}
       />
 
       {/* ========================================================
-          TOP HUD
+          TOP BAR
       ======================================================== */}
 
-      <header className="absolute left-0 right-0 top-0 z-50 px-4 py-4 sm:px-6 sm:py-5 md:px-10">
+      <header className="absolute left-0 right-0 top-0 z-50 px-4 pt-4 sm:px-6 sm:pt-5 md:px-10">
+
         <div className="flex items-center justify-between">
 
-          {/* LEFT */}
+          <div className="flex items-center gap-2.5">
 
-          <div className="flex items-center gap-2.5 sm:gap-3">
+            <div className="relative h-1.5 w-1.5 sm:h-2 sm:w-2">
 
-            <div className="relative flex h-1.5 w-1.5 sm:h-2 sm:w-2">
-              <span className="absolute h-full w-full animate-ping rounded-full bg-white/50" />
+              <span className="absolute inset-0 animate-ping rounded-full bg-white/40" />
 
-              <span className="relative h-full w-full rounded-full bg-white" />
+              <span className="absolute inset-0 rounded-full bg-white" />
+
             </div>
 
-            <span className="font-mono text-[7px] uppercase tracking-[0.42em] text-white/35 sm:text-[8px] sm:tracking-[0.6em]">
+            <span className="font-mono text-[7px] tracking-[0.42em] text-white/35 sm:text-[8px] sm:tracking-[0.6em]">
               MEMORY ARCHIVE
             </span>
 
           </div>
 
-          {/* CENTER */}
-
-          <div className="hidden font-mono text-[7px] tracking-[0.5em] text-white/10 md:block">
+          <div className="hidden font-mono text-[7px] tracking-[0.6em] text-white/[0.08] md:block">
             TEMPORAL MEMORY SYSTEM
           </div>
 
-          {/* RIGHT */}
-
           <div className="text-right">
-            <div className="font-mono text-[7px] tracking-[0.3em] text-white/20 sm:text-[8px] sm:tracking-[0.35em]">
+
+            <div className="font-mono text-[7px] tracking-[0.3em] text-white/25 sm:text-[8px]">
               ARCHIVE_07
             </div>
 
             <div className="mt-1 hidden font-mono text-[6px] tracking-[0.25em] text-white/10 sm:block">
               {systemTime}
             </div>
+
           </div>
 
         </div>
 
-        {/* MOBILE HEADER LINE */}
+        <div className="mt-4 h-px w-full bg-gradient-to-r from-white/10 via-white/[0.02] to-transparent sm:hidden" />
 
-        <div className="mt-4 h-px w-full bg-gradient-to-r from-white/10 via-white/[0.025] to-transparent sm:hidden" />
       </header>
 
       {/* ========================================================
           MAIN
       ======================================================== */}
 
-      <div className="relative z-10 flex h-full items-center justify-center px-4 pb-4 pt-16 sm:px-6 sm:pt-20">
+      <div className="relative z-10 flex h-full items-center justify-center px-4 pb-8 pt-16 sm:px-6 sm:pt-20">
 
         <div
+          ref={mainRef}
           className="relative w-full max-w-6xl"
           style={{
-            transform: `
-              translate(
-                ${pointer.x * -8}px,
-                ${pointer.y * -8}px
-              )
-            `,
+            transform:
+              "translate3d(var(--pointer-x,0px),var(--pointer-y,0px),0)",
+            willChange: isMobile
+              ? "auto"
+              : "transform",
           }}
         >
 
           {/* ====================================================
-              MEMORY CORE
+              MEMORY PORTAL
           ==================================================== */}
 
           <div
-            className="pointer-events-none absolute left-1/2 top-1/2 h-[360px] w-[360px] -translate-x-1/2 -translate-y-1/2 sm:h-[470px] sm:w-[470px] md:h-[600px] md:w-[600px]"
+            className="
+              pointer-events-none
+              absolute
+              left-1/2
+              top-[44%]
+              h-[300px]
+              w-[300px]
+              -translate-x-1/2
+              -translate-y-1/2
+              sm:top-1/2
+              sm:h-[470px]
+              sm:w-[470px]
+              md:h-[590px]
+              md:w-[590px]
+            "
           >
 
-            {/* OUTER RING */}
+            {/* OUTER ORBIT */}
 
             <div
               className="absolute inset-0 rounded-full border border-white/[0.025]"
               style={{
-                animation:
-                  "rotateClockwise 40s linear infinite",
+                animation: reducedMotion
+                  ? "none"
+                  : "rotateClockwise 42s linear infinite",
               }}
             />
 
-            {/* DASHED RING */}
+            {/* SECOND ORBIT */}
 
             <div
-              className="absolute inset-[10%] rounded-full border border-dashed border-white/[0.035]"
+              className="absolute inset-[8%] rounded-full border border-dashed border-white/[0.045]"
               style={{
-                animation:
-                  "rotateReverse 25s linear infinite",
+                animation: reducedMotion
+                  ? "none"
+                  : "rotateReverse 27s linear infinite",
               }}
             />
 
-            {/* INNER RING */}
+            {/* THIRD ORBIT */}
 
             <div
-              className="absolute inset-[23%] rounded-full border border-white/[0.05]"
+              className="absolute inset-[19%] rounded-full border border-white/[0.05]"
               style={{
-                animation:
-                  "rotateClockwise 17s linear infinite",
+                animation: reducedMotion
+                  ? "none"
+                  : "rotateClockwise 18s linear infinite",
               }}
             />
 
-            {/* MICRO RING */}
+            {/* INNER ORBIT */}
+
+            <div className="absolute inset-[32%] rounded-full border border-white/[0.08]" />
+
+            {/* DIAGONAL RING */}
 
             <div
-              className="absolute inset-[36%] rounded-full border border-white/[0.07]"
+              className="absolute inset-[26%] rounded-full border border-white/[0.025]"
+              style={{
+                transform: "rotate(35deg) scaleY(.38)",
+              }}
             />
 
             {/* ORBIT DOTS */}
 
-            {[0, 1, 2, 3, 4, 5].map((i) => (
+            {[0, 1, 2, 3].map((i) => (
               <span
                 key={i}
-                className="absolute left-1/2 top-0 h-1 w-1 rounded-full bg-white/60"
+                className="absolute left-1/2 top-0 h-1 w-1 rounded-full bg-white/70"
                 style={{
                   transform: `
-                    rotate(${i * 60}deg)
-                    translateY(-4px)
+                    rotate(${i * 90}deg)
+                    translateY(-3px)
                   `,
                   transformOrigin:
-                    "0 180px",
+                    "0 150px",
                   boxShadow:
-                    "0 0 12px rgba(255,255,255,.8)",
+                    "0 0 10px rgba(255,255,255,.8)",
                 }}
               />
             ))}
 
-            {/* CROSS */}
+            {/* CROSSHAIR */}
 
             <div className="absolute left-1/2 top-1/2 h-full w-px -translate-x-1/2 -translate-y-1/2 bg-gradient-to-b from-transparent via-white/[0.035] to-transparent" />
 
@@ -536,33 +629,34 @@ export default function BootSequence({ onComplete }) {
 
             <div
               className={`
-                absolute left-1/2 top-1/2
-                h-16 w-16
+                absolute
+                left-1/2
+                top-1/2
+                h-20
+                w-20
                 -translate-x-1/2
                 -translate-y-1/2
                 rounded-full
-                bg-white/[0.02]
+                bg-white/[0.025]
                 blur-xl
-                transition-transform duration-700
-                ${pulse ? "scale-[2]" : "scale-100"}
+                transition-transform
+                duration-700
+                ${
+                  pulse
+                    ? "scale-[2.4]"
+                    : "scale-100"
+                }
               `}
             />
 
-            {/* CORE RINGS */}
+            {/* CORE RING */}
 
             <div
-              className="absolute left-1/2 top-1/2 h-24 w-24 -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/[0.05]"
+              className="absolute left-1/2 top-1/2 h-20 w-20 -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/[0.09]"
               style={{
-                animation:
-                  "corePulse 3s ease-in-out infinite",
-              }}
-            />
-
-            <div
-              className="absolute left-1/2 top-1/2 h-14 w-14 -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/[0.1]"
-              style={{
-                animation:
-                  "corePulseReverse 2.2s ease-in-out infinite",
+                animation: reducedMotion
+                  ? "none"
+                  : "corePulse 3s ease-in-out infinite",
               }}
             />
 
@@ -570,19 +664,28 @@ export default function BootSequence({ onComplete }) {
 
             <div
               className={`
-                absolute left-1/2 top-1/2
-                h-3 w-3
-                sm:h-4 sm:w-4
+                absolute
+                left-1/2
+                top-1/2
+                h-3
+                w-3
                 -translate-x-1/2
                 -translate-y-1/2
                 rounded-full
                 bg-white
-                transition-transform duration-500
-                ${pulse ? "scale-[1.8]" : "scale-100"}
+                transition-transform
+                duration-500
+                sm:h-4
+                sm:w-4
+                ${
+                  pulse
+                    ? "scale-[1.8]"
+                    : "scale-100"
+                }
               `}
               style={{
                 boxShadow:
-                  "0 0 22px 7px rgba(255,255,255,.7), 0 0 100px 30px rgba(255,255,255,.13)",
+                  "0 0 18px 6px rgba(255,255,255,.7), 0 0 80px 25px rgba(255,255,255,.12)",
               }}
             />
 
@@ -594,39 +697,40 @@ export default function BootSequence({ onComplete }) {
 
           <div
             className={`
-              mb-5 text-center
+              relative
+              z-20
+              mb-5
+              text-center
               transition-all
-              duration-[1500ms]
+              duration-[1200ms]
               sm:mb-7
               ${
                 index >= 1
                   ? "translate-y-0 opacity-100"
-                  : "translate-y-6 opacity-0"
+                  : "translate-y-5 opacity-0"
               }
             `}
           >
 
-            <div className="mb-3 flex items-center justify-center gap-2 sm:mb-4 sm:gap-3">
+            <div className="mb-3 flex items-center justify-center gap-2.5 sm:mb-4 sm:gap-3">
 
-              <span className="h-px w-5 bg-white/10 sm:w-8" />
+              <span className="h-px w-6 bg-white/10 sm:w-10" />
 
-              <span className="font-mono text-[6px] tracking-[0.45em] text-white/20 sm:text-[7px] sm:tracking-[0.65em]">
+              <span className="font-mono text-[6px] tracking-[0.48em] text-white/25 sm:text-[7px] sm:tracking-[0.65em]">
                 ARCHIVE INITIALIZATION
               </span>
 
-              <span className="h-px w-5 bg-white/10 sm:w-8" />
+              <span className="h-px w-6 bg-white/10 sm:w-10" />
 
             </div>
 
             <h1
               className={`
                 font-serif
-                text-[clamp(2rem,11vw,5rem)]
+                text-[clamp(2.3rem,12vw,5.3rem)]
                 font-light
-                leading-none
-                tracking-[-0.055em]
-                transition-all
-                duration-200
+                leading-[.88]
+                tracking-[-0.065em]
                 ${
                   glitch
                     ? "translate-x-[2px] skew-x-2"
@@ -635,12 +739,12 @@ export default function BootSequence({ onComplete }) {
               `}
             >
               MEMORY
-              <span className="text-white/20">
+              <span className="text-white/[0.22]">
                 {" "}UNIVERSE
               </span>
             </h1>
 
-            <div className="mt-2 font-mono text-[6px] tracking-[0.4em] text-white/10 sm:mt-3 sm:text-[7px] sm:tracking-[0.55em]">
+            <div className="mt-3 font-mono text-[6px] tracking-[0.42em] text-white/10 sm:mt-4 sm:text-[7px]">
               TEMPORAL ARCHIVE // {archiveNumber}
             </div>
 
@@ -652,23 +756,36 @@ export default function BootSequence({ onComplete }) {
 
           <div
             className={`
-              relative mx-auto w-full
+              relative
+              z-30
+              mx-auto
+              w-full
               max-w-3xl
-              border border-white/[0.08]
-              bg-black/35
+              overflow-hidden
+              border
+              border-white/[0.08]
+              bg-black/50
               p-4
-              backdrop-blur-xl
               transition-all
-              duration-[1600ms]
+              duration-[1300ms]
               sm:p-6
               md:p-9
               ${
+                isMobile
+                  ? ""
+                  : "backdrop-blur-xl"
+              }
+              ${
                 index >= 2
                   ? "translate-y-0 opacity-100"
-                  : "translate-y-8 opacity-0"
+                  : "translate-y-7 opacity-0"
               }
             `}
           >
+
+            {/* TOP LIGHT */}
+
+            <div className="absolute left-1/2 top-0 h-px w-1/2 -translate-x-1/2 bg-gradient-to-r from-transparent via-white/20 to-transparent" />
 
             {/* CORNERS */}
 
@@ -680,37 +797,37 @@ export default function BootSequence({ onComplete }) {
 
             <div className="absolute bottom-0 right-0 h-3 w-3 border-b border-r border-white/40 sm:h-4 sm:w-4" />
 
-            {/* CONSOLE HEADER */}
+            {/* HEADER */}
 
             <div className="mb-5 flex items-center justify-between border-b border-white/[0.06] pb-3 sm:mb-7 sm:pb-4">
 
-              <div className="flex items-center gap-2 sm:gap-3">
+              <div className="flex items-center gap-2">
 
-                <span className="font-mono text-[6px] tracking-[0.3em] text-white/20 sm:text-[7px] sm:tracking-[0.4em]">
+                <span className="h-1 w-1 rounded-full bg-white/70 shadow-[0_0_8px_rgba(255,255,255,.6)]" />
+
+                <span className="font-mono text-[6px] tracking-[0.3em] text-white/25 sm:text-[7px]">
                   SYSTEM
                 </span>
 
-                <span className="font-mono text-[6px] text-white/10 sm:text-[7px]">
+                <span className="font-mono text-[6px] text-white/10">
                   /
                 </span>
 
-                <span className="font-mono text-[6px] tracking-[0.25em] text-white/30 sm:text-[7px] sm:tracking-[0.4em]">
+                <span className="font-mono text-[6px] tracking-[0.28em] text-white/35 sm:text-[7px]">
                   BOOT_SEQUENCE
                 </span>
 
               </div>
 
-              <div className="font-mono text-[7px] tracking-[0.25em] text-white/30 sm:text-[8px] sm:tracking-[0.3em]">
+              <span className="font-mono text-[7px] tracking-[0.3em] text-white/30 sm:text-[8px]">
                 {String(progress).padStart(3, "0")}%
-              </div>
+              </span>
 
             </div>
 
-            {/* ==================================================
-                LOGS
-            ================================================== */}
+            {/* LOGS */}
 
-            <div className="min-h-[210px] space-y-3 sm:min-h-[250px] sm:space-y-4">
+            <div className="min-h-[204px] space-y-3 sm:min-h-[250px] sm:space-y-4">
 
               {messages.map((message, i) => {
 
@@ -722,53 +839,47 @@ export default function BootSequence({ onComplete }) {
                   <div
                     key={message}
                     className={`
-                      flex items-center gap-2.5
+                      flex
+                      items-center
+                      gap-2
                       font-mono
                       text-[7px]
                       leading-relaxed
-                      tracking-[0.13em]
+                      tracking-[0.11em]
                       transition-all
-                      duration-700
+                      duration-500
                       sm:gap-4
                       sm:text-[10px]
-                      sm:tracking-[0.22em]
+                      sm:tracking-[0.2em]
                       ${
                         hidden
-                          ? "translate-x-4 opacity-0"
+                          ? "translate-x-3 opacity-0"
                           : "translate-x-0 opacity-100"
                       }
                     `}
                   >
 
-                    {/* STATUS */}
-
                     <div className="flex w-3 shrink-0 justify-center sm:w-5">
 
                       {complete && (
-                        <span className="text-white/20">
+                        <span className="text-white/25">
                           ✓
                         </span>
                       )}
 
                       {active && (
-                        <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-white shadow-[0_0_15px_rgba(255,255,255,.8)]" />
+                        <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-white shadow-[0_0_12px_rgba(255,255,255,.8)]" />
                       )}
 
                     </div>
 
-                    {/* NUMBER */}
-
-                    <span className="hidden shrink-0 text-white/10 sm:block">
+                    <span className="hidden shrink-0 text-white/[0.08] sm:block">
                       {String(i + 1).padStart(2, "0")}
                     </span>
-
-                    {/* MESSAGE */}
 
                     <span
                       className={`
                         min-w-0
-                        transition-all
-                        duration-500
                         ${
                           active
                             ? "text-white"
@@ -781,8 +892,6 @@ export default function BootSequence({ onComplete }) {
                       {message}
                     </span>
 
-                    {/* CURSOR */}
-
                     {active && (
                       <span className="h-3 w-px shrink-0 animate-pulse bg-white" />
                     )}
@@ -793,19 +902,17 @@ export default function BootSequence({ onComplete }) {
 
             </div>
 
-            {/* ==================================================
-                PROGRESS
-            ================================================== */}
+            {/* PROGRESS */}
 
             <div className="mt-6 sm:mt-8">
 
-              <div className="mb-2.5 flex items-center justify-between sm:mb-3">
+              <div className="mb-2.5 flex items-center justify-between">
 
-                <span className="font-mono text-[6px] tracking-[0.3em] text-white/15 sm:text-[7px] sm:tracking-[0.4em]">
+                <span className="font-mono text-[6px] tracking-[0.3em] text-white/15 sm:text-[7px]">
                   MEMORY RESTORATION
                 </span>
 
-                <span className="font-mono text-[6px] tracking-[0.25em] text-white/25 sm:text-[7px] sm:tracking-[0.3em]">
+                <span className="font-mono text-[6px] tracking-[0.25em] text-white/25 sm:text-[7px]">
                   {String(progress).padStart(3, "0")}%
                 </span>
 
@@ -814,19 +921,29 @@ export default function BootSequence({ onComplete }) {
               <div className="relative h-[2px] overflow-hidden bg-white/[0.07]">
 
                 <div
-                  className="absolute inset-y-0 left-0 bg-white transition-all duration-700"
+                  className="absolute inset-y-0 left-0 bg-white transition-[width] duration-700"
                   style={{
                     width: `${progress}%`,
                   }}
                 />
 
-                <div
-                  className="absolute inset-y-0 w-20 bg-gradient-to-r from-transparent via-white/70 to-transparent sm:w-24"
-                  style={{
-                    animation:
-                      "progressScan 1.5s linear infinite",
-                  }}
-                />
+                {!reducedMotion && (
+                  <div
+                    className="
+                      absolute
+                      inset-y-0
+                      w-16
+                      bg-gradient-to-r
+                      from-transparent
+                      via-white/60
+                      to-transparent
+                    "
+                    style={{
+                      animation:
+                        "progressScan 1.7s linear infinite",
+                    }}
+                  />
+                )}
 
               </div>
 
@@ -840,14 +957,21 @@ export default function BootSequence({ onComplete }) {
 
           <div
             className={`
-              mt-4 h-4 text-center
-              font-mono text-[6px]
-              tracking-[0.38em]
+              relative
+              z-30
+              mx-auto
+              mt-4
+              h-4
+              max-w-3xl
+              text-center
+              font-mono
+              text-[6px]
+              tracking-[0.4em]
               text-white/20
-              transition-all duration-700
-              sm:mt-6
+              transition-opacity
+              duration-500
+              sm:mt-5
               sm:text-[7px]
-              sm:tracking-[0.5em]
               ${
                 fragment
                   ? "opacity-100"
@@ -862,7 +986,7 @@ export default function BootSequence({ onComplete }) {
               SYSTEM MODULES
           ==================================================== */}
 
-          <div className="mx-auto mt-4 grid max-w-3xl grid-cols-2 gap-1.5 sm:mt-5 sm:gap-2 md:grid-cols-4">
+          <div className="relative z-30 mx-auto mt-4 grid max-w-3xl grid-cols-2 gap-1.5 sm:mt-5 sm:grid-cols-4 sm:gap-2">
 
             {systems.map(([name, value], i) => {
 
@@ -873,27 +997,29 @@ export default function BootSequence({ onComplete }) {
                   key={name}
                   className={`
                     border
-                    px-2.5 py-2.5
+                    px-2.5
+                    py-2.5
                     transition-all
                     duration-700
-                    sm:px-3 sm:py-3
+                    sm:px-3
+                    sm:py-3
                     ${
                       active
-                        ? "border-white/[0.1] bg-white/[0.015]"
-                        : "border-white/[0.045] bg-white/[0.005]"
+                        ? "border-white/[0.1] bg-white/[0.018]"
+                        : "border-white/[0.045] bg-white/[0.004]"
                     }
                   `}
                 >
 
-                  <div className="font-mono text-[5px] tracking-[0.25em] text-white/10 sm:text-[6px] sm:tracking-[0.3em]">
+                  <div className="font-mono text-[5px] tracking-[0.25em] text-white/10 sm:text-[6px]">
                     MODULE {String(i + 1).padStart(2, "0")}
                   </div>
 
-                  <div className="mt-1.5 font-mono text-[6px] tracking-[0.14em] text-white/30 sm:mt-2 sm:text-[7px] sm:tracking-[0.18em]">
+                  <div className="mt-1.5 font-mono text-[6px] tracking-[0.14em] text-white/30 sm:text-[7px]">
                     {name}
                   </div>
 
-                  <div className="mt-1 flex items-center gap-1.5 sm:gap-2">
+                  <div className="mt-1 flex items-center gap-1.5">
 
                     <span
                       className={`
@@ -906,8 +1032,10 @@ export default function BootSequence({ onComplete }) {
                       `}
                     />
 
-                    <span className="font-mono text-[5px] tracking-[0.2em] text-white/15 sm:text-[6px] sm:tracking-[0.25em]">
-                      {active ? value : "WAITING"}
+                    <span className="font-mono text-[5px] tracking-[0.2em] text-white/15 sm:text-[6px]">
+                      {active
+                        ? value
+                        : "WAITING"}
                     </span>
 
                   </div>
@@ -977,56 +1105,64 @@ export default function BootSequence({ onComplete }) {
 
       <div
         className={`
-          pointer-events-none absolute inset-0 z-[80]
-          flex items-center justify-center
+          pointer-events-none
+          absolute
+          inset-0
+          z-[80]
+          flex
+          items-center
+          justify-center
           bg-black
           transition-opacity
-          duration-[1100ms]
-          ${finished ? "opacity-100" : "opacity-0"}
+          duration-[1000ms]
+          ${
+            finished
+              ? "opacity-100"
+              : "opacity-0"
+          }
         `}
       >
 
         <div
           className={`
-            px-6 text-center
+            px-6
+            text-center
             transition-all
-            duration-[1400ms]
+            duration-[1200ms]
             ${
               finished
                 ? "scale-100 opacity-100"
-                : "scale-75 opacity-0"
+                : "scale-90 opacity-0"
             }
           `}
         >
 
-          {/* SYMBOL */}
+          <div className="mb-7 flex items-center justify-center gap-3">
 
-          <div className="mb-6 flex items-center justify-center gap-3 sm:mb-7 sm:gap-4">
+            <span className="h-px w-8 bg-white/20 sm:w-14" />
 
-            <span className="h-px w-8 bg-white/20 sm:w-12" />
+            <span className="h-1.5 w-1.5 rotate-45 bg-white shadow-[0_0_14px_rgba(255,255,255,.8)]" />
 
-            <span className="h-1 w-1 rotate-45 bg-white shadow-[0_0_12px_rgba(255,255,255,.8)]" />
-
-            <span className="h-px w-8 bg-white/20 sm:w-12" />
+            <span className="h-px w-8 bg-white/20 sm:w-14" />
 
           </div>
 
-          <div className="font-mono text-[7px] tracking-[0.65em] text-white/30 sm:text-[8px] sm:tracking-[0.8em]">
+          <div className="font-mono text-[7px] tracking-[0.7em] text-white/30 sm:text-[8px]">
             ARCHIVE
           </div>
 
-          <div className="mt-4 font-serif text-[2.4rem] font-light leading-none tracking-[-0.05em] sm:text-5xl md:text-6xl">
-            BIRTHDAY UNIVERSE
-            <span className="text-white/30">
+          <div className="mt-4 font-serif text-[2.45rem] font-light leading-[.9] tracking-[-0.055em] sm:text-5xl md:text-6xl">
+            BIRTHDAY
+            <br className="sm:hidden" />
+            {" "}UNIVERSE
+            <span className="text-white/25">
               {" "}READY
             </span>
           </div>
 
-          <div className="mt-5 font-mono text-[6px] tracking-[0.45em] text-white/20 sm:text-[7px] sm:tracking-[0.55em]">
+          <div className="mt-5 font-mono text-[6px] tracking-[0.5em] text-white/20 sm:text-[7px]">
             ENTERING MEMORY SPACE
           </div>
-
-          {/* LOADING DOTS */}
 
           <div className="mt-7 flex justify-center gap-1.5">
 
@@ -1034,12 +1170,16 @@ export default function BootSequence({ onComplete }) {
 
             <span
               className="h-1 w-1 animate-pulse rounded-full bg-white/50"
-              style={{ animationDelay: "150ms" }}
+              style={{
+                animationDelay: "150ms",
+              }}
             />
 
             <span
               className="h-1 w-1 animate-pulse rounded-full bg-white/70"
-              style={{ animationDelay: "300ms" }}
+              style={{
+                animationDelay: "300ms",
+              }}
             />
 
           </div>
@@ -1054,11 +1194,18 @@ export default function BootSequence({ onComplete }) {
 
       <div
         className={`
-          pointer-events-none absolute inset-0 z-[100]
+          pointer-events-none
+          absolute
+          inset-0
+          z-[100]
           bg-white
           transition-opacity
-          duration-[1200ms]
-          ${leaving ? "opacity-100" : "opacity-0"}
+          duration-[1100ms]
+          ${
+            leaving
+              ? "opacity-100"
+              : "opacity-0"
+          }
         `}
       />
 
@@ -1071,13 +1218,13 @@ export default function BootSequence({ onComplete }) {
         @keyframes starPulse {
           0%,
           100% {
-            opacity: .06;
+            opacity: .05;
             transform: scale(.55);
           }
 
           50% {
-            opacity: .75;
-            transform: scale(1.45);
+            opacity: .7;
+            transform: scale(1.3);
           }
         }
 
@@ -1085,20 +1232,20 @@ export default function BootSequence({ onComplete }) {
           0%,
           100% {
             opacity: 0;
-            transform: translate3d(0, 8px, 0) scale(.6);
+            transform: translate3d(0, 8px, 0);
           }
 
-          30% {
+          35% {
             opacity: .25;
           }
 
-          50% {
-            opacity: .4;
-            transform: translate3d(0, -14px, 0) scale(1);
+          55% {
+            opacity: .45;
+            transform: translate3d(0, -12px, 0);
           }
 
-          75% {
-            opacity: .15;
+          80% {
+            opacity: .1;
           }
         }
 
@@ -1108,16 +1255,16 @@ export default function BootSequence({ onComplete }) {
             opacity: 0;
           }
 
-          10% {
-            opacity: .6;
+          12% {
+            opacity: .45;
           }
 
           50% {
-            opacity: .12;
+            opacity: .08;
           }
 
           90% {
-            opacity: .6;
+            opacity: .35;
           }
 
           100% {
@@ -1149,47 +1296,58 @@ export default function BootSequence({ onComplete }) {
         @keyframes corePulse {
           0%,
           100% {
-            transform: translate(-50%, -50%) scale(.72);
+            transform:
+              translate(-50%, -50%)
+              scale(.7);
             opacity: .15;
           }
 
           50% {
-            transform: translate(-50%, -50%) scale(1.25);
-            opacity: .7;
-          }
-        }
-
-        @keyframes corePulseReverse {
-          0%,
-          100% {
-            transform: translate(-50%, -50%) scale(1.15);
-            opacity: .1;
-          }
-
-          50% {
-            transform: translate(-50%, -50%) scale(.72);
-            opacity: .55;
+            transform:
+              translate(-50%, -50%)
+              scale(1.3);
+            opacity: .65;
           }
         }
 
         @keyframes progressScan {
           from {
-            transform: translateX(-120px);
+            transform: translate3d(-100px, 0, 0);
           }
 
           to {
-            transform: translateX(900px);
+            transform: translate3d(850px, 0, 0);
+          }
+        }
+
+        @media (max-width: 767px) {
+
+          /*
+           * MOBILE PERFORMANCE
+           *
+           * Avoid expensive backdrop filters and huge shadows.
+           */
+
+          body {
+            overscroll-behavior: none;
+          }
+
+          * {
+            -webkit-tap-highlight-color: transparent;
           }
         }
 
         @media (prefers-reduced-motion: reduce) {
+
           *,
           *::before,
           *::after {
             animation-duration: .01ms !important;
             animation-iteration-count: 1 !important;
             scroll-behavior: auto !important;
+            transition-duration: .01ms !important;
           }
+
         }
 
       `}</style>

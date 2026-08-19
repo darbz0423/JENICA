@@ -17,7 +17,8 @@ const destinations = [
     number: "01",
     title: "Memories",
     subtitle: "FRAGMENTS OF TIME",
-    description: "Enter places made from moments that refused to disappear.",
+    description:
+      "Enter places made from moments that refused to disappear.",
     path: "/memories",
     icon: Sparkles,
   },
@@ -25,7 +26,8 @@ const destinations = [
     number: "02",
     title: "Photographs",
     subtitle: "VISUAL ARCHIVE",
-    description: "Every photograph is a portal to somewhere you once existed.",
+    description:
+      "Every photograph is a portal to somewhere you once existed.",
     path: "/gallery",
     icon: Camera,
   },
@@ -33,7 +35,8 @@ const destinations = [
     number: "03",
     title: "Time",
     subtitle: "PRIVATE LOG",
-    description: "Turn through the pages of everything that happened.",
+    description:
+      "Turn through the pages of everything that happened.",
     path: "/journal",
     icon: Clock3,
   },
@@ -41,7 +44,8 @@ const destinations = [
     number: "04",
     title: "Memory Game",
     subtitle: "RESTORE THE ARCHIVE",
-    description: "Find the hidden pairs and bring the memories back together.",
+    description:
+      "Find the hidden pairs and bring the memories back together.",
     path: "/game",
     icon: Gamepad2,
   },
@@ -49,13 +53,18 @@ const destinations = [
 
 export default function Universe() {
   const navigate = useNavigate();
+
   const [active, setActive] = useState(0);
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
-    const timer = setTimeout(() => setLoaded(true), 100);
+    const timer = window.setTimeout(() => {
+      setLoaded(true);
+    }, 120);
 
-    return () => clearTimeout(timer);
+    return () => {
+      window.clearTimeout(timer);
+    };
   }, []);
 
   const goTo = (path) => {
@@ -66,46 +75,46 @@ export default function Universe() {
     <main className="relative min-h-screen overflow-hidden bg-[#010102] text-white">
 
       {/* =====================================================
-          DEEP SPACE BACKGROUND
-      ===================================================== */}
+          LIGHTWEIGHT DEEP SPACE BACKGROUND
+          ===================================================== */}
 
       <div className="pointer-events-none fixed inset-0 -z-20 overflow-hidden">
 
-        {/* Absolute black foundation */}
+        {/* Base */}
 
         <div className="absolute inset-0 bg-[#010102]" />
 
-        {/* Primary cosmic atmosphere */}
+        {/* Main atmosphere */}
 
         <div
           className="
             absolute
             left-1/2
             top-[40%]
-            h-[1000px]
-            w-[1000px]
+            h-[650px]
+            w-[650px]
             -translate-x-1/2
             -translate-y-1/2
             rounded-full
-            bg-white/[0.018]
-            blur-[190px]
-            animate-[cosmicBreath_12s_ease-in-out_infinite]
+            bg-white/[0.015]
+            blur-[100px]
+            animate-[cosmicBreath_16s_ease-in-out_infinite]
           "
         />
 
-        {/* Warm memory nebula */}
+        {/* Warm atmosphere */}
 
         <div
           className="
             absolute
-            left-[15%]
+            left-[8%]
             top-[15%]
-            h-[700px]
-            w-[700px]
+            h-[450px]
+            w-[450px]
             rounded-full
-            bg-amber-200/[0.018]
-            blur-[190px]
-            animate-[nebulaDrift_18s_ease-in-out_infinite]
+            bg-amber-200/[0.012]
+            blur-[100px]
+            animate-[nebulaDrift_24s_ease-in-out_infinite]
           "
         />
 
@@ -114,14 +123,14 @@ export default function Universe() {
         <div
           className="
             absolute
-            -left-[280px]
-            top-[25%]
-            h-[750px]
-            w-[750px]
+            -left-[180px]
+            top-[30%]
+            h-[500px]
+            w-[500px]
             rounded-full
-            bg-violet-400/[0.028]
-            blur-[200px]
-            animate-[floatSlow_16s_ease-in-out_infinite]
+            bg-violet-400/[0.018]
+            blur-[110px]
+            animate-[floatSlow_22s_ease-in-out_infinite]
           "
         />
 
@@ -130,46 +139,26 @@ export default function Universe() {
         <div
           className="
             absolute
-            -right-[280px]
-            bottom-[0%]
-            h-[700px]
-            w-[700px]
+            -right-[180px]
+            bottom-[0]
+            h-[500px]
+            w-[500px]
             rounded-full
-            bg-cyan-300/[0.022]
-            blur-[200px]
-            animate-[floatSlow_21s_ease-in-out_infinite_reverse]
-          "
-        />
-
-        {/* Golden memory glow */}
-
-        <div
-          className="
-            absolute
-            left-1/2
-            top-[45%]
-            h-[450px]
-            w-[450px]
-            -translate-x-1/2
-            -translate-y-1/2
-            rounded-full
-            bg-amber-100/[0.025]
-            blur-[120px]
-            animate-[goldPulse_7s_ease-in-out_infinite]
+            bg-cyan-300/[0.014]
+            blur-[110px]
+            animate-[floatSlowReverse_26s_ease-in-out_infinite]
           "
         />
 
         {/* =================================================
-            STARFIELD
-        ================================================= */}
+            LIGHT STARFIELD
+            ================================================= */}
 
         <div className="absolute inset-0">
 
-          {Array.from({ length: 160 }).map((_, index) => {
+          {Array.from({ length: 55 }).map((_, index) => {
             const size =
-              index % 19 === 0
-                ? 3
-                : index % 7 === 0
+              index % 15 === 0
                 ? 2
                 : 1;
 
@@ -183,14 +172,13 @@ export default function Universe() {
                   animate-[starPulse_var(--duration)_ease-in-out_infinite]
                 "
                 style={{
-                  left: `${(index * 47 + index * index * 3) % 100}%`,
+                  left: `${(index * 47 + index * 19) % 100}%`,
                   top: `${(index * 71 + index * 13) % 100}%`,
                   width: `${size}px`,
                   height: `${size}px`,
-                  opacity:
-                    0.05 + ((index * 17) % 70) / 100,
-                  "--duration": `${2 + (index % 7)}s`,
-                  animationDelay: `${(index % 15) * -0.5}s`,
+                  opacity: 0.15 + ((index * 13) % 45) / 100,
+                  "--duration": `${4 + (index % 5)}s`,
+                  animationDelay: `${(index % 10) * -0.7}s`,
                 }}
               />
             );
@@ -198,9 +186,11 @@ export default function Universe() {
 
         </div>
 
-        {/* Larger distant stars */}
+        {/* =================================================
+            FEW BRIGHT STARS
+            ================================================= */}
 
-        {Array.from({ length: 18 }).map((_, index) => (
+        {Array.from({ length: 7 }).map((_, index) => (
           <span
             key={`bright-${index}`}
             className="
@@ -209,34 +199,35 @@ export default function Universe() {
               w-[2px]
               rounded-full
               bg-white
-              shadow-[0_0_12px_rgba(255,255,255,.8)]
-              animate-[starFlicker_5s_ease-in-out_infinite]
+              shadow-[0_0_8px_rgba(255,255,255,.7)]
+              animate-[starFlicker_7s_ease-in-out_infinite]
             "
             style={{
               left: `${(index * 29 + 11) % 100}%`,
               top: `${(index * 43 + 7) % 100}%`,
-              animationDelay: `${index * -0.7}s`,
+              animationDelay: `${index * -1.2}s`,
             }}
           />
         ))}
 
         {/* =================================================
             ORBITAL SYSTEM
-        ================================================= */}
+            Reduced number + opacity
+            ================================================= */}
 
         <div
           className="
             absolute
             left-1/2
             top-[42%]
-            h-[1100px]
-            w-[1100px]
+            h-[850px]
+            w-[850px]
             -translate-x-1/2
             -translate-y-1/2
             rounded-full
             border
-            border-white/[0.018]
-            animate-[spin_110s_linear_infinite]
+            border-white/[0.014]
+            animate-[spin_150s_linear_infinite]
           "
         />
 
@@ -245,14 +236,14 @@ export default function Universe() {
             absolute
             left-1/2
             top-[42%]
-            h-[900px]
-            w-[900px]
+            h-[620px]
+            w-[620px]
             -translate-x-1/2
             -translate-y-1/2
             rounded-full
             border
-            border-white/[0.03]
-            animate-[spin_75s_linear_infinite_reverse]
+            border-white/[0.022]
+            animate-[spin_110s_linear_infinite_reverse]
           "
         />
 
@@ -261,31 +252,15 @@ export default function Universe() {
             absolute
             left-1/2
             top-[42%]
-            h-[700px]
-            w-[700px]
-            -translate-x-1/2
-            -translate-y-1/2
-            rounded-full
-            border
-            border-white/[0.035]
-            [transform:translate(-50%,-50%)_rotateX(68deg)]
-          "
-        />
-
-        <div
-          className="
-            absolute
-            left-1/2
-            top-[42%]
-            h-[520px]
-            w-[520px]
+            h-[470px]
+            w-[470px]
             -translate-x-1/2
             -translate-y-1/2
             rounded-full
             border
             border-dashed
-            border-white/[0.045]
-            animate-[spin_45s_linear_infinite_reverse]
+            border-white/[0.028]
+            animate-[spin_80s_linear_infinite_reverse]
           "
         />
 
@@ -296,11 +271,11 @@ export default function Universe() {
             absolute
             left-1/2
             top-[42%]
-            h-[520px]
-            w-[520px]
+            h-[470px]
+            w-[470px]
             -translate-x-1/2
             -translate-y-1/2
-            animate-[spin_45s_linear_infinite]
+            animate-[spin_80s_linear_infinite]
           "
         >
           <span
@@ -308,27 +283,26 @@ export default function Universe() {
               absolute
               left-1/2
               top-0
-              h-1.5
-              w-1.5
+              h-1
+              w-1
               rounded-full
               bg-white
-              shadow-[0_0_20px_rgba(255,255,255,.9)]
+              shadow-[0_0_10px_rgba(255,255,255,.8)]
             "
           />
         </div>
 
         {/* =================================================
-            GRID
-        ================================================= */}
+            LIGHT GRID
+            ================================================= */}
 
         <div
           className="
             absolute
             inset-0
-            opacity-[0.014]
-            [background-image:linear-gradient(rgba(255,255,255,.7)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,.7)_1px,transparent_1px)]
-            [background-size:90px_90px]
-            animate-[gridDrift_30s_linear_infinite]
+            opacity-[0.009]
+            [background-image:linear-gradient(rgba(255,255,255,.5)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,.5)_1px,transparent_1px)]
+            [background-size:120px_120px]
           "
         />
 
@@ -337,27 +311,27 @@ export default function Universe() {
         <div
           className="
             absolute
-            bottom-[-45%]
+            bottom-[-40%]
             left-1/2
-            h-[900px]
-            w-[1800px]
+            h-[650px]
+            w-[1300px]
             -translate-x-1/2
             rounded-[50%]
             border
-            border-white/[0.025]
+            border-white/[0.018]
             [transform:translateX(-50%)_perspective(700px)_rotateX(68deg)]
           "
         />
 
-        {/* Scan lines */}
+        {/* Very subtle scan lines */}
 
         <div
           className="
             absolute
             inset-0
-            opacity-[0.012]
-            [background-image:linear-gradient(to_bottom,rgba(255,255,255,.4)_1px,transparent_1px)]
-            [background-size:100%_5px]
+            opacity-[0.006]
+            [background-image:linear-gradient(to_bottom,rgba(255,255,255,.3)_1px,transparent_1px)]
+            [background-size:100%_7px]
           "
         />
 
@@ -367,21 +341,23 @@ export default function Universe() {
           className="
             absolute
             inset-0
-            bg-[radial-gradient(circle_at_center,transparent_15%,rgba(0,0,0,.82)_72%,#000_100%)]
+            bg-[radial-gradient(circle_at_center,transparent_20%,rgba(0,0,0,.7)_78%,#000_100%)]
           "
         />
 
-        {/* Cinematic top/bottom shadows */}
+        {/* Top shadow */}
 
-        <div className="absolute inset-x-0 top-0 h-40 bg-gradient-to-b from-black/60 to-transparent" />
+        <div className="absolute inset-x-0 top-0 h-32 bg-gradient-to-b from-black/50 to-transparent" />
 
-        <div className="absolute inset-x-0 bottom-0 h-52 bg-gradient-to-t from-black/70 to-transparent" />
+        {/* Bottom shadow */}
+
+        <div className="absolute inset-x-0 bottom-0 h-44 bg-gradient-to-t from-black/60 to-transparent" />
 
       </div>
 
       {/* =====================================================
           TOP SYSTEM BAR
-      ===================================================== */}
+          ===================================================== */}
 
       <div
         className={`
@@ -393,9 +369,9 @@ export default function Universe() {
           border-b
           border-white/[0.06]
           bg-black/[0.08]
-          backdrop-blur-xl
+          backdrop-blur-md
           transition-all
-          duration-1000
+          duration-700
           ${
             loaded
               ? "translate-y-0 opacity-100"
@@ -403,7 +379,6 @@ export default function Universe() {
           }
         `}
       >
-
         <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-5 sm:px-8">
 
           <div className="flex items-center gap-3">
@@ -417,7 +392,7 @@ export default function Universe() {
                   rotate-45
                   border
                   border-white/20
-                  animate-[spin_12s_linear_infinite]
+                  animate-[spin_18s_linear_infinite]
                 "
               />
 
@@ -431,7 +406,7 @@ export default function Universe() {
                 "
               />
 
-              <span className="h-1 w-1 rounded-full bg-white shadow-[0_0_12px_white]" />
+              <span className="h-1 w-1 rounded-full bg-white shadow-[0_0_8px_white]" />
 
             </div>
 
@@ -455,21 +430,20 @@ export default function Universe() {
 
             <span className="relative flex h-2 w-2 items-center justify-center">
 
-              <span className="absolute h-2 w-2 animate-ping rounded-full bg-white/30" />
+              <span className="absolute h-2 w-2 animate-ping rounded-full bg-white/20" />
 
-              <span className="relative h-1.5 w-1.5 rounded-full bg-white shadow-[0_0_12px_white]" />
+              <span className="relative h-1.5 w-1.5 rounded-full bg-white shadow-[0_0_8px_white]" />
 
             </span>
 
           </div>
 
         </div>
-
       </div>
 
       {/* =====================================================
           HERO
-      ===================================================== */}
+          ===================================================== */}
 
       <section className="relative flex min-h-[100svh] items-center justify-center px-5 pb-32 pt-28 sm:px-8">
 
@@ -486,8 +460,8 @@ export default function Universe() {
               -translate-y-1/2
               xl:block
               transition-all
-              duration-1000
-              delay-300
+              duration-700
+              delay-200
               ${
                 loaded
                   ? "translate-x-0 opacity-100"
@@ -512,7 +486,7 @@ export default function Universe() {
 
               <div className="relative h-20 w-px overflow-hidden bg-gradient-to-b from-white/30 to-transparent">
 
-                <span className="absolute left-0 top-0 h-8 w-px animate-[verticalSignal_3s_ease-in-out_infinite] bg-white" />
+                <span className="absolute left-0 top-0 h-8 w-px animate-[verticalSignal_4s_ease-in-out_infinite] bg-white" />
 
               </div>
 
@@ -536,7 +510,7 @@ export default function Universe() {
                 flex
                 justify-center
                 transition-all
-                duration-[1400ms]
+                duration-1000
                 ${
                   loaded
                     ? "translate-y-0 scale-100 opacity-100"
@@ -547,21 +521,16 @@ export default function Universe() {
 
               <div className="relative flex h-28 w-28 items-center justify-center sm:h-36 sm:w-36">
 
-                {/* Outer orbit */}
-
                 <span
                   className="
                     absolute
                     inset-0
                     rounded-full
                     border
-                    border-white/[0.08]
-                    shadow-[0_0_60px_rgba(255,255,255,.025)]
-                    animate-[spin_25s_linear_infinite]
+                    border-white/[0.07]
+                    animate-[spin_35s_linear_infinite]
                   "
                 />
-
-                {/* Outer orbit marker */}
 
                 <span
                   className="
@@ -572,11 +541,9 @@ export default function Universe() {
                     w-1.5
                     rounded-full
                     bg-white
-                    shadow-[0_0_15px_white]
+                    shadow-[0_0_10px_white]
                   "
                 />
-
-                {/* Square */}
 
                 <span
                   className="
@@ -584,12 +551,10 @@ export default function Universe() {
                     inset-5
                     rotate-45
                     border
-                    border-white/[0.1]
-                    animate-[spin_18s_linear_infinite_reverse]
+                    border-white/[0.08]
+                    animate-[spin_25s_linear_infinite_reverse]
                   "
                 />
-
-                {/* Inner square */}
 
                 <span
                   className="
@@ -597,11 +562,9 @@ export default function Universe() {
                     inset-8
                     rotate-45
                     border
-                    border-white/[0.04]
+                    border-white/[0.035]
                   "
                 />
-
-                {/* Inner orbit */}
 
                 <span
                   className="
@@ -610,22 +573,20 @@ export default function Universe() {
                     rounded-full
                     border
                     border-dashed
-                    border-white/20
-                    animate-[spin_10s_linear_infinite]
+                    border-white/15
+                    animate-[spin_14s_linear_infinite]
                   "
                 />
-
-                {/* Core glow */}
 
                 <span
                   className="
                     absolute
-                    h-8
-                    w-8
+                    h-7
+                    w-7
                     rounded-full
-                    bg-white/[0.12]
-                    blur-[14px]
-                    animate-[coreGlow_3s_ease-in-out_infinite]
+                    bg-white/[0.08]
+                    blur-[10px]
+                    animate-[coreGlow_4s_ease-in-out_infinite]
                   "
                 />
 
@@ -636,7 +597,7 @@ export default function Universe() {
                     w-3
                     rounded-full
                     bg-white
-                    blur-[3px]
+                    blur-[2px]
                     animate-pulse
                   "
                 />
@@ -644,7 +605,7 @@ export default function Universe() {
                 <Star
                   size={24}
                   strokeWidth={1}
-                  className="relative text-white/80 drop-shadow-[0_0_15px_rgba(255,255,255,.6)]"
+                  className="relative text-white/80 drop-shadow-[0_0_10px_rgba(255,255,255,.5)]"
                 />
 
               </div>
@@ -660,8 +621,8 @@ export default function Universe() {
                 justify-center
                 gap-4
                 transition-all
-                duration-1000
-                delay-300
+                duration-700
+                delay-200
                 ${
                   loaded
                     ? "translate-y-0 opacity-100"
@@ -692,8 +653,8 @@ export default function Universe() {
                 leading-[0.78]
                 tracking-[-0.07em]
                 transition-all
-                duration-[1500ms]
-                delay-500
+                duration-1000
+                delay-300
                 ${
                   loaded
                     ? "translate-y-0 opacity-100"
@@ -702,16 +663,14 @@ export default function Universe() {
               `}
             >
 
-              {/* Ghost glow */}
-
               <span
                 aria-hidden="true"
                 className="
                   pointer-events-none
                   absolute
                   inset-0
-                  text-white/[0.035]
-                  blur-[20px]
+                  text-white/[0.025]
+                  blur-[12px]
                 "
               >
                 {birthdayData.name}
@@ -735,8 +694,8 @@ export default function Universe() {
                 leading-[1.8]
                 text-white/40
                 transition-all
-                duration-1000
-                delay-700
+                duration-700
+                delay-500
                 sm:text-xl
                 md:text-2xl
                 ${
@@ -758,8 +717,8 @@ export default function Universe() {
               className={`
                 mt-12
                 transition-all
-                duration-1000
-                delay-[900ms]
+                duration-700
+                delay-700
                 ${
                   loaded
                     ? "translate-y-0 opacity-100"
@@ -769,6 +728,7 @@ export default function Universe() {
             >
 
               <button
+                type="button"
                 onClick={() => goTo("/memories")}
                 className="
                   group
@@ -788,19 +748,19 @@ export default function Universe() {
                   uppercase
                   tracking-[0.35em]
                   text-white/55
-                  shadow-[0_0_0_1px_rgba(255,255,255,.01),0_15px_50px_rgba(0,0,0,.3)]
+                  shadow-[0_15px_50px_rgba(0,0,0,.3)]
                   backdrop-blur-md
                   transition-all
-                  duration-500
+                  duration-300
                   hover:-translate-y-1
                   hover:border-white/40
                   hover:bg-white
                   hover:text-black
-                  hover:shadow-[0_0_60px_rgba(255,255,255,.15)]
+                  active:scale-[0.98]
                 "
               >
 
-                <span className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/20 to-transparent transition-transform duration-1000 group-hover:translate-x-full" />
+                <span className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/15 to-transparent transition-transform duration-700 group-hover:translate-x-full" />
 
                 <span className="relative">
                   Begin Exploring
@@ -808,7 +768,7 @@ export default function Universe() {
 
                 <ArrowDown
                   size={13}
-                  className="relative transition-transform duration-500 group-hover:translate-y-1"
+                  className="relative transition-transform duration-300 group-hover:translate-y-1"
                 />
 
               </button>
@@ -828,8 +788,8 @@ export default function Universe() {
               -translate-y-1/2
               xl:block
               transition-all
-              duration-1000
-              delay-300
+              duration-700
+              delay-200
               ${
                 loaded
                   ? "translate-x-0 opacity-100"
@@ -850,7 +810,7 @@ export default function Universe() {
 
               <div className="relative ml-auto mt-5 h-20 w-px overflow-hidden bg-gradient-to-b from-transparent via-white/30 to-transparent">
 
-                <span className="absolute left-0 top-0 h-6 w-px animate-[verticalSignal_2.5s_ease-in-out_infinite] bg-white" />
+                <span className="absolute left-0 top-0 h-6 w-px animate-[verticalSignal_3s_ease-in-out_infinite] bg-white" />
 
               </div>
 
@@ -862,7 +822,7 @@ export default function Universe() {
 
                 <span className="relative flex h-2 w-2 items-center justify-center">
 
-                  <span className="absolute h-2 w-2 animate-ping rounded-full bg-white/20" />
+                  <span className="absolute h-2 w-2 animate-ping rounded-full bg-white/15" />
 
                   <span className="relative h-1 w-1 rounded-full bg-white" />
 
@@ -879,6 +839,7 @@ export default function Universe() {
         {/* Scroll indicator */}
 
         <button
+          type="button"
           onClick={() =>
             document
               .getElementById("destinations")
@@ -909,7 +870,7 @@ export default function Universe() {
 
           <div className="relative h-10 w-px overflow-hidden bg-white/[0.1]">
 
-            <span className="absolute left-0 top-0 h-4 w-px animate-[scrollSignal_2s_ease-in-out_infinite] bg-gradient-to-b from-white to-transparent" />
+            <span className="absolute left-0 top-0 h-4 w-px animate-[scrollSignal_2.5s_ease-in-out_infinite] bg-gradient-to-b from-white to-transparent" />
 
           </div>
 
@@ -919,14 +880,14 @@ export default function Universe() {
 
       {/* =====================================================
           DESTINATION ARCHIVE
-      ===================================================== */}
+          ===================================================== */}
 
       <section
         id="destinations"
         className="relative mx-auto max-w-7xl px-5 pb-44 sm:px-8"
       >
 
-        {/* Section header */}
+        {/* Header */}
 
         <div className="mb-8 flex items-end justify-between">
 
@@ -948,7 +909,7 @@ export default function Universe() {
 
         </div>
 
-        {/* Destination grid */}
+        {/* Grid */}
 
         <div
           className="
@@ -970,6 +931,7 @@ export default function Universe() {
             return (
               <button
                 key={destination.path}
+                type="button"
                 onMouseEnter={() => setActive(index)}
                 onFocus={() => setActive(index)}
                 onClick={() => goTo(destination.path)}
@@ -981,9 +943,10 @@ export default function Universe() {
                   bg-[#030304]
                   p-7
                   text-left
-                  transition-all
-                  duration-700
-                  hover:bg-white/[0.035]
+                  transition-colors
+                  duration-300
+                  hover:bg-white/[0.025]
+                  active:bg-white/[0.04]
                   sm:p-10
                 "
               >
@@ -993,41 +956,19 @@ export default function Universe() {
                 <div
                   className={`
                     absolute
-                    -right-24
-                    -top-24
-                    h-72
-                    w-72
+                    -right-20
+                    -top-20
+                    h-56
+                    w-56
                     rounded-full
-                    bg-white/[0.045]
-                    blur-[100px]
-                    transition-all
-                    duration-1000
+                    bg-white/[0.035]
+                    blur-[70px]
+                    transition-opacity
+                    duration-500
                     ${
                       isActive
-                        ? "scale-125 opacity-100"
-                        : "scale-75 opacity-0"
-                    }
-                  `}
-                />
-
-                {/* Secondary glow */}
-
-                <div
-                  className={`
-                    absolute
-                    bottom-[-120px]
-                    left-[-100px]
-                    h-72
-                    w-72
-                    rounded-full
-                    bg-violet-300/[0.025]
-                    blur-[100px]
-                    transition-all
-                    duration-1000
-                    ${
-                      isActive
-                        ? "scale-125 opacity-100"
-                        : "scale-75 opacity-0"
+                        ? "opacity-100"
+                        : "opacity-0"
                     }
                   `}
                 />
@@ -1044,7 +985,7 @@ export default function Universe() {
                     tracking-[0.3em]
                     text-white/15
                     transition
-                    duration-500
+                    duration-300
                     group-hover:text-white/50
                     sm:right-10
                     sm:top-10
@@ -1069,7 +1010,7 @@ export default function Universe() {
                     via-white/50
                     to-transparent
                     transition-transform
-                    duration-700
+                    duration-500
                     group-hover:scale-x-100
                   "
                 />
@@ -1090,7 +1031,7 @@ export default function Universe() {
                     via-white/40
                     to-transparent
                     transition-transform
-                    duration-700
+                    duration-500
                     group-hover:scale-y-100
                   "
                 />
@@ -1109,15 +1050,13 @@ export default function Universe() {
                     border-white/[0.08]
                     bg-white/[0.02]
                     text-white/35
-                    shadow-[inset_0_0_20px_rgba(255,255,255,.01)]
                     transition-all
-                    duration-500
+                    duration-300
                     group-hover:-translate-y-1
-                    group-hover:rotate-[-3deg]
                     group-hover:border-white/40
                     group-hover:bg-white
                     group-hover:text-black
-                    group-hover:shadow-[0_0_45px_rgba(255,255,255,.16)]
+                    group-hover:shadow-[0_0_30px_rgba(255,255,255,.1)]
                   "
                 >
 
@@ -1129,13 +1068,13 @@ export default function Universe() {
 
                 <div className="absolute bottom-8 left-7 right-7 sm:bottom-10 sm:left-10 sm:right-10">
 
-                  <p className="font-mono text-[6px] uppercase tracking-[0.4em] text-white/20 transition duration-500 group-hover:text-white/45">
+                  <p className="font-mono text-[6px] uppercase tracking-[0.4em] text-white/20 transition duration-300 group-hover:text-white/45">
                     {destination.subtitle}
                   </p>
 
                   <div className="mt-4 flex items-end justify-between gap-4">
 
-                    <h3 className="font-display text-4xl tracking-[-0.04em] transition-transform duration-500 group-hover:translate-x-1 sm:text-5xl">
+                    <h3 className="font-display text-4xl tracking-[-0.04em] transition-transform duration-300 group-hover:translate-x-1 sm:text-5xl">
                       {destination.title}
                     </h3>
 
@@ -1147,7 +1086,7 @@ export default function Universe() {
                         shrink-0
                         text-white/20
                         transition-all
-                        duration-500
+                        duration-300
                         group-hover:-translate-y-1
                         group-hover:translate-x-1
                         group-hover:text-white
@@ -1156,7 +1095,7 @@ export default function Universe() {
 
                   </div>
 
-                  <p className="mt-4 max-w-md font-serif text-base leading-relaxed text-white/30 transition duration-500 group-hover:text-white/50">
+                  <p className="mt-4 max-w-md font-serif text-base leading-relaxed text-white/30 transition duration-300 group-hover:text-white/50">
                     {destination.description}
                   </p>
 
@@ -1176,7 +1115,7 @@ export default function Universe() {
                     border-white/[0.08]
                     opacity-0
                     transition-all
-                    duration-500
+                    duration-300
                     group-hover:h-12
                     group-hover:w-12
                     group-hover:border-white/30
@@ -1196,7 +1135,7 @@ export default function Universe() {
                     border-white/[0.05]
                     opacity-0
                     transition-all
-                    duration-500
+                    duration-300
                     group-hover:h-12
                     group-hover:w-12
                     group-hover:border-white/20
@@ -1238,7 +1177,7 @@ export default function Universe() {
 
       {/* =====================================================
           ANIMATIONS
-      ===================================================== */}
+          ===================================================== */}
 
       <style>{`
 
@@ -1259,7 +1198,18 @@ export default function Universe() {
           }
 
           50% {
-            transform: translate3d(50px, -40px, 0);
+            transform: translate3d(25px, -20px, 0);
+          }
+        }
+
+        @keyframes floatSlowReverse {
+          0%,
+          100% {
+            transform: translate3d(0, 0, 0);
+          }
+
+          50% {
+            transform: translate3d(-25px, 20px, 0);
           }
         }
 
@@ -1268,100 +1218,70 @@ export default function Universe() {
           100% {
             transform:
               translate(-50%, -50%)
-              scale(.9);
-            opacity: .65;
+              scale(.95);
+            opacity: .6;
           }
 
           50% {
             transform:
               translate(-50%, -50%)
-              scale(1.08);
-            opacity: 1;
+              scale(1.04);
+            opacity: .85;
           }
         }
 
         @keyframes nebulaDrift {
           0%,
           100% {
-            transform: translate3d(0, 0, 0) scale(.9);
+            transform: translate3d(0, 0, 0);
           }
 
           50% {
-            transform: translate3d(70px, -40px, 0) scale(1.1);
-          }
-        }
-
-        @keyframes goldPulse {
-          0%,
-          100% {
-            transform:
-              translate(-50%, -50%)
-              scale(.75);
-            opacity: .2;
-          }
-
-          50% {
-            transform:
-              translate(-50%, -50%)
-              scale(1.2);
-            opacity: .65;
+            transform: translate3d(30px, -20px, 0);
           }
         }
 
         @keyframes starPulse {
           0%,
           100% {
-            transform: scale(.65);
-            opacity: .15;
+            transform: scale(.8);
+            opacity: .2;
           }
 
           50% {
-            transform: scale(1.5);
-            opacity: 1;
+            transform: scale(1.3);
+            opacity: .7;
           }
         }
 
         @keyframes starFlicker {
           0%,
           100% {
-            transform: scale(.5);
-            opacity: .15;
+            transform: scale(.7);
+            opacity: .2;
           }
 
-          20% {
+          40% {
+            transform: scale(1.3);
             opacity: .8;
           }
 
-          35% {
-            transform: scale(1.8);
-            opacity: 1;
-          }
-
-          55% {
-            opacity: .2;
+          70% {
+            transform: scale(.8);
+            opacity: .3;
           }
         }
 
         @keyframes coreGlow {
           0%,
           100% {
-            transform: scale(.7);
-            opacity: .35;
+            transform: scale(.8);
+            opacity: .3;
           }
 
           50% {
-            transform: scale(1.5);
-            opacity: .8;
-          }
-        }
-
-        @keyframes gridDrift {
-          from {
-            transform: translate3d(0, 0, 0);
-          }
-
-          to {
-            transform: translate3d(90px, 90px, 0);
+            transform: scale(1.25);
+            opacity: .65;
           }
         }
 
@@ -1376,7 +1296,7 @@ export default function Universe() {
           }
 
           70% {
-            opacity: .8;
+            opacity: .7;
           }
 
           100% {
@@ -1401,7 +1321,35 @@ export default function Universe() {
           }
         }
 
+        @media (max-width: 767px) {
+
+          /*
+           * Mobile performance mode.
+           * Keep the same design but remove expensive effects.
+           */
+
+          .universe-mobile-heavy {
+            display: none;
+          }
+
+          /*
+           * Reduce animation workload.
+           */
+
+          @keyframes spin {
+            from {
+              transform: rotate(0deg);
+            }
+
+            to {
+              transform: rotate(360deg);
+            }
+          }
+
+        }
+
         @media (prefers-reduced-motion: reduce) {
+
           *,
           *::before,
           *::after {
@@ -1410,6 +1358,7 @@ export default function Universe() {
             transition-duration: 0.01ms !important;
             scroll-behavior: auto !important;
           }
+
         }
 
       `}</style>
