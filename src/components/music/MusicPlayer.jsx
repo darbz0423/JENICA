@@ -3,138 +3,85 @@ import { birthdayData } from "../../data/birthdayData";
 
 export default function MusicPlayer({ enabled = true }) {
   const audioRef = useRef(null);
+  const startedRef = useRef(false);
 
   useEffect(() => {
     if (!enabled) return;
 
-    const songs = birthdayData.songs || [];
-    if (!songs.length) return;
-
     const audio = audioRef.current;
-    if (!audio) return;
+    const song = birthdayData?.songs?.[0];
 
-    let songIndex = 0;
-    let isStarted = false;
+    if (!audio || !song?.src) {
+      console.warn("MusicPlayer: No music found.");
+      return;
+    }
 
-    audio.src = songs[0].src;
-    audio.preload = "auto";
+    audio.volume = 0.15;
+
+    // Mobile-friendly settings
+    audio.src = song.src;
+    audio.preload = "metadata";
     audio.playsInline = true;
-    audio.volume = 0.7;
-
-    // --------------------------------------------------
-    // START MUSIC
-    // --------------------------------------------------
 
     const startMusic = async () => {
-      if (isStarted) return;
+      if (startedRef.current) return;
 
       try {
         await audio.play();
 
-        isStarted = true;
+        startedRef.current = true;
         removeListeners();
+
+        console.log("🎵 Music started");
       } catch {
-        // Browser blocked autoplay.
-        // First user interaction will start it.
+        // Autoplay blocked — wait for user interaction.
       }
     };
 
-    // --------------------------------------------------
-    // MOBILE FALLBACK
-    // --------------------------------------------------
-
-    const handleFirstInteraction = () => {
+    const handleInteraction = () => {
       startMusic();
     };
 
     const removeListeners = () => {
-      document.removeEventListener(
-        "touchstart",
-        handleFirstInteraction
-      );
-
-      document.removeEventListener(
-        "pointerdown",
-        handleFirstInteraction
-      );
-
-      document.removeEventListener(
-        "click",
-        handleFirstInteraction
-      );
+      window.removeEventListener("touchstart", handleInteraction);
+      window.removeEventListener("pointerdown", handleInteraction);
+      window.removeEventListener("click", handleInteraction);
     };
 
-    // --------------------------------------------------
-    // NEXT SONG
-    // --------------------------------------------------
-
-    const handleEnded = () => {
-      songIndex = (songIndex + 1) % songs.length;
-
-      audio.src = songs[songIndex].src;
-
-      audio.play().catch(() => {
-        isStarted = false;
-      });
-    };
-
-    audio.addEventListener("ended", handleEnded);
-
-    // --------------------------------------------------
-    // TRY AUTOPLAY
-    // --------------------------------------------------
-
+    // Try autoplay
     startMusic();
 
-    // If mobile blocks autoplay,
-    // start music on the first touch.
-    document.addEventListener(
-      "touchstart",
-      handleFirstInteraction,
-      {
-        passive: true,
-        once: false,
-      }
-    );
+    // Mobile/browser fallback
+    window.addEventListener("touchstart", handleInteraction, {
+      passive: true,
+    });
 
-    document.addEventListener(
-      "pointerdown",
-      handleFirstInteraction,
-      {
-        passive: true,
-        once: false,
-      }
-    );
+    window.addEventListener("pointerdown", handleInteraction, {
+      passive: true,
+    });
 
-    document.addEventListener(
-      "click",
-      handleFirstInteraction,
-      {
-        passive: true,
-        once: false,
-      }
-    );
+    window.addEventListener("click", handleInteraction, {
+      passive: true,
+    });
 
     return () => {
-      audio.pause();
-
-      audio.removeEventListener(
-        "ended",
-        handleEnded
-      );
-
       removeListeners();
 
+      audio.pause();
       audio.removeAttribute("src");
       audio.load();
+
+      startedRef.current = false;
     };
   }, [enabled]);
 
   return (
     <audio
       ref={audioRef}
+      preload="metadata"
       playsInline
-      preload="auto"
+      aria-hidden="true"
+      style={{ display: "none" }}
     />
   );
 }

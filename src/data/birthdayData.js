@@ -1,7 +1,7 @@
 export const birthdayData = {
   name: "JENICA",
 
-  birthday: "2026-08-17",
+  birthday: "2026-09-05",
 
   intro: {
     lines: [
@@ -14,23 +14,18 @@ export const birthdayData = {
   finalMessage:
     "Of all the memories in this universe, I'm just glad you're one of mine.",
 
-  settings: {
-    secretPassword: "birthday",
-    enableMicrophone: true,
-    enableHaptics: true,
-    enableOrientation: true,
-  },
+
 
   memories: [
     {
       id: 1,
       title: "The Beginning",
-      date: "08.17.24",
+      date: "11.12.25",
       category: "beginning",
       description:
-        "Every story has a first moment. Sometimes you don't realize how important it is until you look back.",
+        "One little word changed everything: YES.        The day you chose to be mine became the day our story truly began. And out of all the memories I've made, I'll always keep this one closest to my heart. ",
       image:
-        "https://images.unsplash.com/photo-1500534623283-312aade485b7?auto=format&fit=crop&w=1400&q=85",
+        "/images/memories/memories-image1.jpg",
       color: "amber",
     },
     {
@@ -46,13 +41,13 @@ export const birthdayData = {
     },
     {
       id: 3,
-      title: "A Quiet Afternoon",
-      date: "12.12.24",
-      category: "nostalgia",
+      title: "Vivace",
+      date: "04.13.26",
+      category: "cafe",
       description:
-        "Nothing extraordinary happened that day. And somehow, those ordinary moments became the ones I wanted to keep.",
+        "Vivace felt like another world—lights glowing, LED walls surrounding us, and you beside me. We went there to make videos, but somehow, we ended up making a memory I'll want to keep forever.",
       image:
-        "https://images.unsplash.com/photo-1490730141103-6cac27aaab94?auto=format&fit=crop&w=1400&q=85",
+        "/images/memories/memories-image3.jpg",
       color: "blue",
     },
     {
@@ -68,13 +63,13 @@ export const birthdayData = {
     },
     {
       id: 5,
-      title: "One More Memory",
-      date: "05.20.25",
-      category: "wonder",
+      title: "Spiderman",
+      date: "07.30.26",
+      category: "movie",
       description:
-        "It was only a small moment. But sometimes the smallest moments leave the biggest footprints.",
+        "I was so happy knowing you watched all the Spider-Man movies just so you could watch the new one with me. It may seem like a small thing, but knowing you did that just to share that moment with me made it really special",
       image:
-        "https://images.unsplash.com/photo-1470770841072-f978cf4d019e?auto=format&fit=crop&w=1400&q=85",
+        "/images/memories/memories-image5.jpg",
       color: "gold",
     },
     {
@@ -101,26 +96,26 @@ export const birthdayData = {
     },
     {
       id: "g2",
-      title: "Somewhere",
-      date: "09.04.24",
+      title: "Spiderman",
+      date: "07.30.26",
       image:
-        "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=1800&q=90",
+        "/images/gallery/gallery-image2.jpg",
       rotation: 4,
     },
     {
       id: "g3",
       title: "A Good Day",
-      date: "11.21.24",
+      date: "04.02.26",
       image:
-        "https://images.unsplash.com/photo-1511988617509-a57c8a288659?auto=format&fit=crop&w=1800&q=90",
+        "/images/gallery/gallery-image1.jpg",
       rotation: -2,
     },
     {
       id: "g4",
-      title: "The Sky",
+      title: "My Day",
       date: "01.10.25",
       image:
-        "https://images.unsplash.com/photo-1500534623283-312aade485b7?auto=format&fit=crop&w=1800&q=90",
+        "/images/gallery/gallery-image3.jpg",
       rotation: 2,
     },
     {
@@ -1019,7 +1014,7 @@ Thank you for being you.
 
 And thank you for letting me love you.
 
-I love you.
+I love you Jenica Sultan Ripdos.
 
 And if I get my way,
 
@@ -1060,58 +1055,15 @@ It's just the first one in a very long story.`,
         "https://images.unsplash.com/photo-1500534623283-312aade485b7?auto=format&fit=crop&w=1200&q=85",
     },
   ],
+songs: [
+  {
+    title: "Memory",
+    artist: "Your soundtrack",
+    mood: "dream",
+    src: "/music/panaginip.mp3",
+  },
+],
 
-  songs: [
-    {
-      title: "Memory",
-      artist: "Your soundtrack",
-      mood: "dream",
-      src: "/music/memory.mp3",
-    },
-    {
-      title: "The Night",
-      artist: "Your soundtrack",
-      mood: "nostalgia",
-      src: "/music/night.mp3",
-    },
-    {
-      title: "One More Day",
-      artist: "Your soundtrack",
-      mood: "celebration",
-      src: "/music/celebration.mp3",
-    },
-  ],
+ 
 
-  locations: [],
-
-  secrets: [
-    {
-      id: "star",
-      name: "The Tiny Star",
-    },
-    {
-      id: "birthday",
-      name: "The Word",
-    },
-    {
-      id: "moon",
-      name: "The Moon",
-    },
-    {
-      id: "double",
-      name: "Double Memory",
-    },
-    {
-      id: "game",
-      name: "The Matching Game",
-    },
-    {
-      id: "letter",
-      name: "The Letter",
-    },
-    {
-      id: "return",
-      name: "Return Visitor",
-    },
-  ],
 };
