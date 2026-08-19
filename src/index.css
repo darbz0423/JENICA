@@ -3,8 +3,9 @@
 @import "tailwindcss";
 
 /* =========================================================
-   MEMORY UNIVERSE — GLOBAL VISUAL SYSTEM
-   Structure / layout / logic unchanged
+   MEMORY UNIVERSE
+   GLOBAL CINEMATIC SYSTEM
+   MOBILE-FIRST / PERFORMANCE OPTIMIZED
    ========================================================= */
 
 :root {
@@ -29,9 +30,19 @@
   --accent-border: rgba(244, 215, 154, 0.4);
 
   --border: rgba(255, 255, 255, 0.075);
+
   --text-h: rgba(255, 255, 255, 0.92);
+
   --social-bg: rgba(255, 255, 255, 0.035);
-  --shadow: 0 0 35px rgba(255, 255, 255, 0.08);
+
+  --shadow:
+    0 0 35px rgba(255, 255, 255, 0.08);
+
+  --ease:
+    cubic-bezier(0.22, 1, 0.36, 1);
+
+  --ease-soft:
+    cubic-bezier(0.16, 1, 0.3, 1);
 
   font-family: Inter, Arial, sans-serif;
 
@@ -39,7 +50,13 @@
   color: var(--white);
 
   font-synthesis: none;
+
+  /*
+    Optimize text without forcing expensive geometric
+    rendering across the entire site.
+  */
   text-rendering: optimizeLegibility;
+
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -48,18 +65,14 @@
    GLOBAL RESET
    ========================================================= */
 
-* {
+*,
+*::before,
+*::after {
   box-sizing: border-box;
 }
 
 html {
-  background:
-    radial-gradient(
-      circle at 50% -10%,
-      rgba(255, 220, 160, 0.025),
-      transparent 35%
-    ),
-    #020203;
+  background: var(--void);
 
   scroll-behavior: smooth;
 
@@ -68,23 +81,27 @@ html {
     transparent;
 
   scrollbar-width: thin;
+
+  /*
+    Prevent mobile browsers from creating horizontal
+    scrolling caused by cinematic decorative elements.
+  */
+  overflow-x: hidden;
+
+  -webkit-text-size-adjust: 100%;
 }
 
 body {
   margin: 0;
+
   min-width: 320px;
   min-height: 100vh;
 
   background:
     radial-gradient(
-      circle at 50% 20%,
-      rgba(255, 220, 170, 0.018),
-      transparent 32%
-    ),
-    radial-gradient(
-      circle at 15% 80%,
-      rgba(90, 140, 255, 0.012),
-      transparent 30%
+      circle at 50% -10%,
+      rgba(255, 220, 160, 0.025),
+      transparent 35%
     ),
     #020203;
 
@@ -92,12 +109,37 @@ body {
 
   overflow-x: hidden;
 
-  /* Premium rendering */
+  overscroll-behavior-x: none;
+
+  /*
+    Better touch scrolling.
+  */
+  -webkit-overflow-scrolling: touch;
+
+  /*
+    Avoid browser text inflation.
+  */
+  -webkit-text-size-adjust: 100%;
+
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
 
-  /* Prevent accidental horizontal movement */
-  overscroll-behavior-x: none;
+/*
+  Avoid accidental horizontal overflow from images.
+*/
+img,
+svg,
+video,
+canvas {
+  max-width: 100%;
+}
+
+/*
+  Images should not cause inline baseline gaps.
+*/
+img {
+  display: block;
 }
 
 /* =========================================================
@@ -113,13 +155,18 @@ select {
 
 button {
   cursor: pointer;
+
   -webkit-tap-highlight-color: transparent;
+
+  touch-action: manipulation;
 }
 
 button:focus-visible,
 input:focus-visible,
-textarea:focus-visible {
+textarea:focus-visible,
+select:focus-visible {
   outline: 1px solid rgba(255, 255, 255, 0.65);
+
   outline-offset: 4px;
 
   box-shadow:
@@ -151,13 +198,7 @@ textarea:focus-visible {
 }
 
 ::-webkit-scrollbar-track {
-  background:
-    linear-gradient(
-      180deg,
-      #020203,
-      #050505,
-      #020203
-    );
+  background: #020203;
 }
 
 ::-webkit-scrollbar-thumb {
@@ -192,8 +233,6 @@ textarea:focus-visible {
 .font-display {
   letter-spacing: -0.04em;
 
-  text-rendering: geometricPrecision;
-
   text-shadow:
     0 0 40px rgba(255, 255, 255, 0.025);
 }
@@ -209,9 +248,13 @@ textarea:focus-visible {
 .counter {
   position: relative;
 
+  display: inline-block;
+
   font-size: 16px;
 
   padding: 5px 10px;
+
+  margin-bottom: 24px;
 
   border-radius: 5px;
 
@@ -227,12 +270,10 @@ textarea:focus-visible {
   border: 2px solid transparent;
 
   transition:
-    border-color 0.35s ease,
-    background 0.35s ease,
-    box-shadow 0.35s ease,
-    transform 0.35s ease;
-
-  margin-bottom: 24px;
+    border-color 0.35s var(--ease),
+    background 0.35s var(--ease),
+    box-shadow 0.35s var(--ease),
+    transform 0.35s var(--ease);
 
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.035);
@@ -270,22 +311,29 @@ textarea:focus-visible {
   isolation: isolate;
 
   filter:
-    drop-shadow(0 20px 40px rgba(0, 0, 0, 0.35));
+    drop-shadow(
+      0 20px 40px rgba(0, 0, 0, 0.35)
+    );
 
   .base,
   .framework,
   .vite {
     inset-inline: 0;
+
     margin: 0 auto;
   }
 
   .base {
-    width: 170px;
     position: relative;
+
     z-index: 0;
 
+    width: 170px;
+
     filter:
-      drop-shadow(0 0 15px rgba(255, 255, 255, 0.04));
+      drop-shadow(
+        0 0 15px rgba(255, 255, 255, 0.04)
+      );
   }
 
   .framework,
@@ -297,7 +345,9 @@ textarea:focus-visible {
 
   .framework {
     z-index: 1;
+
     top: 34px;
+
     height: 28px;
 
     transform:
@@ -308,14 +358,18 @@ textarea:focus-visible {
       scale(1.4);
 
     filter:
-      drop-shadow(0 0 18px rgba(255, 255, 255, 0.08));
+      drop-shadow(
+        0 0 18px rgba(255, 255, 255, 0.08)
+      );
   }
 
   .vite {
     z-index: 0;
+
     top: 107px;
-    height: 26px;
+
     width: auto;
+    height: 26px;
 
     transform:
       perspective(2000px)
@@ -325,7 +379,9 @@ textarea:focus-visible {
       scale(0.8);
 
     filter:
-      drop-shadow(0 0 14px rgba(244, 215, 154, 0.08));
+      drop-shadow(
+        0 0 14px rgba(244, 215, 154, 0.08)
+      );
   }
 }
 
@@ -334,17 +390,24 @@ textarea:focus-visible {
    ========================================================= */
 
 #center {
-  display: flex;
-  flex-direction: column;
-  gap: 25px;
-  place-content: center;
-  place-items: center;
-  flex-grow: 1;
-
   position: relative;
 
-  @media (max-width: 1024px) {
+  display: flex;
+
+  flex-direction: column;
+
+  flex-grow: 1;
+
+  gap: 25px;
+
+  place-content: center;
+  place-items: center;
+}
+
+@media (max-width: 1024px) {
+  #center {
     padding: 32px 20px 24px;
+
     gap: 18px;
   }
 }
@@ -373,8 +436,8 @@ textarea:focus-visible {
     padding: 32px;
 
     transition:
-      background 0.4s ease,
-      box-shadow 0.4s ease;
+      background 0.4s var(--ease),
+      box-shadow 0.4s var(--ease);
 
     &:hover {
       background:
@@ -384,26 +447,30 @@ textarea:focus-visible {
           transparent 60%
         );
     }
-
-    @media (max-width: 1024px) {
-      padding: 24px 20px;
-    }
   }
 
   .icon {
-    margin-bottom: 16px;
     width: 22px;
     height: 22px;
+
+    margin-bottom: 16px;
 
     filter:
       drop-shadow(
         0 0 12px rgba(255, 255, 255, 0.12)
       );
   }
+}
 
-  @media (max-width: 1024px) {
+@media (max-width: 1024px) {
+  #next-steps {
     flex-direction: column;
+
     text-align: center;
+  }
+
+  #next-steps > div {
+    padding: 24px 20px;
   }
 }
 
@@ -413,9 +480,12 @@ textarea:focus-visible {
 
 #docs {
   border-right: 1px solid var(--border);
+}
 
-  @media (max-width: 1024px) {
+@media (max-width: 1024px) {
+  #docs {
     border-right: none;
+
     border-bottom: 1px solid var(--border);
   }
 }
@@ -425,13 +495,15 @@ textarea:focus-visible {
    ========================================================= */
 
 #next-steps ul {
-  list-style: none;
-  padding: 0;
-
   display: flex;
+
   gap: 8px;
 
   margin: 32px 0 0;
+
+  padding: 0;
+
+  list-style: none;
 
   .logo {
     height: 18px;
@@ -445,9 +517,21 @@ textarea:focus-visible {
   a {
     position: relative;
 
+    display: flex;
+
+    align-items: center;
+
+    gap: 8px;
+
+    padding: 6px 12px;
+
     color: var(--text-h);
 
     font-size: 16px;
+
+    text-decoration: none;
+
+    border: 1px solid rgba(255, 255, 255, 0.025);
 
     border-radius: 6px;
 
@@ -458,24 +542,13 @@ textarea:focus-visible {
         rgba(255, 255, 255, 0.015)
       );
 
-    display: flex;
-
-    padding: 6px 12px;
-
-    align-items: center;
-    gap: 8px;
-
-    text-decoration: none;
-
-    border: 1px solid rgba(255, 255, 255, 0.025);
+    overflow: hidden;
 
     transition:
-      box-shadow 0.35s ease,
-      border-color 0.35s ease,
-      background 0.35s ease,
-      transform 0.35s ease;
-
-    overflow: hidden;
+      box-shadow 0.35s var(--ease),
+      border-color 0.35s var(--ease),
+      background 0.35s var(--ease),
+      transform 0.35s var(--ease);
 
     &::before {
       content: "";
@@ -495,8 +568,7 @@ textarea:focus-visible {
       transform: translateX(-120%);
 
       transition:
-        transform 0.7s
-        cubic-bezier(.16, 1, .3, 1);
+        transform 0.7s var(--ease-soft);
     }
 
     &:hover {
@@ -522,32 +594,36 @@ textarea:focus-visible {
     }
 
     .button-icon {
-      height: 18px;
       width: 18px;
+      height: 18px;
 
       transition:
-        transform 0.35s ease;
+        transform 0.35s var(--ease);
     }
 
     &:hover .button-icon {
       transform: scale(1.08);
     }
   }
+}
 
-  @media (max-width: 1024px) {
-    margin-top: 20px;
+@media (max-width: 1024px) {
+  #next-steps ul {
     flex-wrap: wrap;
+
     justify-content: center;
 
-    li {
-      flex: 1 1 calc(50% - 8px);
-    }
+    margin-top: 20px;
+  }
 
-    a {
-      width: 100%;
-      justify-content: center;
-      box-sizing: border-box;
-    }
+  #next-steps ul li {
+    flex: 1 1 calc(50% - 8px);
+  }
+
+  #next-steps ul a {
+    width: 100%;
+
+    justify-content: center;
   }
 }
 
@@ -566,8 +642,10 @@ textarea:focus-visible {
       rgba(255, 255, 255, 0.012),
       transparent
     );
+}
 
-  @media (max-width: 1024px) {
+@media (max-width: 1024px) {
+  #spacer {
     height: 48px;
   }
 }
@@ -599,11 +677,13 @@ textarea:focus-visible {
 
   &::before {
     left: 0;
+
     border-left-color: var(--border);
   }
 
   &::after {
     right: 0;
+
     border-right-color: var(--border);
   }
 }
@@ -617,9 +697,9 @@ textarea:focus-visible {
 
   inset: -20%;
 
-  pointer-events: none;
-
   z-index: 9999;
+
+  pointer-events: none;
 
   background-image:
     url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.5'/%3E%3C/svg%3E");
@@ -628,7 +708,17 @@ textarea:focus-visible {
 
   mix-blend-mode: screen;
 
-  animation: noise 0.25s steps(2) infinite;
+  /*
+    Keep the layer isolated.
+  */
+  contain: strict;
+
+  transform: translateZ(0);
+
+  animation:
+    noise 0.25s steps(2) infinite;
+
+  will-change: transform;
 }
 
 /* =========================================================
@@ -636,13 +726,17 @@ textarea:focus-visible {
    ========================================================= */
 
 .animate-spin-slow {
-  animation:
-    spinSlow 18s
-    linear
-    infinite;
-
   transform-origin: center;
+
+  animation:
+    spinSlow 18s linear infinite;
+
   will-change: transform;
+
+  /*
+    Promotes only elements explicitly using this animation.
+  */
+  backface-visibility: hidden;
 }
 
 /* =========================================================
@@ -650,15 +744,21 @@ textarea:focus-visible {
    ========================================================= */
 
 .animate-confetti {
-  animation-name: confetti;
-  animation-timing-function: linear;
-  animation-iteration-count: infinite;
+  position: absolute;
 
   top: -10px;
+
+  animation-name: confetti;
+
+  animation-timing-function: linear;
+
+  animation-iteration-count: infinite;
 
   will-change:
     transform,
     opacity;
+
+  backface-visibility: hidden;
 }
 
 /* =========================================================
@@ -693,6 +793,8 @@ textarea:focus-visible {
 
   inset: 0;
 
+  z-index: 0;
+
   pointer-events: none;
 
   background:
@@ -702,8 +804,6 @@ textarea:focus-visible {
       rgba(0, 0, 0, 0.35) 75%,
       rgba(0, 0, 0, 0.72) 100%
     );
-
-  z-index: 0;
 }
 
 .celebration-world::after {
@@ -712,6 +812,8 @@ textarea:focus-visible {
   position: absolute;
 
   inset: 0;
+
+  z-index: 0;
 
   pointer-events: none;
 
@@ -725,7 +827,10 @@ textarea:focus-visible {
 
   opacity: 0.5;
 
-  animation: atmosphereSweep 12s ease-in-out infinite;
+  animation:
+    atmosphereSweep 12s ease-in-out infinite;
+
+  will-change: transform, opacity;
 }
 
 /* =========================================================
@@ -744,30 +849,30 @@ textarea:focus-visible {
 
 @keyframes noise {
   0% {
-    transform: translate(0, 0);
+    transform: translate3d(0, 0, 0);
   }
 
   25% {
-    transform: translate(-2%, 1%);
+    transform: translate3d(-2%, 1%, 0);
   }
 
   50% {
-    transform: translate(1%, -2%);
+    transform: translate3d(1%, -2%, 0);
   }
 
   75% {
-    transform: translate(2%, 2%);
+    transform: translate3d(2%, 2%, 0);
   }
 
   100% {
-    transform: translate(0, 0);
+    transform: translate3d(0, 0, 0);
   }
 }
 
 @keyframes confetti {
   0% {
     transform:
-      translateY(-20px)
+      translate3d(0, -20px, 0)
       rotate(0deg);
 
     opacity: 0;
@@ -783,7 +888,7 @@ textarea:focus-visible {
 
   100% {
     transform:
-      translateY(110vh)
+      translate3d(0, 110vh, 0)
       rotate(720deg);
 
     opacity: 0;
@@ -793,31 +898,216 @@ textarea:focus-visible {
 @keyframes atmosphereSweep {
   0%,
   100% {
-    transform: translateX(-15%);
+    transform: translate3d(-15%, 0, 0);
+
     opacity: 0.2;
   }
 
   50% {
-    transform: translateX(15%);
+    transform: translate3d(15%, 0, 0);
+
     opacity: 0.55;
   }
 }
 
 /* =========================================================
-   MOBILE
+   PERFORMANCE HELPERS
+   ========================================================= */
+
+/*
+  Useful for sections that contain many decorative
+  elements. Browser can isolate their painting.
+*/
+.memory-section {
+  contain: layout paint;
+}
+
+/*
+  Prevent expensive image interpolation during transforms.
+*/
+.cinematic-image {
+  backface-visibility: hidden;
+
+  transform: translateZ(0);
+
+  will-change: transform;
+}
+
+/*
+  Isolate modal layers.
+*/
+.modal-layer {
+  isolation: isolate;
+
+  contain: layout paint;
+}
+
+/* =========================================================
+   MOBILE — PERFORMANCE MODE
    ========================================================= */
 
 @media (max-width: 640px) {
   html {
     font-size: 15px;
+
+    scroll-behavior: auto;
   }
 
   body {
     overscroll-behavior-x: none;
+
+    /*
+      Removes unnecessary compositing caused by large
+      animated background effects.
+    */
+    background:
+      radial-gradient(
+        circle at 50% 0%,
+        rgba(255, 220, 160, 0.02),
+        transparent 38%
+      ),
+      #020203;
   }
 
+  /*
+    Mobile uses a static texture instead of an animated
+    full-screen noise layer.
+  */
   .universe-noise {
-    opacity: 0.025;
+    opacity: 0.018;
+
+    animation: none;
+
+    mix-blend-mode: normal;
+
+    transform: none;
+
+    will-change: auto;
+
+    contain: strict;
+  }
+
+  /*
+    Keep celebration backgrounds beautiful but static.
+  */
+  .celebration-world::after {
+    animation: none;
+
+    opacity: 0.18;
+
+    transform: none;
+
+    will-change: auto;
+  }
+
+  /*
+    Disable unnecessary glow filters on mobile.
+  */
+  .hero {
+    filter:
+      drop-shadow(
+        0 12px 25px rgba(0, 0, 0, 0.3)
+      );
+  }
+
+  .hero .base,
+  .hero .framework,
+  .hero .vite {
+    filter: none;
+  }
+
+  /*
+    Remove expensive spinning effects on small screens.
+    The visual remains present, just static.
+  */
+  .animate-spin-slow {
+    animation: none;
+
+    will-change: auto;
+
+    transform: none;
+  }
+
+  /*
+    Confetti stays lightweight.
+  */
+  .animate-confetti {
+    will-change: transform, opacity;
+  }
+
+  /*
+    Reduce huge desktop shadows on mobile.
+  */
+  .counter {
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.035);
+  }
+
+  /*
+    Prevent mobile hover effects from being triggered
+    after tapping.
+  */
+  button:hover,
+  a:hover {
+    transform: none;
+  }
+}
+
+/* =========================================================
+   SMALL PHONES
+   ========================================================= */
+
+@media (max-width: 380px) {
+  html {
+    font-size: 14px;
+  }
+
+  .font-display {
+    letter-spacing: -0.035em;
+  }
+
+  .counter {
+    font-size: 14px;
+
+    padding: 4px 8px;
+  }
+}
+
+/* =========================================================
+   TOUCH DEVICES
+   ========================================================= */
+
+@media (hover: none) {
+  button:hover,
+  a:hover {
+    transform: none;
+
+    box-shadow: none;
+  }
+
+  /*
+    Do not keep hover-only decorative animations alive
+    on touch screens.
+  */
+  .animate-photoScan {
+    animation: none !important;
+  }
+}
+
+@media (pointer: coarse) {
+  button,
+  a {
+    -webkit-tap-highlight-color: transparent;
+
+    touch-action: manipulation;
+  }
+
+  /*
+    Larger touch targets without changing the visual size
+    of the actual components.
+  */
+  button {
+    min-height: 40px;
   }
 }
 
@@ -826,11 +1116,13 @@ textarea:focus-visible {
    ========================================================= */
 
 @media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto !important;
+  }
+
   *,
   *::before,
   *::after {
-    scroll-behavior: auto !important;
-
     animation-duration: 0.001ms !important;
 
     animation-iteration-count: 1 !important;
@@ -838,29 +1130,97 @@ textarea:focus-visible {
     transition-duration: 0.001ms !important;
   }
 
-  .universe-noise {
-    animation: none;
-  }
-
+  .universe-noise,
   .celebration-world::after {
-    animation: none;
+    animation: none !important;
   }
 }
 
 /* =========================================================
-   HIGH CONTRAST / TOUCH POLISH
+   LOW-POWER / MOBILE GPU SAFETY
    ========================================================= */
 
-@media (hover: none) {
-  button:hover,
-  a:hover {
-    transform: none;
+/*
+  These rules intentionally avoid aggressive blur,
+  backdrop-filter and continuously animated full-screen
+  layers on smaller screens.
+*/
+
+@media (max-width: 767px) {
+  /*
+    Large fixed decorative layers can be expensive during
+    scrolling. Keep them visually subtle and static.
+  */
+  .universe-noise {
+    position: fixed;
+
+    inset: 0;
+
+    opacity: 0.012;
+
+    background-size: 180px 180px;
+
+    animation: none;
+  }
+
+  /*
+    Keep pseudo-elements from creating unnecessary
+    compositing work.
+  */
+  .celebration-world::before {
+    background:
+      radial-gradient(
+        ellipse at center,
+        transparent 35%,
+        rgba(0, 0, 0, 0.45) 100%
+      );
+  }
+
+  .celebration-world::after {
+    background: none;
+
+    opacity: 0;
   }
 }
 
-@media (pointer: coarse) {
-  button,
-  a {
-    -webkit-tap-highlight-color: transparent;
+/* =========================================================
+   DESKTOP CINEMATIC ENHANCEMENT
+   ========================================================= */
+
+@media (min-width: 1025px) {
+  /*
+    Desktop has enough GPU headroom for the richer
+    atmospheric treatment.
+  */
+  .celebration-world::after {
+    animation:
+      atmosphereSweep 12s ease-in-out infinite;
+
+    will-change: transform, opacity;
+  }
+}
+
+/* =========================================================
+   FINAL SAFETY
+   ========================================================= */
+
+@media (max-width: 767px) {
+  /*
+    Avoid accidental expensive effects inherited from
+    component-level CSS.
+  */
+  [style*="filter"] {
+    max-width: 100%;
+  }
+
+  /*
+    Prevent horizontal overflow from oversized cinematic
+    typography.
+  */
+  h1,
+  h2,
+  h3,
+  p {
+    overflow-wrap: break-word;
   }
 }

@@ -145,230 +145,889 @@ export const birthdayData = {
     {
       id: 1,
       title: "OPEN ME",
-      subtitle: "Something I wanted you to know",
-      text: `I never really knew how to put this into words.
+      subtitle: "Something I've been wanting to say",
 
-Some things are easier to feel than they are to explain.
+      text: `I don't know if there is a perfect way to tell someone what they mean to you.
 
-But if you're reading this, then maybe I finally found a way.
+Maybe there isn't.
 
-Somewhere along the way, you became part of my memories.
+Maybe some feelings are simply too big to fit neatly into sentences.
 
-Not just the big moments.
+But tonight, on your birthday, I wanted to try.
 
-The random conversations.
+Because somewhere between all the conversations, the laughter, the teasing, the random little moments, and everything in between...
 
-The stupid jokes.
+you became someone incredibly special to me.
 
-The unexpected laughs.
+Not all at once.
 
-The quiet moments where nothing really happened, yet somehow everything felt right.
+There wasn't one particular moment where I suddenly realized it.
 
-Those are the moments I remember.
+It happened quietly.
 
-And maybe that's what makes someone important.
+Little by little.
 
-Not one huge moment.
+Until one day I noticed that you had somehow become part of my everyday thoughts.
 
-But hundreds of tiny ones that slowly become impossible to replace.
+I'd see something funny and immediately want to tell you.
 
-I don't know where life will take us from here.
+Something good would happen and I'd wonder if you'd be happy to hear about it.
 
-I don't know how many more memories we'll make.
+I'd hear a song and somehow think of you.
 
-But I know I'm grateful for the ones that already exist.
+I'd remember something you said weeks ago and smile for no reason.
 
-So thank you.
+And that's when I realized...
 
-Thank you for the laughter.
+you had become one of those people who could turn an ordinary moment into something worth remembering.
 
-Thank you for the moments.
+I love the little things about us.
 
-Thank you for simply being part of this chapter of my life.
+The conversations that were supposed to last five minutes but somehow became hours.
 
-And most of all...
+The stupid jokes that probably wouldn't make sense to anyone else.
 
-thank you for being you.
+The teasing.
 
-I hope you never forget how much brighter the world can feel simply because you're in it.`,
+The random messages.
 
-      signature: "— Someone who is really glad you exist",
+The little disagreements.
+
+The moments where one of us says something completely ridiculous and the other somehow finds it funny.
+
+The comfortable silence.
+
+The moments where we don't have to say anything at all.
+
+I love those moments.
+
+Maybe more than the perfect ones.
+
+Because I've learned that love isn't always some huge cinematic moment.
+
+Sometimes love looks like remembering the smallest details.
+
+Sometimes it's wanting to tell someone about the most random part of your day.
+
+Sometimes it's missing them even when you've only been apart for a little while.
+
+Sometimes it's looking at someone and thinking,
+
+"I really hope you're still here years from now."
+
+And honestly...
+
+that's what I feel when I think about you.
+
+I don't know what the future looks like.
+
+I don't know what life has planned for us.
+
+I don't know what our story will look like five years from now, ten years from now, or even tomorrow.
+
+But I know what I want.
+
+I want more.
+
+More mornings.
+
+More late-night conversations.
+
+More photographs we didn't plan to take.
+
+More random adventures.
+
+More stupid jokes.
+
+More birthdays.
+
+More ordinary days that somehow become special simply because they're ours.
+
+More moments where we look at each other and realize how far we've come.
+
+Because if I've learned anything from us,
+
+it's that the best memories aren't always the ones you plan.
+
+Sometimes they're the moments that happen when you're simply being yourself with someone you love.
+
+And if I could keep one thing from everything we've shared,
+
+I wouldn't choose a single perfect memory.
+
+I'd choose all of them.
+
+The messy ones.
+
+The funny ones.
+
+The quiet ones.
+
+The unexpected ones.
+
+The moments we almost forgot.
+
+The moments that seemed completely ordinary at the time.
+
+Because those little pieces slowly became my favorite part of the story.
+
+Our story.
+
+So if you ever wonder what you mean to me,
+
+I hope you remember this.
+
+You aren't someone I simply want to remember.
+
+You're someone I want to keep choosing.
+
+Someone I want to keep learning.
+
+Someone I want to keep laughing with.
+
+Someone I want beside me while life keeps changing.
+
+And I don't want to love only the version of you that exists today.
+
+I want to meet every version of you that comes next.
+
+The girl who changes her dreams.
+
+The girl who discovers new places.
+
+The girl who grows stronger.
+
+The girl who becomes more confident.
+
+The girl who changes her mind.
+
+The girl who becomes someone even I can't predict.
+
+I want to be there for all of it.
+
+And I hope you'll let me.
+
+Thank you for coming into my life.
+
+Thank you for every laugh.
+
+Every conversation.
+
+Every little memory.
+
+Every moment that made an ordinary day feel a little less ordinary.
+
+Thank you for letting me know you.
+
+And thank you for allowing me to become part of your story too.
+
+Happy Birthday, my love.
+
+If I could make one wish tonight,
+
+it wouldn't be for a perfect life.
+
+It would simply be for more time.
+
+More time with you.
+
+More memories.
+
+More chapters.
+
+More reasons to look at you years from now and think,
+
+"I'm still lucky this is my person."
+
+So here's to you.
+
+Here's to us.
+
+And here's to all the moments we haven't lived yet.
+
+I hope this is only the beginning of everything beautiful still waiting for us.
+
+And if I get the choice...
+
+I'll choose you again.
+
+And again.
+
+And again.`,
+
+      signature: "— Yours, always",
     },
+
     {
       id: 2,
       title: "READ THIS WHEN YOU MISS ME",
-      subtitle: "For one of those days",
-      text: `If you're reading this on a day when everything feels a little too quiet,
+      subtitle: "For the days when we're apart",
 
-stay here for a moment.
+      text: `If you're reading this because you miss me,
 
-Take your time.
+come a little closer for a moment.
 
-Look around this little universe.
+Forget everything else around you.
 
-Every photograph.
+Just stay here with me for a while.
 
-Every word.
+Imagine that I'm sitting beside you.
 
-Every tiny detail.
+Maybe I'm holding your hand.
 
-They are reminders that there were days when we laughed, talked, wandered through ordinary moments, and didn't realize we were creating memories.
+Maybe we're talking about absolutely nothing.
 
-That's the strange thing about life.
+Maybe we're laughing at something that wouldn't make sense to anyone else.
 
-We never know which moment will become the one we miss.
+Or maybe we're just sitting quietly together.
 
-Sometimes it's the big events.
+Because honestly,
 
-But sometimes...
+some of my favorite moments with you are the ones where nothing special was happening at all.
 
-it's the smallest things.
+It was just us.
 
-A conversation that lasted too long.
+And somehow,
 
-A random joke that shouldn't have been funny.
+that was enough.
 
-A simple afternoon.
+I know there will be days when we can't be together.
 
-A message that made you smile.
+Days when distance feels a little heavier.
 
-A moment you didn't think you'd remember.
+Days when you wish I were there.
 
-And yet somehow, years later, you do.
+Days when you want to hear my voice,
 
-So if you ever miss the past, don't think of it as something that disappeared.
+hold my hand,
 
-Think of it as something you were lucky enough to experience.
+hug me,
 
-Those moments happened.
+or simply have me sitting beside you without needing to say anything.
 
-They were real.
+And when one of those days comes,
 
-They mattered.
+I want you to remember us.
 
-And no amount of distance or time can change that.
+Remember the laughter.
 
-So smile.
+Remember the late conversations.
 
-You were there.
+Remember the random messages.
 
-I was there.
+Remember the little arguments that we eventually laughed about.
 
-And for a little while, our lives crossed paths.
+Remember the moments where we couldn't stop smiling.
 
-I think that's something worth remembering.`,
+Remember the times we stayed awake longer than we should have because neither of us wanted the conversation to end.
 
-      signature: "— Always",
+Remember the way we made ordinary days feel like something worth keeping.
+
+Remember how sometimes we didn't even have to say much.
+
+We just understood.
+
+Those are the memories I keep with me.
+
+Because I've realized something.
+
+When you miss someone,
+
+you don't only miss their presence.
+
+You miss their little world.
+
+Their voice.
+
+Their laugh.
+
+Their habits.
+
+The way they say your name.
+
+The random things they talk about.
+
+The way they make you feel safe.
+
+The way they can change your mood without even trying.
+
+And I miss those things about you too.
+
+Probably more than I tell you.
+
+So if you're having one of those days,
+
+don't let the distance make you believe that you're alone.
+
+Close your eyes.
+
+Take a breath.
+
+And think about us.
+
+Pick one memory.
+
+It doesn't have to be the biggest one.
+
+Maybe it's something completely stupid.
+
+Maybe it's a random conversation.
+
+Maybe it's a photograph.
+
+Maybe it's one of those moments that only the two of us would understand.
+
+Hold onto that memory for a second.
+
+Smile if it makes you smile.
+
+Because that moment happened.
+
+It was real.
+
+It belonged to us.
+
+And no amount of distance can take it away.
+
+But here's the part I want you to remember most.
+
+We're not finished.
+
+There are still memories waiting for us.
+
+Another date.
+
+Another late-night conversation.
+
+Another spontaneous adventure.
+
+Another photograph.
+
+Another inside joke.
+
+Another place we've never been.
+
+Another birthday.
+
+Another ordinary day that somehow becomes one of our favorites.
+
+There are still so many versions of "us" we haven't met yet.
+
+And that's what makes me excited.
+
+I don't only want to remember what we've already had.
+
+I want to see what comes next.
+
+I want to know what we'll laugh about years from now.
+
+I want to know which places we'll discover.
+
+I want to know which memories will become the ones we tell stories about.
+
+I want to know what we'll look like when we're older,
+
+sitting somewhere together,
+
+looking back at the younger versions of ourselves.
+
+And maybe we'll laugh at how dramatic we were.
+
+Maybe we'll laugh at the things we thought were important.
+
+Maybe we'll scroll through old photographs and say,
+
+"Remember this?"
+
+And I hope we have thousands of those moments.
+
+So when you miss me,
+
+don't only think about the distance between us.
+
+Think about the life waiting on the other side of it.
+
+Think about everything we still have ahead.
+
+And remember that somewhere,
+
+I'm probably thinking about you too.
+
+Maybe I'm looking at an old photo.
+
+Maybe I'm listening to a song that reminds me of you.
+
+Maybe something random happened and you're the first person I wanted to tell.
+
+Maybe I simply miss you.
+
+Whatever it is,
+
+there is always a little piece of you somewhere in my day.
+
+So until I can be beside you again,
+
+keep a little piece of me with you.
+
+I'll keep a little piece of you with me too.
+
+And when we finally see each other again,
+
+I don't want us to spend the whole time talking about how much we missed each other.
+
+I just want to hold you.
+
+Look at you.
+
+Smile.
+
+And quietly think,
+
+"You're finally here."
+
+So take care of yourself for me.
+
+Eat properly.
+
+Rest when you need to.
+
+Smile when you can.
+
+And remember that you are loved.
+
+Not only when we're together.
+
+Not only when everything is perfect.
+
+But even on the quiet days.
+
+Even on the difficult ones.
+
+Even from far away.
+
+I love you from here.
+
+And I'll love you when we're together again.
+
+Until then,
+
+save me a hug.
+
+I'll come collect it later.`,
+
+      signature: "— Until I'm beside you again",
     },
+
     {
       id: 3,
       title: "ONE LAST LETTER",
-      subtitle: "For the end",
+      subtitle: "Before you leave this little universe",
+
       text: `If you've made it this far,
 
 then you've seen almost everything.
 
-You've wandered through the memories.
+You've wandered through our little universe.
+
+You've opened the memories.
 
 You've looked through the photographs.
 
-You've read the words.
+You've read the words I wasn't always brave enough to say out loud.
 
-You've explored this little universe.
+And before you leave,
 
-But there is something I wanted you to understand before you leave.
+I want you to know something.
 
 This was never really about the website.
 
-It wasn't about the stars.
+The stars were just decoration.
 
-It wasn't about the photographs.
+The photographs were just pieces of the story.
 
-It wasn't even about the memories themselves.
+The animations were just little sparks of something I wanted you to feel.
 
-All of those things were just pieces of a much simpler story.
+Because underneath all of it,
+
+there was only one reason I made this.
 
 You.
 
-Because sometimes one person becomes part of so many memories that eventually the memories start feeling like pieces of them.
+I wanted to give you something you could come back to.
 
-A photograph.
+Something that would remind you of us.
 
-A laugh.
+Something that could hold all the little things I never want time to erase.
 
-A conversation.
+Because sometimes I think about how strange life is.
 
-A place.
+We meet someone.
 
-A song.
+We talk.
 
-A random day that seemed completely ordinary at the time.
+We laugh.
 
-And suddenly, years later, it means everything.
+We spend time together.
 
-That's what I wanted this place to become.
+And without realizing it,
 
-A small reminder that your life has touched other lives.
+ordinary days slowly turn into memories.
 
-That your presence has mattered.
+A conversation becomes a story.
 
-That somewhere along the way, you became part of someone's favorite memories.
+A photograph becomes a feeling.
 
-So as you step out of this little universe, I hope you take something with you.
+A place becomes "that place we went together."
 
-Not the website.
+A song becomes ours.
+
+A stupid joke becomes something we'll probably still laugh about years later.
+
+And suddenly,
+
+someone who wasn't part of your life before
+
+becomes one of the reasons certain memories mean so much.
+
+That's what happened with you.
+
+You became part of my favorite memories.
+
+Not because every moment was perfect.
+
+But because they were ours.
+
+The laughter.
+
+The teasing.
+
+The random conversations.
+
+The quiet moments.
+
+The little disagreements.
+
+The apologies.
+
+The hugs.
+
+The late nights.
+
+The mornings.
+
+The photographs.
+
+The moments where we had absolutely no idea what we were doing.
+
+All of it.
+
+I wouldn't erase any of it.
+
+Because I don't want a perfect story.
+
+I want our story.
+
+A real one.
+
+One that grows.
+
+One that changes.
+
+One that sometimes gets messy.
+
+One where we learn.
+
+One where we make mistakes and forgive each other.
+
+One where we become better people together.
+
+One where we keep choosing each other even after the excitement of something new becomes the comfort of something familiar.
+
+Because I think that's where real love becomes beautiful.
+
+Not in the moment when everything is easy.
+
+But in the moments when life isn't.
+
+When two people look at each other and say,
+
+"I'm still here."
+
+That's what I want.
+
+I want to still be here.
+
+Years from now.
+
+After more birthdays.
+
+After more adventures.
+
+After more difficult days.
+
+After more celebrations.
+
+After life changes us in ways we can't predict.
+
+I want us to look back and realize that we didn't just collect memories.
+
+We built a life full of them.
+
+And maybe someday,
+
+years from now,
+
+we'll find this little universe again.
+
+We'll look at these photographs.
+
+We'll read these letters.
+
+We'll remember who we were when I made this.
+
+And maybe we'll laugh.
+
+Maybe you'll tease me about how dramatic I was.
+
+Maybe I'll pretend I wasn't.
+
+But I hope we'll also sit quietly for a moment.
+
+Because we'll know something the people we were back then didn't know yet.
+
+We made it this far.
+
+We kept choosing each other.
+
+And that's the ending I want for this story.
+
+Not an ending at all.
+
+Just another beginning.
+
+There are still sunsets we haven't watched together.
+
+Places we haven't visited.
+
+Restaurants we haven't tried.
+
+Songs we haven't heard.
+
+Photographs we haven't taken.
+
+Jokes we haven't made.
+
+Arguments we haven't had.
+
+Apologies we haven't needed to give.
+
+Adventures we haven't imagined.
+
+Birthdays we haven't celebrated.
+
+And thousands of ordinary days waiting to become memories.
+
+I want all of them.
+
+The beautiful ones.
+
+The difficult ones.
+
+The boring ones.
+
+The ridiculous ones.
+
+The ones we'll forget.
+
+And the ones we'll remember forever.
+
+Because I don't want a life with you that only looks beautiful from the outside.
+
+I want a life with you that feels beautiful from the inside.
+
+The kind where we can be completely ourselves.
+
+Where we can laugh until our stomachs hurt.
+
+Where silence isn't uncomfortable.
+
+Where home isn't just a place.
+
+It's a person.
+
+And if I ever forget to say it,
+
+I hope you remember this letter.
+
+You matter to me.
+
+More than I can explain.
+
+More than a birthday message could ever capture.
+
+More than a website could ever show.
+
+You are not just someone I happened to meet.
+
+You're someone whose existence changed the shape of my memories.
+
+And if I could go back and tell the younger version of myself that one day someone named Jenica would become this important to me,
+
+I don't think I would believe it.
+
+But I'm glad it happened.
+
+I'm glad it was you.
+
+So, Jenica...
+
+Happy Birthday, my love.
+
+I hope this year is gentle with you.
+
+I hope you grow into every dream you've been afraid to chase.
+
+I hope you see how beautiful your life can become.
+
+I hope you laugh more.
+
+Rest more.
+
+Dream bigger.
+
+Love yourself harder.
+
+And when life gets difficult,
+
+I hope you remember that you don't have to face everything alone.
+
+I'll be here.
+
+Not because I can promise that life will always be easy.
+
+But because I want to be there for the days when it isn't.
+
+I want to celebrate you when you're happy.
+
+Comfort you when you're tired.
+
+Listen when you need someone.
+
+Laugh with you when everything feels right.
+
+And remind you of who you are when you forget.
+
+I don't know exactly where our story ends.
+
+And maybe that's the most beautiful part.
+
+Because it means there are still pages we haven't written.
+
+So let's write them.
+
+Slowly.
+
+Honestly.
+
+Together.
+
+Let's make more memories.
+
+More photographs.
+
+More late-night conversations.
+
+More birthdays.
+
+More ordinary Tuesdays that somehow become our favorite days.
+
+More moments where we look at each other and think,
+
+"How lucky are we?"
+
+And if life gives me the choice,
+
+I want to keep choosing you.
+
+Not just today.
+
+Not just on your birthday.
+
+But on all the ordinary days in between.
+
+Again.
+
+And again.
+
+And again.
+
+So when you leave this little universe,
+
+take one thing with you.
+
+Not the stars.
 
 Not the photographs.
 
-But the feeling.
+Not the words.
 
-The reminder that you are loved.
+Take the feeling.
 
-That you are remembered.
+The feeling of being remembered.
 
-That you are worth celebrating.
+The feeling of being loved.
 
-And that your story is nowhere near finished.
+The feeling of knowing that somewhere in this enormous universe,
 
-There are still sunsets you haven't seen.
+there is someone who is incredibly grateful that you exist.
 
-Places you haven't visited.
+And if someday you forget,
 
-Songs you haven't heard.
+come back here.
 
-People you haven't met.
+Read this again.
 
-Laughs you haven't laughed yet.
+Look at our memories.
 
-And memories you haven't made.
+And remember...
 
-So keep going.
+you were never just a memory.
 
-Keep becoming.
+You were never just another chapter.
 
-Keep living.
+You became one of my favorite parts of the story.
 
-Keep making moments worth remembering.
+And I don't want to spend the rest of my life only looking back at the memories we made.
 
-And someday, when you look back at this chapter,
+I want to stand beside you
 
-I hope you smile.
+and make more.
 
-Because you were here.
+So here's to everything we've been.
 
-You lived it.
+Everything we are.
 
-You mattered.
+Everything we're becoming.
 
-And somewhere in this little universe,
+And everything we haven't imagined yet.
 
-there will always be a place that remembers you.
+Happy Birthday, my love.
 
-Happy Birthday, Jenica.
+Thank you for being here.
 
-I'm really glad you exist.`,
+Thank you for being you.
 
-      signature: "— With love",
+And thank you for letting me love you.
+
+I love you.
+
+And if I get my way,
+
+this isn't the last letter I'll ever write to you.
+
+It's just the first one in a very long story.`,
+
+      signature: "— With all my love, always",
     },
   ],
 
@@ -377,7 +1036,8 @@ I'm really glad you exist.`,
       page: 1,
       date: "08.17.24",
       title: "The First Page",
-      text: "Every memory begins as something ordinary. We just don't know which ordinary moment will become unforgettable.",
+      text:
+        "Every memory begins as something ordinary. We just don't know which ordinary moment will become unforgettable.",
       image:
         "https://images.unsplash.com/photo-1490730141103-6cac27aaab94?auto=format&fit=crop&w=1200&q=85",
     },
@@ -385,7 +1045,8 @@ I'm really glad you exist.`,
       page: 2,
       date: "09.04.24",
       title: "Things Worth Remembering",
-      text: "The laughs. The weird moments. The quiet ones. Somehow, those little pieces of life became the things worth keeping.",
+      text:
+        "The laughs. The weird moments. The quiet ones. Somehow, those little pieces of life became the things worth keeping.",
       image:
         "https://images.unsplash.com/photo-1529156069898-49953e39b3ac?auto=format&fit=crop&w=1200&q=85",
     },
@@ -393,7 +1054,8 @@ I'm really glad you exist.`,
       page: 3,
       date: "12.31.24",
       title: "Another Chapter",
-      text: "The pages kept turning. Some chapters ended, others began, and somehow there were still more memories waiting ahead.",
+      text:
+        "The pages kept turning. Some chapters ended, others began, and somehow there were still more memories waiting ahead.",
       image:
         "https://images.unsplash.com/photo-1500534623283-312aade485b7?auto=format&fit=crop&w=1200&q=85",
     },

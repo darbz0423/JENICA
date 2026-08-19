@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   ArrowUpRight,
   Feather,
+  Heart,
   Lock,
   Mail,
   Sparkles,
@@ -11,99 +12,191 @@ import { birthdayData } from "../data/birthdayData";
 
 export default function Letters() {
   const [opened, setOpened] = useState(null);
-  const [hovered, setHovered] = useState(null);
+  const [activeCard, setActiveCard] = useState(0);
 
   const letters = birthdayData.letters || [];
 
+  // Lock body scroll while a letter is open.
+  useEffect(() => {
+    if (!opened) return;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [opened]);
+
+  // Keyboard support.
+  useEffect(() => {
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") {
+        setOpened(null);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, []);
+
+  const openLetter = (letter, index) => {
+    setActiveCard(index);
+    setOpened(letter);
+  };
+
   return (
-    <main className="relative min-h-screen overflow-hidden px-5 pb-40 pt-28 md:pt-32">
+    <main className="relative min-h-screen overflow-hidden bg-[#030303] px-4 pb-32 pt-24 text-white sm:px-6 sm:pt-28 md:px-10 md:pb-40 md:pt-32">
 
       {/* =========================================================
-          DEEP SPACE ATMOSPHERE
+          PERFORMANCE-FRIENDLY BACKGROUND
       ========================================================= */}
 
-      <div className="pointer-events-none fixed inset-0 -z-20 overflow-hidden bg-[#020202]">
+      <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
 
-        {/* Central light */}
+        {/* Base */}
+
+        <div className="absolute inset-0 bg-[#030303]" />
+
+        {/* Soft central atmosphere */}
 
         <div
           className="
             absolute
             left-1/2
-            top-[35%]
-            h-[650px]
-            w-[650px]
+            top-[32%]
+            h-[420px]
+            w-[420px]
             -translate-x-1/2
             rounded-full
-            bg-white/[0.025]
-            blur-[150px]
+            bg-white/[0.018]
+            blur-[90px]
           "
         />
 
-        {/* Violet atmosphere */}
-
-        <div
-          className="
-            absolute
-            -left-40
-            top-[25%]
-            h-[450px]
-            w-[450px]
-            rounded-full
-            bg-violet-500/[0.025]
-            blur-[140px]
-          "
-        />
-
-        {/* Warm atmosphere */}
+        {/* Warm glow */}
 
         <div
           className="
             absolute
             -right-40
-            bottom-[10%]
-            h-[500px]
-            w-[500px]
+            top-[48%]
+            h-[300px]
+            w-[300px]
             rounded-full
-            bg-amber-300/[0.02]
-            blur-[150px]
+            bg-amber-200/[0.018]
+            blur-[90px]
           "
         />
 
-        {/* Vignette */}
+        {/* Violet glow */}
+
+        <div
+          className="
+            absolute
+            -left-40
+            top-[20%]
+            h-[300px]
+            w-[300px]
+            rounded-full
+            bg-violet-300/[0.015]
+            blur-[90px]
+          "
+        />
+
+        {/* Fine vignette */}
 
         <div
           className="
             absolute
             inset-0
-            bg-[radial-gradient(circle_at_center,transparent_25%,rgba(0,0,0,.8)_100%)]
+            bg-[radial-gradient(circle_at_50%_35%,transparent_20%,rgba(0,0,0,.7)_100%)]
           "
         />
 
-        {/* Film lines */}
+        {/* Subtle film texture */}
 
         <div
           className="
             absolute
             inset-0
             opacity-[0.025]
-            bg-[linear-gradient(to_bottom,transparent_50%,rgba(255,255,255,.15)_50%)]
-            bg-[length:100%_4px]
+            [background-image:linear-gradient(rgba(255,255,255,.12)_1px,transparent_1px)]
+            [background-size:100%_6px]
           "
         />
       </div>
 
       {/* =========================================================
-          HEADER
+          TOP NAV / ARCHIVE LABEL
       ========================================================= */}
 
-      <header className="relative mx-auto max-w-6xl text-center">
+      <div className="mx-auto flex max-w-7xl items-center justify-between">
 
-        {/* orbital decoration */}
+        <div className="flex items-center gap-3">
 
-        <div className="mx-auto mb-8 flex items-center justify-center">
+          <div
+            className="
+              flex
+              h-9
+              w-9
+              items-center
+              justify-center
+              rounded-full
+              border
+              border-white/[0.09]
+              bg-white/[0.025]
+            "
+          >
+            <Mail
+              size={13}
+              strokeWidth={1}
+              className="text-white/45"
+            />
+          </div>
 
-          <div className="relative flex h-12 w-12 items-center justify-center">
+          <div>
+            <p className="font-mono text-[6px] uppercase tracking-[0.45em] text-white/25">
+              MEMORY UNIVERSE
+            </p>
+
+            <p className="mt-1 font-mono text-[5px] tracking-[0.3em] text-white/10">
+              PRIVATE ARCHIVE
+            </p>
+          </div>
+
+        </div>
+
+        <div className="hidden items-center gap-3 sm:flex">
+
+          <span className="font-mono text-[5px] uppercase tracking-[0.4em] text-white/15">
+            CORRESPONDENCE
+          </span>
+
+          <span className="h-1 w-1 rounded-full bg-white/20" />
+
+          <span className="font-mono text-[5px] tracking-[0.3em] text-white/10">
+            {String(letters.length).padStart(2, "0")} FRAGMENTS
+          </span>
+
+        </div>
+
+      </div>
+
+      {/* =========================================================
+          HERO
+      ========================================================= */}
+
+      <header className="relative mx-auto max-w-5xl pt-16 text-center sm:pt-20 md:pt-24">
+
+        {/* Small orbital mark */}
+
+        <div className="mx-auto mb-8 flex h-14 w-14 items-center justify-center">
+
+          <div className="relative flex h-10 w-10 items-center justify-center">
 
             <span
               className="
@@ -112,263 +205,153 @@ export default function Letters() {
                 rotate-45
                 border
                 border-white/[0.12]
-                transition-transform
-                duration-[1200ms]
-                hover:rotate-90
               "
             />
 
             <span
               className="
                 absolute
-                inset-2
-                rounded-full
-                border
-                border-white/[0.08]
-              "
-            />
-
-            <Mail
-              size={14}
-              strokeWidth={1}
-              className="relative text-white/50"
-            />
-
-            <span
-              className="
-                absolute
-                -inset-3
+                -inset-2
                 rounded-full
                 border
                 border-dashed
-                border-white/[0.04]
-                animate-[spin_20s_linear_infinite]
+                border-white/[0.06]
               "
+            />
+
+            <Feather
+              size={15}
+              strokeWidth={1}
+              className="relative rotate-[-12deg] text-white/45"
             />
 
           </div>
 
         </div>
 
-        <div className="flex items-center justify-center gap-4">
+        {/* Eyebrow */}
 
-          <span className="h-px w-16 bg-gradient-to-r from-transparent to-white/20" />
+        <div className="flex items-center justify-center gap-3">
 
-          <p
-            className="
-              font-mono
-              text-[7px]
-              uppercase
-              tracking-[0.6em]
-              text-white/30
-            "
-          >
-            MEMORY ARCHIVE // 004
-          </p>
+          <span className="h-px w-8 bg-gradient-to-r from-transparent to-white/20 sm:w-14" />
 
-          <span className="h-px w-16 bg-gradient-to-l from-transparent to-white/20" />
+          <span className="font-mono text-[6px] uppercase tracking-[0.55em] text-white/25">
+            LETTERS FROM THE HEART
+          </span>
+
+          <span className="h-px w-8 bg-gradient-to-l from-transparent to-white/20 sm:w-14" />
 
         </div>
+
+        {/* Main title */}
 
         <h1
           className="
             mt-8
             font-display
-            text-6xl
-            leading-[0.78]
-            tracking-[-0.05em]
+            text-[4.6rem]
+            leading-[0.76]
+            tracking-[-0.065em]
+            text-white
             sm:text-8xl
-            md:text-[9rem]
+            md:text-[9.5rem]
           "
         >
-          Things
+          Words
           <br />
-          <span className="text-white/25">
-            unsaid.
+
+          <span className="text-white/20">
+            for you.
           </span>
         </h1>
+
+        {/* Subtitle */}
 
         <p
           className="
             mx-auto
             mt-9
             max-w-md
+            px-3
             font-serif
-            text-base
-            leading-[1.8]
-            text-white/30
+            text-[15px]
+            leading-[1.9]
+            text-white/35
             sm:text-lg
           "
         >
-          Not everything meaningful needs
-          to be spoken aloud.
+          Three little pieces of my heart,
+          <br />
+          written for the person who means so much to me.
         </p>
+
+        {/* Archive status */}
 
         <div className="mt-8 flex items-center justify-center gap-3">
 
-          <span className="h-1 w-1 rounded-full bg-white/50 shadow-[0_0_10px_white]" />
+          <span className="h-1 w-1 rounded-full bg-white/50 shadow-[0_0_8px_rgba(255,255,255,.5)]" />
 
-          <span
-            className="
-              font-mono
-              text-[6px]
-              tracking-[0.5em]
-              text-white/15
-            "
-          >
-            THREE FRAGMENTS // ONE STORY
+          <span className="font-mono text-[5px] uppercase tracking-[0.5em] text-white/15">
+            SEALED WITH LOVE
           </span>
 
-          <span className="h-1 w-1 rounded-full bg-white/20" />
+          <Heart
+            size={8}
+            fill="currentColor"
+            className="text-white/20"
+          />
 
         </div>
 
       </header>
 
       {/* =========================================================
-          LETTER CONSTELLATION
+          LETTER CARDS
       ========================================================= */}
 
-      <section
-        className="
-          relative
-          mx-auto
-          mt-20
-          max-w-6xl
-          md:mt-28
-        "
-      >
+      <section className="relative mx-auto mt-16 max-w-7xl sm:mt-20 md:mt-28">
 
-        {/* central constellation */}
+        {/* Desktop constellation */}
 
-        <div
-          className="
-            pointer-events-none
-            absolute
-            left-1/2
-            top-1/2
-            hidden
-            h-[520px]
-            w-[520px]
-            -translate-x-1/2
-            -translate-y-1/2
-            rounded-full
-            border
-            border-white/[0.025]
-            md:block
-          "
-        />
+        <div className="pointer-events-none absolute left-1/2 top-1/2 hidden h-[620px] w-[620px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/[0.025] md:block" />
 
-        <div
-          className="
-            pointer-events-none
-            absolute
-            left-1/2
-            top-1/2
-            hidden
-            h-[360px]
-            w-[360px]
-            -translate-x-1/2
-            -translate-y-1/2
-            rounded-full
-            border
-            border-dashed
-            border-white/[0.025]
-            md:block
-            animate-[spin_35s_linear_infinite]
-          "
-        />
+        <div className="pointer-events-none absolute left-1/2 top-1/2 hidden h-[440px] w-[440px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-dashed border-white/[0.018] md:block" />
 
-        <div
-          className="
-            grid
-            gap-5
-            md:grid-cols-3
-          "
-        >
+        {/* Cards */}
+
+        <div className="grid gap-4 md:grid-cols-3 md:gap-5">
 
           {letters.map((letter, index) => {
 
-            const isHovered = hovered === index;
+            const isActive = activeCard === index;
 
             return (
-              <button
+              <article
                 key={letter.id}
-                onClick={() => setOpened(letter)}
-                onMouseEnter={() => setHovered(index)}
-                onMouseLeave={() => setHovered(null)}
-                className="
+                className={`
                   group
                   relative
-                  min-h-[390px]
                   overflow-hidden
-                  rounded-2xl
+                  rounded-[22px]
                   border
-                  border-white/[0.08]
-                  bg-[#070707]/90
-                  p-7
-                  text-left
-                  backdrop-blur-xl
-                  transition-all
-                  duration-700
-                  md:min-h-[430px]
-                "
-                style={{
-                  transform:
-                    isHovered
-                      ? "translateY(-10px)"
-                      : "translateY(0)",
-                }}
+                  bg-[#080808]
+                  transition-transform
+                  duration-500
+                  ${
+                    isActive
+                      ? "border-white/[0.15]"
+                      : "border-white/[0.07]"
+                  }
+                `}
               >
 
                 {/* =================================================
-                    CARD GLOW
+                    CARD TOP LIGHT
                 ================================================= */}
 
-                <span
+                <div
                   className="
                     pointer-events-none
-                    absolute
-                    -inset-20
-                    rounded-full
-                    bg-white/[0.04]
-                    blur-[70px]
-                    opacity-0
-                    transition-opacity
-                    duration-700
-                    group-hover:opacity-100
-                  "
-                />
-
-                {/* =================================================
-                    MOVING LIGHT
-                ================================================= */}
-
-                <span
-                  className="
-                    pointer-events-none
-                    absolute
-                    -left-full
-                    top-0
-                    h-full
-                    w-1/2
-                    skew-x-[-20deg]
-                    bg-gradient-to-r
-                    from-transparent
-                    via-white/[0.06]
-                    to-transparent
-                    transition-transform
-                    duration-[1200ms]
-                    group-hover:left-[140%]
-                  "
-                />
-
-                {/* =================================================
-                    TOP BORDER
-                ================================================= */}
-
-                <span
-                  className="
                     absolute
                     left-6
                     right-6
@@ -378,124 +361,117 @@ export default function Letters() {
                     from-transparent
                     via-white/30
                     to-transparent
-                    opacity-40
-                    transition-all
-                    duration-700
-                    group-hover:left-2
-                    group-hover:right-2
+                    opacity-50
+                    transition-opacity
+                    duration-500
                     group-hover:opacity-100
                   "
                 />
 
                 {/* =================================================
-                    NUMBER
-                ================================================= */}
-
-                <div className="absolute right-6 top-6">
-
-                  <span
-                    className="
-                      font-mono
-                      text-[7px]
-                      tracking-[0.3em]
-                      text-white/10
-                      transition-colors
-                      group-hover:text-white/50
-                    "
-                  >
-                    0{index + 1}
-                  </span>
-
-                </div>
-
-                {/* =================================================
-                    ENVELOPE ICON
+                    INNER ATMOSPHERE
                 ================================================= */}
 
                 <div
                   className="
-                    relative
-                    flex
-                    h-12
-                    w-12
-                    items-center
-                    justify-center
-                    rounded-xl
-                    border
-                    border-white/[0.09]
+                    pointer-events-none
+                    absolute
+                    right-[-80px]
+                    top-[-80px]
+                    h-40
+                    w-40
+                    rounded-full
                     bg-white/[0.025]
-                    text-white/35
-                    transition-all
-                    duration-700
-                    group-hover:rotate-6
-                    group-hover:border-white/40
-                    group-hover:bg-white
-                    group-hover:text-black
-                    group-hover:shadow-[0_0_35px_rgba(255,255,255,.15)]
+                    blur-[45px]
                   "
-                >
-
-                  <Mail
-                    size={15}
-                    strokeWidth={1.2}
-                  />
-
-                  <span
-                    className="
-                      absolute
-                      -inset-2
-                      rounded-xl
-                      border
-                      border-white/[0.025]
-                      transition-all
-                      duration-700
-                      group-hover:-inset-3
-                      group-hover:border-white/[0.08]
-                    "
-                  />
-
-                </div>
+                />
 
                 {/* =================================================
-                    CONTENT
+                    CARD CONTENT
                 ================================================= */}
 
-                <div className="relative mt-12">
+                <div className="relative flex min-h-[430px] flex-col p-6 sm:p-7">
 
-                  <p
-                    className="
-                      font-mono
-                      text-[7px]
-                      uppercase
-                      tracking-[0.4em]
-                      text-white/20
-                      transition-colors
-                      group-hover:text-white/50
-                    "
-                  >
-                    SEALED LETTER
-                  </p>
+                  {/* Header row */}
+
+                  <div className="flex items-start justify-between">
+
+                    <div
+                      className="
+                        flex
+                        h-11
+                        w-11
+                        items-center
+                        justify-center
+                        rounded-[14px]
+                        border
+                        border-white/[0.09]
+                        bg-white/[0.025]
+                        transition-all
+                        duration-500
+                        group-hover:border-white/[0.18]
+                        group-hover:bg-white/[0.06]
+                      "
+                    >
+                      <Mail
+                        size={15}
+                        strokeWidth={1}
+                        className="text-white/40"
+                      />
+                    </div>
+
+                    <div className="text-right">
+
+                      <span className="font-mono text-[6px] tracking-[0.3em] text-white/10">
+                        ARCHIVE
+                      </span>
+
+                      <p className="mt-1 font-mono text-[9px] tracking-[0.2em] text-white/25">
+                        0{index + 1}
+                      </p>
+
+                    </div>
+
+                  </div>
+
+                  {/* Status */}
+
+                  <div className="mt-10 flex items-center gap-2">
+
+                    <span className="h-1 w-1 rounded-full bg-white/40" />
+
+                    <span className="font-mono text-[6px] uppercase tracking-[0.4em] text-white/20">
+                      PRIVATE LETTER
+                    </span>
+
+                  </div>
+
+                  {/* Title */}
 
                   <h2
                     className="
                       mt-5
-                      max-w-[230px]
+                      max-w-[270px]
                       font-serif
-                      text-3xl
-                      leading-[1.02]
-                      text-white/80
-                      transition-all
+                      text-[2rem]
+                      leading-[0.98]
+                      tracking-[-0.025em]
+                      text-white/85
+                      transition-colors
                       duration-500
                       group-hover:text-white
+                      sm:text-[2.2rem]
                     "
                   >
                     {letter.title}
                   </h2>
 
+                  {/* Subtitle */}
+
                   <p
                     className="
                       mt-5
-                      max-w-[220px]
+                      max-w-[260px]
                       font-serif
                       text-sm
                       italic
@@ -503,160 +479,149 @@ export default function Letters() {
                       text-white/25
                       transition-colors
                       duration-500
-                      group-hover:text-white/50
+                      group-hover:text-white/45
                     "
                   >
                     {letter.subtitle}
                   </p>
 
-                </div>
+                  {/* Decorative quote */}
 
-                {/* =================================================
-                    SECRET MESSAGE
-                ================================================= */}
+                  <div className="mt-auto">
 
-                <div
-                  className="
-                    absolute
-                    bottom-24
-                    left-7
-                    right-7
-                    opacity-0
-                    transition-all
-                    duration-500
-                    group-hover:translate-y-0
-                    group-hover:opacity-100
-                    translate-y-2
-                  "
-                >
+                    <div className="mb-6 flex items-center gap-3">
 
-                  <div className="flex items-center gap-2">
+                      <span className="h-px w-10 bg-white/[0.08]" />
 
-                    <Sparkles
-                      size={9}
-                      className="text-white/40"
-                    />
+                      <Sparkles
+                        size={9}
+                        strokeWidth={1}
+                        className="text-white/20"
+                      />
 
-                    <span
+                      <span className="h-px flex-1 bg-white/[0.05]" />
+
+                    </div>
+
+                    {/* CTA */}
+
+                    <button
+                      type="button"
+                      onClick={() => openLetter(letter, index)}
                       className="
-                        font-mono
-                        text-[6px]
-                        uppercase
-                        tracking-[0.3em]
-                        text-white/30
+                        flex
+                        w-full
+                        items-center
+                        justify-between
+                        rounded-xl
+                        border
+                        border-white/[0.08]
+                        bg-white/[0.025]
+                        px-4
+                        py-3.5
+                        text-left
+                        transition-all
+                        duration-300
+                        hover:border-white/[0.2]
+                        hover:bg-white/[0.06]
+                        active:scale-[0.98]
                       "
                     >
-                      Something is waiting inside
-                    </span>
+
+                      <span className="flex items-center gap-2.5">
+
+                        <Lock
+                          size={10}
+                          strokeWidth={1}
+                          className="text-white/25"
+                        />
+
+                        <span className="font-mono text-[6px] uppercase tracking-[0.35em] text-white/35">
+                          Open this letter
+                        </span>
+
+                      </span>
+
+                      <ArrowUpRight
+                        size={13}
+                        strokeWidth={1}
+                        className="
+                          text-white/25
+                          transition-transform
+                          duration-300
+                          group-hover:translate-x-0.5
+                          group-hover:-translate-y-0.5
+                        "
+                      />
+
+                    </button>
 
                   </div>
 
                 </div>
 
-                {/* =================================================
-                    BOTTOM
-                ================================================= */}
-
-                <div
-                  className="
-                    absolute
-                    bottom-7
-                    left-7
-                    right-7
-                    flex
-                    items-center
-                    justify-between
-                    border-t
-                    border-white/[0.06]
-                    pt-5
-                  "
-                >
-
-                  <div className="flex items-center gap-2">
-
-                    <Lock
-                      size={9}
-                      strokeWidth={1}
-                      className="
-                        text-white/15
-                        transition-colors
-                        group-hover:text-white/50
-                      "
-                    />
-
-                    <span
-                      className="
-                        font-mono
-                        text-[6px]
-                        uppercase
-                        tracking-[0.3em]
-                        text-white/15
-                        transition-colors
-                        group-hover:text-white/50
-                      "
-                    >
-                      Open archive
-                    </span>
-
-                  </div>
-
-                  <ArrowUpRight
-                    size={13}
-                    strokeWidth={1}
-                    className="
-                      text-white/15
-                      transition-all
-                      duration-500
-                      group-hover:-translate-y-1
-                      group-hover:translate-x-1
-                      group-hover:text-white
-                    "
-                  />
-
-                </div>
-
-              </button>
+              </article>
             );
           })}
 
         </div>
+
       </section>
 
       {/* =========================================================
-          BOTTOM SIGNATURE
+          BETWEEN SECTION
       ========================================================= */}
 
-      <div
-        className="
-          mx-auto
-          mt-16
-          flex
-          max-w-6xl
-          items-center
-          gap-4
-        "
-      >
+      <div className="mx-auto mt-16 flex max-w-5xl items-center justify-center gap-4 sm:mt-20">
 
-        <span className="h-px flex-1 bg-white/[0.04]" />
+        <span className="h-px flex-1 bg-white/[0.05]" />
 
-        <span
-          className="
-            font-mono
-            text-[6px]
-            uppercase
-            tracking-[0.5em]
-            text-white/10
-          "
-        >
-          Some words deserve to survive
-        </span>
+        <div className="text-center">
 
-        <span className="h-px flex-1 bg-white/[0.04]" />
+          <Heart
+            size={11}
+            fill="currentColor"
+            className="mx-auto text-white/20"
+          />
+
+          <p className="mt-3 font-mono text-[5px] uppercase tracking-[0.5em] text-white/10">
+            Written only for you
+          </p>
+
+        </div>
+
+        <span className="h-px flex-1 bg-white/[0.05]" />
 
       </div>
 
       {/* =========================================================
-          LETTER VIEWER
+          FOOTER
+      ========================================================= */}
+
+      <footer className="mx-auto mt-12 max-w-xl text-center sm:mt-16">
+
+        <p className="font-serif text-sm italic leading-[1.8] text-white/20 sm:text-base">
+          Some words are meant to be read once.
+          <br />
+          Some are meant to be kept forever.
+        </p>
+
+        <div className="mt-6 flex items-center justify-center gap-3">
+
+          <span className="h-px w-8 bg-white/[0.06]" />
+
+          <span className="font-mono text-[5px] tracking-[0.45em] text-white/10">
+            MEMORY ARCHIVE // LOVE
+          </span>
+
+          <span className="h-px w-8 bg-white/[0.06]" />
+
+        </div>
+
+      </footer>
+
+      {/* =========================================================
+          LETTER MODAL
       ========================================================= */}
 
       {opened && (
@@ -668,43 +633,39 @@ export default function Letters() {
             z-[100]
             overflow-y-auto
             bg-[#010101]/95
-            px-4
-            py-8
-            backdrop-blur-2xl
-            sm:px-6
-            sm:py-12
+            px-3
+            py-5
+            sm:px-5
+            sm:py-8
           "
           onClick={() => setOpened(null)}
         >
 
-          {/* background glow */}
+          {/* =====================================================
+              MODAL BACKGROUND
+          ===================================================== */}
 
-          <div
-            className="
-              pointer-events-none
-              fixed
-              left-1/2
-              top-1/2
-              h-[600px]
-              w-[600px]
-              -translate-x-1/2
-              -translate-y-1/2
-              rounded-full
-              bg-white/[0.025]
-              blur-[130px]
-            "
-          />
+          <div className="pointer-events-none fixed inset-0">
 
-          {/* close */}
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_25%,rgba(255,255,255,.045),transparent_45%)]" />
+
+            <div className="absolute inset-0 bg-[linear-gradient(to_bottom,rgba(0,0,0,.15),rgba(0,0,0,.8))]" />
+
+          </div>
+
+          {/* =====================================================
+              CLOSE BUTTON
+          ===================================================== */}
 
           <button
+            type="button"
             onClick={() => setOpened(null)}
             aria-label="Close letter"
             className="
               fixed
-              right-5
-              top-5
-              z-30
+              right-4
+              top-4
+              z-[120]
               flex
               h-11
               w-11
@@ -712,20 +673,41 @@ export default function Letters() {
               justify-center
               rounded-full
               border
-              border-white/10
-              bg-black/60
-              text-white/40
+              border-white/[0.12]
+              bg-black/70
+              text-white/45
               backdrop-blur-xl
               transition-all
+              duration-300
               hover:border-white/30
               hover:bg-white
               hover:text-black
-              sm:right-8
-              sm:top-8
+              active:scale-90
+              sm:right-7
+              sm:top-7
             "
           >
-            <X size={16} strokeWidth={1} />
+            <X
+              size={15}
+              strokeWidth={1.2}
+            />
           </button>
+
+          {/* =====================================================
+              MODAL COUNTER
+          ===================================================== */}
+
+          <div className="fixed left-4 top-5 z-[120] sm:left-7 sm:top-7">
+
+            <p className="font-mono text-[5px] uppercase tracking-[0.4em] text-white/20">
+              LOVE ARCHIVE
+            </p>
+
+            <p className="mt-1 font-mono text-[6px] tracking-[0.25em] text-white/10">
+              LETTER 0{opened.id} / 0{letters.length}
+            </p>
+
+          </div>
 
           {/* =====================================================
               PAPER
@@ -736,115 +718,138 @@ export default function Letters() {
             className="
               relative
               mx-auto
-              my-16
+              my-14
               max-w-3xl
               overflow-hidden
-              rounded-[3px]
-              bg-[#ebe4d6]
-              text-black
-              shadow-[0_50px_150px_rgba(0,0,0,.8)]
+              rounded-[2px]
+              bg-[#eee7d9]
+              text-[#171512]
+              shadow-[0_30px_100px_rgba(0,0,0,.8)]
               sm:my-20
+              sm:rounded-[3px]
             "
           >
 
-            {/* paper grain */}
+            {/* =================================================
+                PAPER EDGE
+            ================================================= */}
+
+            <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-transparent via-black/20 to-transparent" />
+
+            <div className="absolute inset-x-0 bottom-0 h-1 bg-gradient-to-r from-transparent via-black/10 to-transparent" />
+
+            {/* =================================================
+                PAPER GRAIN
+            ================================================= */}
 
             <div
               className="
                 pointer-events-none
                 absolute
                 inset-0
-                opacity-[0.055]
+                opacity-[0.045]
                 [background-image:radial-gradient(#000_0.5px,transparent_0.5px)]
-                [background-size:5px_5px]
+                [background-size:6px_6px]
               "
             />
 
-            {/* paper glow */}
+            {/* =================================================
+                PAPER LIGHT
+            ================================================= */}
 
             <div
               className="
                 pointer-events-none
                 absolute
                 inset-0
-                bg-[radial-gradient(circle_at_50%_30%,rgba(255,255,255,.35),transparent_50%)]
+                bg-[radial-gradient(circle_at_50%_15%,rgba(255,255,255,.55),transparent_45%)]
               "
             />
 
-            {/* paper top */}
+            {/* =================================================
+                PAPER CONTENT
+            ================================================= */}
 
             <div
               className="
                 relative
-                h-1
-                bg-gradient-to-r
-                from-transparent
-                via-black/20
-                to-transparent
-              "
-            />
-
-            <div
-              className="
-                relative
-                px-7
-                py-14
-                sm:px-14
-                sm:py-20
+                px-6
+                py-12
+                sm:px-12
+                sm:py-16
                 md:px-20
+                md:py-20
               "
             >
 
-              {/* HEADER */}
+              {/* =================================================
+                  LETTER HEADER
+              ================================================= */}
 
-              <div className="flex items-start justify-between">
+              <div className="flex items-start justify-between gap-6">
 
                 <div>
 
-                  <p
-                    className="
-                      font-mono
-                      text-[7px]
-                      uppercase
-                      tracking-[0.5em]
-                      text-black/30
-                    "
-                  >
-                    MEMORY UNIVERSE
-                  </p>
+                  <div className="flex items-center gap-2">
 
-                  <p
-                    className="
-                      mt-2
-                      font-mono
-                      text-[6px]
-                      tracking-[0.3em]
-                      text-black/15
-                    "
-                  >
-                    PRIVATE CORRESPONDENCE // 0{opened.id}
+                    <Heart
+                      size={9}
+                      fill="currentColor"
+                      className="text-black/25"
+                    />
+
+                    <p className="font-mono text-[6px] uppercase tracking-[0.5em] text-black/30">
+                      PRIVATE CORRESPONDENCE
+                    </p>
+
+                  </div>
+
+                  <p className="mt-2 font-mono text-[5px] uppercase tracking-[0.35em] text-black/15">
+                    MEMORY UNIVERSE // LETTER 0{opened.id}
                   </p>
 
                 </div>
 
-                <Feather
-                  size={20}
-                  strokeWidth={1}
-                  className="rotate-[-15deg] text-black/20"
-                />
+                <div className="relative flex h-10 w-10 shrink-0 items-center justify-center">
+
+                  <span className="absolute inset-0 rotate-45 border border-black/[0.09]" />
+
+                  <Feather
+                    size={15}
+                    strokeWidth={1}
+                    className="rotate-[-15deg] text-black/25"
+                  />
+
+                </div>
 
               </div>
 
-              {/* TITLE */}
+              {/* =================================================
+                  DATE / PERSONAL NOTE
+              ================================================= */}
+
+              <div className="mt-12 flex items-center gap-3">
+
+                <span className="h-px w-8 bg-black/10" />
+
+                <span className="font-mono text-[6px] uppercase tracking-[0.35em] text-black/20">
+                  Written from the heart
+                </span>
+
+              </div>
+
+              {/* =================================================
+                  TITLE
+              ================================================= */}
 
               <h2
                 className="
-                  mt-16
+                  mt-8
                   max-w-2xl
                   font-serif
-                  text-4xl
-                  leading-[0.95]
-                  tracking-[-0.025em]
+                  text-[2.7rem]
+                  leading-[0.92]
+                  tracking-[-0.035em]
                   sm:text-5xl
                   md:text-6xl
                 "
@@ -852,84 +857,106 @@ export default function Letters() {
                 {opened.title}
               </h2>
 
+              {/* Subtitle */}
+
               <p
                 className="
                   mt-5
+                  max-w-xl
                   font-serif
-                  text-lg
+                  text-base
                   italic
+                  leading-[1.7]
                   text-black/40
+                  sm:text-lg
                 "
               >
                 {opened.subtitle}
               </p>
 
-              {/* ORNAMENT */}
+              {/* =================================================
+                  ORNAMENT
+              ================================================= */}
 
-              <div className="my-14 flex items-center gap-4">
+              <div className="my-12 flex items-center gap-4 sm:my-14">
 
                 <span className="h-px flex-1 bg-black/10" />
 
-                <div
-                  className="
-                    flex
-                    h-7
-                    w-7
-                    rotate-45
-                    items-center
-                    justify-center
-                    border
-                    border-black/10
-                  "
-                >
-                  <span className="-rotate-45 font-serif text-xs text-black/30">
-                    ✦
-                  </span>
+                <div className="relative flex h-7 w-7 items-center justify-center">
+
+                  <span className="absolute inset-0 rotate-45 border border-black/10" />
+
+                  <Heart
+                    size={9}
+                    fill="currentColor"
+                    className="relative text-black/25"
+                  />
+
                 </div>
 
                 <span className="h-px flex-1 bg-black/10" />
 
               </div>
 
-              {/* BODY */}
+              {/* =================================================
+                  LETTER BODY
+              ================================================= */}
 
               <div
                 className="
                   whitespace-pre-line
                   font-serif
-                  text-lg
+                  text-[17px]
                   leading-[2]
+                  tracking-[0.005em]
                   text-black/65
-                  sm:text-xl
+                  sm:text-[19px]
                   sm:leading-[2.05]
+                  md:text-xl
                 "
               >
                 {opened.text}
               </div>
 
-              {/* SIGNATURE */}
+              {/* =================================================
+                  FINAL ORNAMENT
+              ================================================= */}
 
-              <div className="mt-16">
+              <div className="mt-16 flex items-center gap-4">
 
-                <span className="block h-px w-16 bg-black/15" />
+                <span className="h-px w-10 bg-black/10" />
 
-                <p
-                  className="
-                    mt-5
-                    font-serif
-                    text-lg
-                    italic
-                    text-black/45
-                  "
-                >
+                <Sparkles
+                  size={10}
+                  strokeWidth={1}
+                  className="text-black/20"
+                />
+
+                <span className="h-px flex-1 bg-black/10" />
+
+              </div>
+
+              {/* =================================================
+                  SIGNATURE
+              ================================================= */}
+
+              <div className="mt-10">
+
+                <p className="font-serif text-sm italic text-black/30">
+                  With all the love that words can hold,
+                </p>
+
+                <p className="mt-4 font-serif text-xl italic text-black/55 sm:text-2xl">
                   {opened.signature}
                 </p>
 
               </div>
 
-              {/* SEAL */}
+              {/* =================================================
+                  KD WATERMARK
+              ================================================= */}
 
-              <div className="mt-16 flex justify-end">
+              <div className="mt-14 flex justify-end">
 
                 <div
                   className="
@@ -957,7 +984,7 @@ export default function Letters() {
                     "
                   />
 
-                  <span className="font-serif text-xl text-black/25">
+                  <span className="font-serif text-xl italic tracking-[-0.05em] text-black/25">
                     KD
                   </span>
 
@@ -966,54 +993,27 @@ export default function Letters() {
               </div>
 
             </div>
+
           </article>
 
         </div>
       )}
 
       {/* =========================================================
-          MOBILE
+          MOBILE HINT
       ========================================================= */}
 
-      <div className="mt-10 text-center md:hidden">
+      <div className="mt-12 flex items-center justify-center gap-3 md:hidden">
 
-        <div className="flex items-center justify-center gap-2">
+        <span className="h-px w-8 bg-white/[0.05]" />
 
-          <span className="h-px w-8 bg-white/[0.05]" />
+        <span className="font-mono text-[5px] uppercase tracking-[0.45em] text-white/10">
+          Tap a letter to open
+        </span>
 
-          <span
-            className="
-              font-mono
-              text-[6px]
-              uppercase
-              tracking-[0.4em]
-              text-white/10
-            "
-          >
-            Tap a fragment
-          </span>
-
-          <span className="h-px w-8 bg-white/[0.05]" />
-
-        </div>
+        <span className="h-px w-8 bg-white/[0.05]" />
 
       </div>
-
-      {/* =========================================================
-          ANIMATION
-      ========================================================= */}
-
-      <style>{`
-        @keyframes spin {
-          from {
-            transform: rotate(0deg);
-          }
-
-          to {
-            transform: rotate(360deg);
-          }
-        }
-      `}</style>
 
     </main>
   );
