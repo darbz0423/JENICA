@@ -19,9 +19,7 @@ export default function Gallery() {
   const selectedIndex = useMemo(() => {
     if (!selected) return -1;
 
-    return photos.findIndex(
-      (photo) => photo.id === selected.id
-    );
+    return photos.findIndex((photo) => photo.id === selected.id);
   }, [selected, photos]);
 
   /*
@@ -51,9 +49,7 @@ export default function Gallery() {
           );
 
           return photos[
-            index <= 0
-              ? photos.length - 1
-              : index - 1
+            index <= 0 ? photos.length - 1 : index - 1
           ];
         });
       }
@@ -67,9 +63,7 @@ export default function Gallery() {
           );
 
           return photos[
-            index >= photos.length - 1
-              ? 0
-              : index + 1
+            index >= photos.length - 1 ? 0 : index + 1
           ];
         });
       }
@@ -86,7 +80,6 @@ export default function Gallery() {
   /*
    * ============================================================
    * CURSOR ATMOSPHERE
-   *
    * Desktop only.
    * Mobile does not run this effect.
    * ============================================================
@@ -189,13 +182,10 @@ export default function Gallery() {
       ======================================================== */}
 
       <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
-
         {/* Base */}
-
         <div className="absolute inset-0 bg-[#020202]" />
 
         {/* Desktop cursor atmosphere */}
-
         <div
           className="
             absolute
@@ -219,7 +209,6 @@ export default function Gallery() {
         />
 
         {/* Central atmosphere */}
-
         <div
           className="
             absolute
@@ -237,7 +226,6 @@ export default function Gallery() {
         />
 
         {/* Left atmosphere */}
-
         <div
           className="
             absolute
@@ -254,7 +242,6 @@ export default function Gallery() {
         />
 
         {/* Right atmosphere */}
-
         <div
           className="
             absolute
@@ -271,11 +258,9 @@ export default function Gallery() {
         />
 
         {/* Grid */}
-
-        <div className="absolute inset-0 gallery-grid opacity-[0.018]" />
+        <div className="gallery-grid absolute inset-0 opacity-[0.018]" />
 
         {/* Vignette */}
-
         <div
           className="
             absolute
@@ -285,11 +270,9 @@ export default function Gallery() {
         />
 
         {/* Noise */}
-
-        <div className="absolute inset-0 gallery-noise opacity-[0.018]" />
+        <div className="gallery-noise absolute inset-0 opacity-[0.018]" />
 
         {/* Top cinematic shadow */}
-
         <div
           className="
             absolute
@@ -303,7 +286,6 @@ export default function Gallery() {
             opacity-70
           "
         />
-
       </div>
 
       {/* ========================================================
@@ -311,13 +293,9 @@ export default function Gallery() {
       ======================================================== */}
 
       <header className="relative mx-auto max-w-7xl">
-
         <div className="flex items-center justify-between">
-
           <div className="flex items-center gap-3">
-
             <div className="relative flex h-7 w-7 items-center justify-center">
-
               <span
                 className="
                   absolute
@@ -329,11 +307,9 @@ export default function Gallery() {
               />
 
               <span className="relative h-1 w-1 rounded-full bg-white/70" />
-
             </div>
 
             <div>
-
               <p className="font-mono text-[7px] uppercase tracking-[0.55em] text-white/35">
                 VISUAL MEMORY ARCHIVE
               </p>
@@ -341,29 +317,22 @@ export default function Gallery() {
               <p className="mt-1 font-mono text-[5px] uppercase tracking-[0.4em] text-white/10">
                 MEMORY UNIVERSE // 001
               </p>
-
             </div>
-
           </div>
 
           <div className="hidden text-right sm:block">
-
             <p className="font-mono text-[5px] uppercase tracking-[0.4em] text-white/15">
               COLLECTION STATUS
             </p>
 
             <div className="mt-2 flex items-center justify-end gap-2">
-
               <span className="h-1 w-1 animate-pulse rounded-full bg-white/60" />
 
               <span className="font-mono text-[6px] uppercase tracking-[0.3em] text-white/30">
                 PRESERVED
               </span>
-
             </div>
-
           </div>
-
         </div>
 
         {/* ======================================================
@@ -371,11 +340,8 @@ export default function Gallery() {
         ====================================================== */}
 
         <div className="mt-16 sm:mt-20 lg:mt-24">
-
           <div className="grid gap-10 lg:grid-cols-[1fr_auto] lg:items-end">
-
             <div>
-
               <p className="font-mono text-[6px] uppercase tracking-[0.45em] text-white/15">
                 ARCHIVE 001 / PERSONAL COLLECTION
               </p>
@@ -399,7 +365,6 @@ export default function Gallery() {
               </h1>
 
               <div className="mt-8 max-w-xl">
-
                 <p
                   className="
                     font-serif
@@ -410,8 +375,8 @@ export default function Gallery() {
                   "
                 >
                   Some moments disappear the second
-                  they happen.
-                  Others stay somewhere inside us.
+                  they happen. Others stay somewhere
+                  inside us.
                 </p>
 
                 <p
@@ -427,17 +392,12 @@ export default function Gallery() {
                 >
                   These are the ones worth keeping.
                 </p>
-
               </div>
-
             </div>
 
             {/* Archive stats */}
-
             <div className="flex items-end gap-8 sm:gap-12">
-
               <div>
-
                 <p className="font-mono text-[6px] uppercase tracking-[0.35em] text-white/15">
                   FRAMES
                 </p>
@@ -445,11 +405,9 @@ export default function Gallery() {
                 <p className="mt-1 font-display text-4xl leading-none text-white/55 sm:text-5xl">
                   {String(photos.length).padStart(2, "0")}
                 </p>
-
               </div>
 
               <div>
-
                 <p className="font-mono text-[6px] uppercase tracking-[0.35em] text-white/15">
                   TYPE
                 </p>
@@ -457,21 +415,15 @@ export default function Gallery() {
                 <p className="mt-2 font-mono text-[6px] uppercase tracking-[0.3em] text-white/35">
                   MEMORIES
                 </p>
-
               </div>
-
             </div>
-
           </div>
 
           {/* Cinematic divider */}
-
           <div className="mt-14 flex items-center gap-4 sm:mt-20">
-
             <span className="h-px flex-1 bg-gradient-to-r from-white/20 to-transparent" />
 
             <div className="flex items-center gap-3">
-
               <ScanLine
                 size={9}
                 strokeWidth={1}
@@ -481,15 +433,11 @@ export default function Gallery() {
               <span className="font-mono text-[5px] uppercase tracking-[0.5em] text-white/15">
                 MEMORY FIELD
               </span>
-
             </div>
 
             <span className="h-px flex-1 bg-gradient-to-l from-white/20 to-transparent" />
-
           </div>
-
         </div>
-
       </header>
 
       {/* ========================================================
@@ -497,9 +445,7 @@ export default function Gallery() {
       ======================================================== */}
 
       <section className="relative mx-auto mt-20 max-w-7xl sm:mt-28 lg:mt-32">
-
         {/* Desktop orbital rings */}
-
         <div
           className="
             pointer-events-none
@@ -548,9 +494,7 @@ export default function Gallery() {
             lg:gap-y-32
           "
         >
-
           {photos.map((photo, index) => {
-
             const isHovered = hovered === index;
 
             return (
@@ -561,7 +505,6 @@ export default function Gallery() {
                   ${layouts[index % layouts.length]}
                 `}
               >
-
                 {/* ==================================================
                     MEMORY INDEX
                 ================================================== */}
@@ -584,7 +527,6 @@ export default function Gallery() {
                     }
                   `}
                 >
-
                   <span className="font-mono text-[5px] uppercase tracking-[0.4em] text-white/20">
                     MEMORY
                   </span>
@@ -592,7 +534,6 @@ export default function Gallery() {
                   <span className="font-display text-lg leading-none text-white/20">
                     {String(index + 1).padStart(2, "0")}
                   </span>
-
                 </div>
 
                 {/* ==================================================
@@ -623,9 +564,7 @@ export default function Gallery() {
                     ease-[cubic-bezier(.22,1,.36,1)]
                   `}
                 >
-
                   {/* Ambient glow */}
-
                   <div
                     className={`
                       pointer-events-none
@@ -663,13 +602,10 @@ export default function Gallery() {
                       sm:pb-24
                     "
                   >
-
                     {/* Paper texture */}
-
-                    <div className="pointer-events-none absolute inset-0 paper-noise opacity-[0.045]" />
+                    <div className="paper-noise pointer-events-none absolute inset-0 opacity-[0.045]" />
 
                     {/* Paper highlight */}
-
                     <div
                       className="
                         pointer-events-none
@@ -696,7 +632,6 @@ export default function Gallery() {
                         bg-black
                       "
                     >
-
                       <img
                         src={photo.image}
                         alt={photo.title}
@@ -719,7 +654,6 @@ export default function Gallery() {
                       />
 
                       {/* Cinematic gradient */}
-
                       <div
                         className={`
                           pointer-events-none
@@ -740,7 +674,6 @@ export default function Gallery() {
                       />
 
                       {/* Film frame */}
-
                       <div
                         className={`
                           pointer-events-none
@@ -758,7 +691,6 @@ export default function Gallery() {
                       />
 
                       {/* Top scan line */}
-
                       <span
                         className={`
                           pointer-events-none
@@ -780,7 +712,6 @@ export default function Gallery() {
                       />
 
                       {/* Center focus */}
-
                       <div
                         className={`
                           pointer-events-none
@@ -798,23 +729,16 @@ export default function Gallery() {
                           }
                         `}
                       >
-
                         <span className="absolute left-1/2 top-1/2 h-5 w-px -translate-x-1/2 -translate-y-1/2 bg-white/50" />
-
                         <span className="absolute left-1/2 top-1/2 h-px w-5 -translate-x-1/2 -translate-y-1/2 bg-white/50" />
-
                       </div>
 
                       {/* Frame number */}
-
                       <div className="absolute right-3 top-3">
-
                         <span className="font-mono text-[5px] tracking-[0.3em] text-white/30">
                           {String(index + 1).padStart(2, "0")}
                         </span>
-
                       </div>
-
                     </div>
 
                     {/* =================================================
@@ -836,9 +760,7 @@ export default function Gallery() {
                         sm:pb-5
                       "
                     >
-
                       <div>
-
                         <p className="font-serif text-sm text-black/75 sm:text-base">
                           {photo.title}
                         </p>
@@ -846,11 +768,9 @@ export default function Gallery() {
                         <p className="mt-1 font-mono text-[5px] uppercase tracking-[0.35em] text-black/30">
                           {photo.date}
                         </p>
-
                       </div>
 
                       <div className="text-right">
-
                         <p className="font-mono text-[5px] uppercase tracking-[0.25em] text-black/20">
                           FRAME
                         </p>
@@ -858,21 +778,14 @@ export default function Gallery() {
                         <p className="font-display text-xl leading-none text-black/20">
                           {String(index + 1).padStart(2, "0")}
                         </p>
-
                       </div>
-
                     </div>
 
                     {/* Frame corners */}
-
                     <span className="absolute left-2 top-2 h-4 w-4 border-l border-t border-black/10" />
-
                     <span className="absolute right-2 top-2 h-4 w-4 border-r border-t border-black/10" />
-
                     <span className="absolute bottom-2 left-2 h-4 w-4 border-b border-l border-black/10" />
-
                     <span className="absolute bottom-2 right-2 h-4 w-4 border-b border-r border-black/10" />
-
                   </div>
 
                   {/* =================================================
@@ -895,28 +808,20 @@ export default function Gallery() {
                       }
                     `}
                   >
-
                     <span className="flex items-center gap-2 font-mono text-[5px] uppercase tracking-[0.4em] text-white/40">
-
                       Open memory
 
                       <ArrowUpRight
                         size={9}
                         strokeWidth={1}
                       />
-
                     </span>
-
                   </div>
-
                 </button>
-
               </article>
             );
           })}
-
         </div>
-
       </section>
 
       {/* ========================================================
@@ -924,19 +829,14 @@ export default function Gallery() {
       ======================================================== */}
 
       <footer className="relative mx-auto mt-36 max-w-7xl sm:mt-48">
-
         <div className="flex items-center gap-4">
-
           <span className="h-px flex-1 bg-white/[0.06]" />
 
           <div className="text-center">
-
             <div className="mx-auto flex h-8 w-8 items-center justify-center rounded-full border border-white/[0.08]">
-
               <span className="font-display text-[10px] tracking-[-0.05em] text-white/25">
                 KD
               </span>
-
             </div>
 
             <p className="mt-4 font-mono text-[5px] uppercase tracking-[0.5em] text-white/15">
@@ -946,13 +846,10 @@ export default function Gallery() {
             <p className="mt-2 font-serif text-sm italic text-white/20">
               Some memories deserve another look.
             </p>
-
           </div>
 
           <span className="h-px flex-1 bg-white/[0.06]" />
-
         </div>
-
       </footer>
 
       {/* ========================================================
@@ -960,7 +857,6 @@ export default function Gallery() {
       ======================================================== */}
 
       <div className="mt-16 flex items-center justify-center gap-3 sm:mt-20">
-
         <span className="h-px w-8 bg-white/[0.06]" />
 
         <span className="font-mono text-[5px] uppercase tracking-[0.45em] text-white/10">
@@ -968,7 +864,6 @@ export default function Gallery() {
         </span>
 
         <span className="h-px w-8 bg-white/[0.06]" />
-
       </div>
 
       {/* ========================================================
@@ -991,13 +886,8 @@ export default function Gallery() {
           "
           onClick={closePhoto}
         >
-
-          {/* ======================================================
-              VIEWER BACKDROP
-          ====================================================== */}
-
+          {/* Viewer backdrop */}
           <div className="pointer-events-none absolute inset-0 overflow-hidden">
-
             <img
               src={selected.image}
               alt=""
@@ -1024,14 +914,10 @@ export default function Gallery() {
               "
             />
 
-            <div className="absolute inset-0 viewer-noise opacity-[0.025]" />
-
+            <div className="viewer-noise absolute inset-0 opacity-[0.025]" />
           </div>
 
-          {/* ======================================================
-              TOP BAR
-          ====================================================== */}
-
+          {/* Top bar */}
           <div
             className="
               absolute
@@ -1047,9 +933,7 @@ export default function Gallery() {
               sm:top-8
             "
           >
-
             <div>
-
               <p className="font-mono text-[5px] uppercase tracking-[0.5em] text-white/20">
                 MEMORY ARCHIVE
               </p>
@@ -1059,16 +943,12 @@ export default function Gallery() {
               </p>
 
               <div className="mt-2 flex items-center gap-2">
-
                 <span className="h-1 w-1 rounded-full bg-white/40" />
 
                 <span className="font-mono text-[5px] uppercase tracking-[0.3em] text-white/20">
-                  FRAME{" "}
-                  {String(selectedIndex + 1).padStart(2, "0")}
+                  FRAME {String(selectedIndex + 1).padStart(2, "0")}
                 </span>
-
               </div>
-
             </div>
 
             <button
@@ -1098,18 +978,11 @@ export default function Gallery() {
               "
               aria-label="Close"
             >
-              <X
-                size={15}
-                strokeWidth={1.2}
-              />
+              <X size={15} strokeWidth={1.2} />
             </button>
-
           </div>
 
-          {/* ======================================================
-              MAIN IMAGE
-          ====================================================== */}
-
+          {/* Main image */}
           <div
             className="
               relative
@@ -1123,13 +996,10 @@ export default function Gallery() {
             "
             onClick={(event) => event.stopPropagation()}
           >
-
             {/* Image glow */}
-
             <div className="pointer-events-none absolute -inset-8 rounded-full bg-white/[0.025] blur-3xl" />
 
             {/* Image */}
-
             <img
               src={selected.image}
               alt={selected.title}
@@ -1147,21 +1017,16 @@ export default function Gallery() {
             />
 
             {/* Film corners */}
-
             <span className="absolute -left-2 -top-2 h-7 w-7 border-l border-t border-white/25 sm:-left-4 sm:-top-4 sm:h-10 sm:w-10" />
-
             <span className="absolute -right-2 -top-2 h-7 w-7 border-r border-t border-white/25 sm:-right-4 sm:-top-4 sm:h-10 sm:w-10" />
-
             <span className="absolute -bottom-2 -left-2 h-7 w-7 border-b border-l border-white/25 sm:-bottom-4 sm:-left-4 sm:h-10 sm:w-10" />
-
             <span className="absolute -bottom-2 -right-2 h-7 w-7 border-b border-r border-white/25 sm:-bottom-4 sm:-right-4 sm:h-10 sm:w-10" />
 
+            {/* Viewer scan line */}
+            <span className="pointer-events-none absolute left-0 top-0 h-px w-full animate-viewerScan bg-gradient-to-r from-transparent via-white/50 to-transparent" />
           </div>
 
-          {/* ======================================================
-              PREVIOUS
-          ====================================================== */}
-
+          {/* Previous */}
           {photos.length > 1 && (
             <button
               type="button"
@@ -1202,10 +1067,7 @@ export default function Gallery() {
             </button>
           )}
 
-          {/* ======================================================
-              NEXT
-          ====================================================== */}
-
+          {/* Next */}
           {photos.length > 1 && (
             <button
               type="button"
@@ -1246,10 +1108,7 @@ export default function Gallery() {
             </button>
           )}
 
-          {/* ======================================================
-              BOTTOM INFORMATION
-          ====================================================== */}
-
+          {/* Bottom information */}
           <div
             className="
               absolute
@@ -1261,13 +1120,11 @@ export default function Gallery() {
               sm:bottom-8
             "
           >
-
             <p className="font-mono text-[5px] uppercase tracking-[0.4em] text-white/20">
               {selected.date}
             </p>
 
             <div className="mt-3 flex items-center justify-center gap-4">
-
               <span className="h-px w-8 bg-white/10" />
 
               <span className="font-mono text-[6px] tracking-[0.4em] text-white/35">
@@ -1277,17 +1134,11 @@ export default function Gallery() {
               </span>
 
               <span className="h-px w-8 bg-white/10" />
-
             </div>
-
           </div>
 
-          {/* ======================================================
-              DESKTOP KEYBOARD
-          ====================================================== */}
-
+          {/* Desktop keyboard */}
           <div className="absolute bottom-7 right-8 hidden items-center gap-2 sm:flex">
-
             <Maximize2
               size={9}
               strokeWidth={1}
@@ -1297,9 +1148,7 @@ export default function Gallery() {
             <span className="font-mono text-[5px] uppercase tracking-[0.3em] text-white/15">
               ESC TO CLOSE
             </span>
-
           </div>
-
         </div>
       )}
 
@@ -1328,8 +1177,36 @@ export default function Gallery() {
           }
         }
 
+        @keyframes viewerScan {
+          0% {
+            transform: translateY(-20%);
+            opacity: 0;
+          }
+
+          15% {
+            opacity: 0.4;
+          }
+
+          50% {
+            opacity: 0.2;
+          }
+
+          85% {
+            opacity: 0.4;
+          }
+
+          100% {
+            transform: translateY(120%);
+            opacity: 0;
+          }
+        }
+
         .animate-photoScan {
           animation: photoScan 1.15s cubic-bezier(.22,1,.36,1);
+        }
+
+        .animate-viewerScan {
+          animation: viewerScan 3.5s linear infinite;
         }
 
         .gallery-grid {
@@ -1367,10 +1244,7 @@ export default function Gallery() {
             background-size: 55px 55px;
           }
 
-          .gallery-noise {
-            display: none;
-          }
-
+          .gallery-noise,
           .viewer-noise {
             display: none;
           }
@@ -1378,15 +1252,24 @@ export default function Gallery() {
           .paper-noise {
             opacity: .025;
           }
+
+          .animate-viewerScan {
+            animation-duration: 5s;
+          }
         }
 
         @media (prefers-reduced-motion: reduce) {
-          .animate-photoScan {
+          .animate-photoScan,
+          .animate-viewerScan {
             animation: none;
           }
 
-          * {
+          *,
+          *::before,
+          *::after {
             scroll-behavior: auto !important;
+            transition-duration: 0.01ms !important;
+            animation-duration: 0.01ms !important;
           }
         }
       `}</style>

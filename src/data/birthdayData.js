@@ -30,41 +30,42 @@ export const birthdayData = {
     },
     {
       id: 2,
-      title: "The Funny Days",
-      date: "09.04.24",
-      category: "laughter",
-      description:
-        "The moments that made absolutely no sense somehow became the ones that were impossible to forget.",
-      image:
-        "https://images.unsplash.com/photo-1529156069898-49953e39b3ac?auto=format&fit=crop&w=1400&q=85",
-      color: "rose",
-    },
-    {
-      id: 3,
       title: "Vivace",
       date: "04.13.26",
       category: "cafe",
       description:
         "Vivace felt like another world—lights glowing, LED walls surrounding us, and you beside me. We went there to make videos, but somehow, we ended up making a memory I'll want to keep forever.",
       image:
-        "/images/memories/memories-image3.jpg",
+        "/images/memories/memories-image2.jpg",
       color: "blue",
     },
     {
-      id: 4,
-      title: "The One I Almost Deleted",
-      date: "02.14.25",
-      category: "secret",
+      id: 3,
+      title: "Graduation",
+      date: "06.19.26",
+      category: "graduate",
       description:
-        "Some memories are almost forgotten. Until you find them again and realize you were never ready to let them go.",
+        "You faced the struggles, the tears, and the moments that almost broke you. But you chose to keep going, to stay strong, and to believe in yourself. You made it. You graduated. And every tear along the way became part of the victory you earned.",
       image:
-        "https://images.unsplash.com/photo-1511988617509-a57c8a288659?auto=format&fit=crop&w=1400&q=85",
-      color: "violet",
+        "/images/memories/memories-image4.jpg",
+      color: "blue",
     },
+     {
+      id: 4,
+      title: "Outing",
+      date: "11.12.25",
+      category: "beginning",
+      description:
+        "A day away from everything, where the waves were loud, the laughter was endless, and for a little while, nothing else mattered. Just us, the sea, and a memory worth keeping forever. ",
+      image:
+        "/images/memories/memories-image3.jpg",
+      color: "amber",
+    },
+     
     {
       id: 5,
       title: "Spiderman",
-      date: "07.30.26",
+      date: "07.31.26",
       category: "movie",
       description:
         "I was so happy knowing you watched all the Spider-Man movies just so you could watch the new one with me. It may seem like a small thing, but knowing you did that just to share that moment with me made it really special",
@@ -75,12 +76,12 @@ export const birthdayData = {
     {
       id: 6,
       title: "Still Here",
-      date: "08.17.25",
+      date: "08.09.25",
       category: "meaning",
       description:
-        "A year passed, but the memories stayed. And somehow, there are still so many chapters waiting to be written.",
+        "You were ready to let go, but my heart finally knew where it belonged. So I came back to you. And beneath the fireworks, somehow, we found our way back to us.",
       image:
-        "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1400&q=85",
+        "/images/memories/memories-image6.jpg",
       color: "cyan",
     },
   ],
@@ -89,14 +90,14 @@ export const birthdayData = {
     {
       id: "g1",
       title: "Golden Hour",
-      date: "08.17.24",
+      date: "04.02.26",
       image:
-        "https://images.unsplash.com/photo-1500534623283-312aade485b7?auto=format&fit=crop&w=1800&q=90",
+        "/images/gallery/gallery-image1.jpg",
       rotation: -3,
     },
     {
       id: "g2",
-      title: "Spiderman",
+      title: "Fundate",
       date: "07.30.26",
       image:
         "/images/gallery/gallery-image2.jpg",
@@ -104,18 +105,18 @@ export const birthdayData = {
     },
     {
       id: "g3",
-      title: "A Good Day",
-      date: "04.02.26",
+      title: "Happy to be with u",
+      date: "08.09.25",
       image:
-        "/images/gallery/gallery-image1.jpg",
+        "/images/gallery/gallery-image3.jpg",
       rotation: -2,
     },
     {
       id: "g4",
-      title: "My Day",
-      date: "01.10.25",
+      title: "Late Night",
+      date: "06.26.26",
       image:
-        "/images/gallery/gallery-image3.jpg",
+        "/images/gallery/gallery-image4.jpg",
       rotation: 2,
     },
     {
@@ -123,7 +124,7 @@ export const birthdayData = {
       title: "Keep This One",
       date: "04.02.25",
       image:
-        "https://images.unsplash.com/photo-1490730141103-6cac27aaab94?auto=format&fit=crop&w=1800&q=90",
+        "/images/gallery/gallery-image5.jpg",
       rotation: -4,
     },
     {
@@ -131,7 +132,7 @@ export const birthdayData = {
       title: "Until Next Time",
       date: "07.19.25",
       image:
-        "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1800&q=90",
+        "/images/gallery/gallery-image6.jpg",
       rotation: 3,
     },
   ],

@@ -16,7 +16,11 @@ export default function MusicPlayer({ enabled = true }) {
       return;
     }
 
-    audio.volume = 0.15;
+    // Volume
+    audio.volume = 0.10;
+
+    // Loop the song continuously
+    audio.loop = true;
 
     // Mobile-friendly settings
     audio.src = song.src;
@@ -80,6 +84,7 @@ export default function MusicPlayer({ enabled = true }) {
       ref={audioRef}
       preload="metadata"
       playsInline
+      loop
       aria-hidden="true"
       style={{ display: "none" }}
     />

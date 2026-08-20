@@ -1,11 +1,11 @@
 import {
   ArrowUpRight,
-  BookOpen,
   CircleDot,
   FileText,
   Gift,
   Images,
   Moon,
+  Sparkles,
   Star,
   Gamepad2,
 } from "lucide-react";
@@ -41,11 +41,11 @@ const destinations = [
     icon: FileText,
   },
   {
-    path: "/journal",
-    label: "Journal",
+    path: "/create",
+    label: "Create",
     code: "05",
-    description: "PRIVATE LOG",
-    icon: BookOpen,
+    description: "SOMETHING MADE FOR YOU",
+    icon: Sparkles,
   },
   {
     path: "/wish",

@@ -15,7 +15,7 @@ import Universe from "./pages/Universe";
 import Memories from "./pages/Memories";
 import Gallery from "./pages/Gallery";
 import Letters from "./pages/Letters";
-import Journal from "./pages/Journal";
+import Create from "./pages/Create";
 import Wish from "./pages/Wish";
 import Celebration from "./pages/Celebration";
 import MemoryGame from "./pages/MemoryGame";
@@ -94,10 +94,10 @@ function AppContent() {
       />
 
       <Route
-        path="/journal"
+        path="/create"
         element={
           <UniverseLayout>
-            <Journal />
+            <Create />
           </UniverseLayout>
         }
       />
