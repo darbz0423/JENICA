@@ -47,7 +47,7 @@ export const birthdayData = {
       description:
         "You faced the struggles, the tears, and the moments that almost broke you. But you chose to keep going, to stay strong, and to believe in yourself. You made it. You graduated. And every tear along the way became part of the victory you earned.",
       image:
-        "/images/memories/memories-image4.jpg",
+        "/images/memories/memories-image3.jpg",
       color: "blue",
     },
      {
@@ -58,7 +58,7 @@ export const birthdayData = {
       description:
         "A day away from everything, where the waves were loud, the laughter was endless, and for a little while, nothing else mattered. Just us, the sea, and a memory worth keeping forever. ",
       image:
-        "/images/memories/memories-image3.jpg",
+        "/images/memories/memories-image4.jpg",
       color: "amber",
     },
      
@@ -71,7 +71,7 @@ export const birthdayData = {
         "I was so happy knowing you watched all the Spider-Man movies just so you could watch the new one with me. It may seem like a small thing, but knowing you did that just to share that moment with me made it really special",
       image:
         "/images/memories/memories-image5.jpg",
-      color: "gold",
+      color: "red",
     },
     {
       id: 6,
