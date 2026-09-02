@@ -13,6 +13,11 @@ import { useNavigate } from "react-router-dom";
 const TARGET_POINTS = 120;
 const MAX_POINTS = 900;
 
+const MIN_POINT_DISTANCE = 2.8;
+const MOBILE_MIN_POINT_DISTANCE = 3.6;
+
+const PROGRESS_UPDATE_INTERVAL = 80;
+
 const STAR_SENTENCES = [
   "A quiet star made for the moments that are impossible to forget.",
   "Your star feels like a memory that refused to disappear.",
@@ -31,7 +36,7 @@ const STAR_SENTENCES = [
   "Maybe the universe needed exactly this star.",
 ];
 
-const ambientStars = Array.from({ length: 110 }, (_, i) => ({
+const ambientStars = Array.from({ length: 80 }, (_, i) => ({
   id: i,
   x: (i * 47.73 + 3) % 100,
   y: (i * 83.17 + 7) % 100,
@@ -50,73 +55,105 @@ const ambientStars = Array.from({ length: 110 }, (_, i) => ({
 export default function Create() {
   const navigate = useNavigate();
 
+  // =========================================================
+  // CANVAS REFS
+  // =========================================================
+
   const canvasRef = useRef(null);
 
+  const ctxRef = useRef(null);
+
+  const rectRef = useRef({
+    width: 0,
+    height: 0,
+    left: 0,
+    top: 0,
+  });
+
+  const dprRef = useRef(1);
+
+  // =========================================================
+  // DRAWING DATA
+  // =========================================================
+
   const strokesRef = useRef([]);
+
   const currentStrokeRef = useRef(null);
 
   const drawingRef = useRef(false);
+
   const completedRef = useRef(false);
 
-  const animationFrameRef = useRef(null);
+  const pointCountRef = useRef(0);
+
+  // =========================================================
+  // RAF OPTIMIZATION
+  // =========================================================
+
+  const renderFrameRef = useRef(null);
+
+  const pointerFrameRef = useRef(null);
+
+  const pendingPointRef = useRef(null);
+
+  const lastProgressUpdateRef = useRef(0);
+
+  // =========================================================
+  // UI STATE
+  // =========================================================
 
   const [started, setStarted] = useState(false);
+
   const [progress, setProgress] = useState(0);
+
   const [completed, setCompleted] = useState(false);
+
   const [showReveal, setShowReveal] = useState(false);
+
   const [hint, setHint] = useState(false);
+
   const [starSentence, setStarSentence] = useState("");
 
+  const [drawingImage, setDrawingImage] = useState("");
+
   // =========================================================
-  // Stores an image of the user's finished constellation.
+  // DEVICE DETECTION
   // =========================================================
 
-  const [drawingImage, setDrawingImage] = useState("");
+  const isMobileDevice = useCallback(() => {
+    if (typeof window === "undefined") return false;
+
+    return (
+      window.matchMedia?.("(pointer: coarse)").matches ||
+      window.innerWidth < 768
+    );
+  }, []);
 
   // =========================================================
   // HELPERS
   // =========================================================
 
-  const getAllPoints = () => {
-    return strokesRef.current.flat();
-  };
+  const getAllPoints = useCallback(() => {
+    const points = [];
 
-  const getPointCount = () => {
-    return strokesRef.current.reduce(
-      (total, stroke) => total + stroke.length,
-      0
-    );
-  };
+    for (const stroke of strokesRef.current) {
+      for (const point of stroke) {
+        points.push(point);
+      }
+    }
 
-  // =========================================================
-  // CANVAS SETUP
-  // =========================================================
+    return points;
+  }, []);
 
-  const resizeCanvas = useCallback(() => {
-    const canvas = canvasRef.current;
-
-    if (!canvas) return;
-
-    const rect = canvas.getBoundingClientRect();
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
-
-    canvas.width = Math.max(1, Math.round(rect.width * dpr));
-    canvas.height = Math.max(1, Math.round(rect.height * dpr));
-
-    const ctx = canvas.getContext("2d");
-
-    if (!ctx) return;
-
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-
-    draw();
+  const getPointCount = useCallback(() => {
+    return pointCountRef.current;
   }, []);
 
   // =========================================================
-  // BACKGROUND
+  // CANVAS BACKGROUND
   // =========================================================
 
-  const drawBackground = (ctx, width, height) => {
+  const drawBackground = useCallback((ctx, width, height) => {
     ctx.clearRect(0, 0, width, height);
 
     const gradient = ctx.createRadialGradient(
@@ -149,7 +186,13 @@ export default function Create() {
     );
 
     ctx.fillStyle = gradient;
-    ctx.fillRect(0, 0, width, height);
+
+    ctx.fillRect(
+      0,
+      0,
+      width,
+      height
+    );
 
     const centerGlow = ctx.createRadialGradient(
       width / 2,
@@ -176,367 +219,243 @@ export default function Create() {
     );
 
     ctx.fillStyle = centerGlow;
-    ctx.fillRect(0, 0, width, height);
-  };
-
-  // =========================================================
-  // SMOOTH STROKE
-  // =========================================================
-
-  const drawSmoothStroke = (ctx, points) => {
-    if (!points || points.length === 0) return;
-
-    if (points.length === 1) {
-      const point = points[0];
-
-      ctx.beginPath();
-      ctx.arc(point.x, point.y, 2, 0, Math.PI * 2);
-
-      ctx.fillStyle = "rgba(255,240,210,.95)";
-      ctx.shadowColor = "rgba(255,225,170,.95)";
-      ctx.shadowBlur = 14;
-
-      ctx.fill();
-
-      ctx.shadowBlur = 0;
-
-      return;
-    }
-
-    if (points.length === 2) {
-      ctx.beginPath();
-
-      ctx.moveTo(points[0].x, points[0].y);
-      ctx.lineTo(points[1].x, points[1].y);
-
-      ctx.stroke();
-
-      return;
-    }
-
-    ctx.beginPath();
-
-    ctx.moveTo(points[0].x, points[0].y);
-
-    for (let i = 1; i < points.length - 1; i++) {
-      const current = points[i];
-      const next = points[i + 1];
-
-      const midpointX =
-        (current.x + next.x) / 2;
-
-      const midpointY =
-        (current.y + next.y) / 2;
-
-      ctx.quadraticCurveTo(
-        current.x,
-        current.y,
-        midpointX,
-        midpointY
-      );
-    }
-
-    const secondLast =
-      points[points.length - 2];
-
-    const last =
-      points[points.length - 1];
-
-    ctx.quadraticCurveTo(
-      secondLast.x,
-      secondLast.y,
-      last.x,
-      last.y
-    );
-
-    ctx.stroke();
-  };
-
-  // =========================================================
-  // CONSTELLATION
-  // =========================================================
-
-  const drawConstellation = (ctx) => {
-    const strokes = strokesRef.current;
-
-    if (!strokes.length) return;
-
-    // Glow underlay
-
-    ctx.save();
-
-    ctx.lineCap = "round";
-    ctx.lineJoin = "round";
-
-    ctx.strokeStyle =
-      "rgba(255,220,160,.13)";
-
-    ctx.lineWidth = 7;
-
-    ctx.shadowColor =
-      "rgba(255,215,150,.35)";
-
-    ctx.shadowBlur = 18;
-
-    strokes.forEach((stroke) => {
-      drawSmoothStroke(ctx, stroke);
-    });
-
-    ctx.restore();
-
-    // Main hand-drawn ink
-
-    ctx.save();
-
-    ctx.lineCap = "round";
-    ctx.lineJoin = "round";
-
-    ctx.strokeStyle =
-      "rgba(255,238,205,.78)";
-
-    ctx.lineWidth = 1.15;
-
-    ctx.shadowColor =
-      "rgba(255,220,160,.75)";
-
-    ctx.shadowBlur = 9;
-
-    strokes.forEach((stroke) => {
-      drawSmoothStroke(ctx, stroke);
-    });
-
-    ctx.restore();
-
-    // Thin highlight
-
-    ctx.save();
-
-    ctx.lineCap = "round";
-    ctx.lineJoin = "round";
-
-    ctx.strokeStyle =
-      "rgba(255,255,255,.28)";
-
-    ctx.lineWidth = 0.45;
-
-    strokes.forEach((stroke) => {
-      drawSmoothStroke(ctx, stroke);
-    });
-
-    ctx.restore();
-
-    // Star nodes
-
-    strokes.forEach((stroke) => {
-      stroke.forEach((point, index) => {
-        const isFirst = index === 0;
-
-        const isEnd =
-          index === stroke.length - 1;
-
-        const isMajor =
-          index % 18 === 0;
-
-        if (
-          !isFirst &&
-          !isEnd &&
-          !isMajor
-        ) {
-          return;
-        }
-
-        const radius = isEnd
-          ? 3.3
-          : isMajor
-          ? 2.1
-          : 1.15;
-
-        ctx.beginPath();
-
-        ctx.arc(
-          point.x,
-          point.y,
-          radius,
-          0,
-          Math.PI * 2
-        );
-
-        ctx.fillStyle = isEnd
-          ? "rgba(255,255,255,.98)"
-          : "rgba(255,239,205,.82)";
-
-        ctx.shadowColor =
-          "rgba(255,225,165,.95)";
-
-        ctx.shadowBlur = isEnd
-          ? 25
-          : 11;
-
-        ctx.fill();
-
-        ctx.shadowBlur = 0;
-
-        if (isMajor || isEnd) {
-          ctx.save();
-
-          ctx.strokeStyle = isEnd
-            ? "rgba(255,245,220,.45)"
-            : "rgba(255,235,195,.2)";
-
-          ctx.lineWidth = 0.45;
-
-          ctx.beginPath();
-
-          ctx.moveTo(
-            point.x - radius * 3,
-            point.y
-          );
-
-          ctx.lineTo(
-            point.x + radius * 3,
-            point.y
-          );
-
-          ctx.moveTo(
-            point.x,
-            point.y - radius * 3
-          );
-
-          ctx.lineTo(
-            point.x,
-            point.y + radius * 3
-          );
-
-          ctx.stroke();
-
-          ctx.restore();
-        }
-      });
-    });
-
-    // Last point aura
-
-    const allPoints = getAllPoints();
-
-    const last =
-      allPoints[allPoints.length - 1];
-
-    if (!last) return;
-
-    const aura = ctx.createRadialGradient(
-      last.x,
-      last.y,
-      0,
-      last.x,
-      last.y,
-      65
-    );
-
-    aura.addColorStop(
-      0,
-      "rgba(255,245,220,.22)"
-    );
-
-    aura.addColorStop(
-      0.2,
-      "rgba(255,225,170,.09)"
-    );
-
-    aura.addColorStop(
-      1,
-      "rgba(255,225,170,0)"
-    );
-
-    ctx.fillStyle = aura;
 
     ctx.fillRect(
-      last.x - 70,
-      last.y - 70,
-      140,
-      140
+      0,
+      0,
+      width,
+      height
     );
-  };
+  }, []);
 
   // =========================================================
-  // PARTICLES
+  // DRAW SINGLE DOT
   // =========================================================
 
-  const drawParticles = (ctx) => {
-    if (!drawingRef.current) return;
-
-    const allPoints = getAllPoints();
-
-    const last =
-      allPoints[allPoints.length - 1];
-
-    if (!last) return;
-
-    const now = Date.now();
-
-    for (let i = 0; i < 12; i++) {
-      const angle =
-        (Math.PI * 2 * i) / 12;
-
-      const radius =
-        9 +
-        Math.sin(
-          now / 240 + i * 1.7
-        ) * 5;
-
-      const x =
-        last.x +
-        Math.cos(angle) * radius;
-
-      const y =
-        last.y +
-        Math.sin(angle) * radius;
-
-      const size =
-        0.45 +
-        Math.sin(
-          now / 180 + i
-        ) * 0.25;
+  const drawDot = useCallback(
+    (ctx, point) => {
+      ctx.save();
 
       ctx.beginPath();
 
       ctx.arc(
-        x,
-        y,
-        Math.max(0.2, size),
+        point.x,
+        point.y,
+        1.8,
         0,
         Math.PI * 2
       );
 
       ctx.fillStyle =
-        "rgba(255,235,190,.55)";
+        "rgba(255,240,210,.95)";
 
       ctx.shadowColor =
-        "rgba(255,225,170,.5)";
+        "rgba(255,225,170,.9)";
 
-      ctx.shadowBlur = 5;
+      ctx.shadowBlur = 10;
 
       ctx.fill();
 
+      ctx.restore();
+    },
+    []
+  );
+
+  // =========================================================
+  // DRAW FAST SEGMENT
+  //
+  // This is the important optimization.
+  //
+  // Instead of redrawing every point on every pointer move,
+  // we only draw the newest section.
+  // =========================================================
+
+  const drawSegment = useCallback(
+    (ctx, previous, current, beforePrevious) => {
+      if (!ctx || !previous || !current) return;
+
+      ctx.save();
+
+      ctx.lineCap = "round";
+
+      ctx.lineJoin = "round";
+
+      // -----------------------------------------
+      // Glow underlay
+      // -----------------------------------------
+
+      ctx.beginPath();
+
+      ctx.strokeStyle =
+        "rgba(255,220,160,.16)";
+
+      ctx.lineWidth = 5.5;
+
+      ctx.shadowColor =
+        "rgba(255,215,150,.28)";
+
+      ctx.shadowBlur = 12;
+
+      if (beforePrevious) {
+        const midX =
+          (previous.x + current.x) / 2;
+
+        const midY =
+          (previous.y + current.y) / 2;
+
+        ctx.moveTo(
+          beforePrevious.x,
+          beforePrevious.y
+        );
+
+        ctx.quadraticCurveTo(
+          previous.x,
+          previous.y,
+          midX,
+          midY
+        );
+      } else {
+        ctx.moveTo(
+          previous.x,
+          previous.y
+        );
+
+        ctx.lineTo(
+          current.x,
+          current.y
+        );
+      }
+
+      ctx.stroke();
+
+      // -----------------------------------------
+      // Main line
+      // -----------------------------------------
+
+      ctx.beginPath();
+
+      ctx.strokeStyle =
+        "rgba(255,238,205,.82)";
+
+      ctx.lineWidth = 1.15;
+
+      ctx.shadowColor =
+        "rgba(255,220,160,.65)";
+
+      ctx.shadowBlur = 6;
+
+      if (beforePrevious) {
+        const midX =
+          (previous.x + current.x) / 2;
+
+        const midY =
+          (previous.y + current.y) / 2;
+
+        ctx.moveTo(
+          beforePrevious.x,
+          beforePrevious.y
+        );
+
+        ctx.quadraticCurveTo(
+          previous.x,
+          previous.y,
+          midX,
+          midY
+        );
+      } else {
+        ctx.moveTo(
+          previous.x,
+          previous.y
+        );
+
+        ctx.lineTo(
+          current.x,
+          current.y
+        );
+      }
+
+      ctx.stroke();
+
+      // -----------------------------------------
+      // Thin highlight
+      // -----------------------------------------
+
       ctx.shadowBlur = 0;
-    }
-  };
+
+      ctx.beginPath();
+
+      ctx.strokeStyle =
+        "rgba(255,255,255,.22)";
+
+      ctx.lineWidth = 0.45;
+
+      ctx.moveTo(
+        previous.x,
+        previous.y
+      );
+
+      ctx.lineTo(
+        current.x,
+        current.y
+      );
+
+      ctx.stroke();
+
+      ctx.restore();
+    },
+    []
+  );
 
   // =========================================================
-  // DRAW
+  // DRAW STAR NODE
   // =========================================================
 
-  const draw = useCallback(() => {
+  const drawNode = useCallback(
+    (ctx, point, radius = 2) => {
+      if (!ctx || !point) return;
+
+      ctx.save();
+
+      ctx.beginPath();
+
+      ctx.arc(
+        point.x,
+        point.y,
+        radius,
+        0,
+        Math.PI * 2
+      );
+
+      ctx.fillStyle =
+        "rgba(255,245,220,.92)";
+
+      ctx.shadowColor =
+        "rgba(255,225,165,.8)";
+
+      ctx.shadowBlur = 10;
+
+      ctx.fill();
+
+      ctx.restore();
+    },
+    []
+  );
+
+  // =========================================================
+  // DRAW STROKE FROM SCRATCH
+  //
+  // Only used on resize / reset / completion.
+  // NOT every pointer movement.
+  // =========================================================
+
+  const redrawEverything = useCallback(() => {
     const canvas = canvasRef.current;
 
-    if (!canvas) return;
+    const ctx = ctxRef.current;
 
-    const rect =
-      canvas.getBoundingClientRect();
+    if (!canvas || !ctx) return;
 
-    const ctx =
-      canvas.getContext("2d");
-
-    if (!ctx) return;
+    const rect = rectRef.current;
 
     drawBackground(
       ctx,
@@ -544,37 +463,191 @@ export default function Create() {
       rect.height
     );
 
-    drawConstellation(ctx);
+    for (const stroke of strokesRef.current) {
+      if (!stroke.length) continue;
 
-    drawParticles(ctx);
+      if (stroke.length === 1) {
+        drawDot(
+          ctx,
+          stroke[0]
+        );
 
-    if (drawingRef.current) {
-      animationFrameRef.current =
-        requestAnimationFrame(draw);
+        continue;
+      }
+
+      for (
+        let i = 1;
+        i < stroke.length;
+        i++
+      ) {
+        const beforePrevious =
+          i > 1
+            ? stroke[i - 2]
+            : null;
+
+        const previous =
+          stroke[i - 1];
+
+        const current =
+          stroke[i];
+
+        drawSegment(
+          ctx,
+          previous,
+          current,
+          beforePrevious
+        );
+
+        if (
+          i % 18 === 0 ||
+          i === stroke.length - 1
+        ) {
+          drawNode(
+            ctx,
+            current,
+            i === stroke.length - 1
+              ? 2.7
+              : 1.7
+          );
+        }
+      }
+
+      drawNode(
+        ctx,
+        stroke[0],
+        1.4
+      );
     }
-  }, []);
+  }, [
+    drawBackground,
+    drawDot,
+    drawSegment,
+    drawNode,
+  ]);
 
   // =========================================================
-  // RESIZE
+  // CANVAS RESIZE
+  // =========================================================
+
+  const resizeCanvas = useCallback(() => {
+    const canvas = canvasRef.current;
+
+    if (!canvas) return;
+
+    const rect =
+      canvas.getBoundingClientRect();
+
+    // Mobile performance optimization.
+    //
+    // DPR 3 or 4 can make a canvas extremely expensive.
+    // Cap mobile rendering.
+
+    const maxDpr =
+      isMobileDevice()
+        ? 1.75
+        : 2;
+
+    const dpr = Math.min(
+      window.devicePixelRatio || 1,
+      maxDpr
+    );
+
+    dprRef.current = dpr;
+
+    rectRef.current = {
+      width: rect.width,
+      height: rect.height,
+      left: rect.left,
+      top: rect.top,
+    };
+
+    canvas.width = Math.max(
+      1,
+      Math.round(
+        rect.width * dpr
+      )
+    );
+
+    canvas.height = Math.max(
+      1,
+      Math.round(
+        rect.height * dpr
+      )
+    );
+
+    const ctx =
+      canvas.getContext(
+        "2d",
+        {
+          alpha: true,
+          desynchronized: true,
+        }
+      );
+
+    if (!ctx) return;
+
+    ctxRef.current = ctx;
+
+    ctx.setTransform(
+      dpr,
+      0,
+      0,
+      dpr,
+      0,
+      0
+    );
+
+    redrawEverything();
+  }, [
+    redrawEverything,
+    isMobileDevice,
+  ]);
+
+  // =========================================================
+  // RESIZE OBSERVER
   // =========================================================
 
   useEffect(() => {
     resizeCanvas();
 
+    const canvas =
+      canvasRef.current;
+
+    if (!canvas) return;
+
+    const resizeObserver =
+      new ResizeObserver(() => {
+        resizeCanvas();
+      });
+
+    resizeObserver.observe(canvas);
+
     window.addEventListener(
-      "resize",
+      "orientationchange",
       resizeCanvas
     );
 
     return () => {
+      resizeObserver.disconnect();
+
       window.removeEventListener(
-        "resize",
+        "orientationchange",
         resizeCanvas
       );
 
-      if (animationFrameRef.current) {
+      if (
+        renderFrameRef.current
+      ) {
         cancelAnimationFrame(
-          animationFrameRef.current
+          renderFrameRef.current
+        );
+      }
+
+      if (
+        pointerFrameRef.current
+      ) {
+        cancelAnimationFrame(
+          pointerFrameRef.current
         );
       }
     };
@@ -584,262 +657,474 @@ export default function Create() {
   // POINTER POSITION
   // =========================================================
 
-  const getPointerPosition = (event) => {
-    const canvas =
-      canvasRef.current;
+  const getPointerPosition = useCallback(
+    (event) => {
+      const rect =
+        rectRef.current;
 
-    if (!canvas) return null;
+      return {
+        x:
+          event.clientX -
+          rect.left,
 
-    const rect =
-      canvas.getBoundingClientRect();
-
-    return {
-      x:
-        event.clientX -
-        rect.left,
-
-      y:
-        event.clientY -
-        rect.top,
-    };
-  };
+        y:
+          event.clientY -
+          rect.top,
+      };
+    },
+    []
+  );
 
   // =========================================================
   // PROGRESS
+  //
+  // React state is throttled.
   // =========================================================
 
-  const updateProgress = () => {
-    const count =
-      getPointCount();
+  const updateProgress = useCallback(
+    (force = false) => {
+      const now =
+        performance.now();
 
-    const nextProgress =
-      Math.min(
-        100,
-        Math.round(
-          (count / TARGET_POINTS) *
-            100
-        )
+      if (
+        !force &&
+        now -
+          lastProgressUpdateRef.current <
+          PROGRESS_UPDATE_INTERVAL
+      ) {
+        return;
+      }
+
+      lastProgressUpdateRef.current =
+        now;
+
+      const count =
+        pointCountRef.current;
+
+      const nextProgress =
+        Math.min(
+          100,
+          Math.round(
+            (count / TARGET_POINTS) *
+              100
+          )
+        );
+
+      setProgress(
+        (previous) =>
+          previous === nextProgress
+            ? previous
+            : nextProgress
       );
-
-    setProgress(nextProgress);
-  };
-
-  // =========================================================
-  // POINTER DOWN
-  // =========================================================
-
-  const handlePointerDown = (event) => {
-    if (completedRef.current) {
-      return;
-    }
-
-    event.preventDefault();
-
-    const point =
-      getPointerPosition(event);
-
-    if (!point) return;
-
-    drawingRef.current = true;
-
-    const newStroke = [point];
-
-    strokesRef.current.push(
-      newStroke
-    );
-
-    currentStrokeRef.current =
-      newStroke;
-
-    setStarted(true);
-    setHint(false);
-
-    updateProgress();
-
-    try {
-      event.currentTarget.setPointerCapture(
-        event.pointerId
-      );
-    } catch {
-      // Ignore unsupported pointer capture.
-    }
-
-    draw();
-  };
+    },
+    []
+  );
 
   // =========================================================
-  // POINTER MOVE
+  // ADD POINT
+  //
+  // Runs once per animation frame.
   // =========================================================
 
-  const handlePointerMove = (event) => {
-    if (
-      !drawingRef.current ||
-      completedRef.current
-    ) {
-      return;
-    }
+  const processPendingPoint =
+    useCallback(() => {
+      pointerFrameRef.current = null;
 
-    event.preventDefault();
+      if (
+        !drawingRef.current ||
+        completedRef.current
+      ) {
+        return;
+      }
 
-    const currentStroke =
-      currentStrokeRef.current;
+      const point =
+        pendingPointRef.current;
 
-    if (!currentStroke) return;
+      pendingPointRef.current =
+        null;
 
-    if (
-      getPointCount() >= MAX_POINTS
-    ) {
-      drawingRef.current = false;
+      if (!point) return;
 
-      updateProgress();
-      draw();
+      const stroke =
+        currentStrokeRef.current;
 
-      return;
-    }
+      if (!stroke) return;
 
-    const point =
-      getPointerPosition(event);
+      if (
+        pointCountRef.current >=
+        MAX_POINTS
+      ) {
+        drawingRef.current = false;
 
-    if (!point) return;
+        updateProgress(true);
 
-    const last =
-      currentStroke[
-        currentStroke.length - 1
-      ];
+        return;
+      }
 
-    if (last) {
+      const last =
+        stroke[stroke.length - 1];
+
+      if (!last) return;
+
+      const minDistance =
+        isMobileDevice()
+          ? MOBILE_MIN_POINT_DISTANCE
+          : MIN_POINT_DISTANCE;
+
       const distance =
         Math.hypot(
           point.x - last.x,
           point.y - last.y
         );
 
-      if (distance < 2.5) {
+      if (
+        distance <
+        minDistance
+      ) {
         return;
       }
-    }
 
-    currentStroke.push(point);
+      stroke.push(point);
 
-    updateProgress();
+      pointCountRef.current += 1;
 
-    draw();
-  };
+      const beforePrevious =
+        stroke.length >= 3
+          ? stroke[
+              stroke.length - 3
+            ]
+          : null;
+
+      const ctx =
+        ctxRef.current;
+
+      if (ctx) {
+        drawSegment(
+          ctx,
+          last,
+          point,
+          beforePrevious
+        );
+
+        const index =
+          stroke.length - 1;
+
+        if (
+          index % 18 === 0 ||
+          pointCountRef.current >=
+            TARGET_POINTS
+        ) {
+          drawNode(
+            ctx,
+            point,
+            index % 18 === 0
+              ? 1.8
+              : 2.2
+          );
+        }
+      }
+
+      updateProgress();
+    }, [
+      drawSegment,
+      drawNode,
+      updateProgress,
+      isMobileDevice,
+    ]);
+
+  // =========================================================
+  // POINTER DOWN
+  // =========================================================
+
+  const handlePointerDown =
+    useCallback(
+      (event) => {
+        if (
+          completedRef.current
+        ) {
+          return;
+        }
+
+        event.preventDefault();
+
+        const point =
+          getPointerPosition(event);
+
+        if (!point) return;
+
+        drawingRef.current = true;
+
+        const newStroke = [
+          point,
+        ];
+
+        strokesRef.current.push(
+          newStroke
+        );
+
+        currentStrokeRef.current =
+          newStroke;
+
+        pointCountRef.current += 1;
+
+        pendingPointRef.current =
+          null;
+
+        setStarted(true);
+
+        setHint(false);
+
+        const ctx =
+          ctxRef.current;
+
+        if (ctx) {
+          drawDot(
+            ctx,
+            point
+          );
+        }
+
+        updateProgress(true);
+
+        try {
+          event.currentTarget.setPointerCapture(
+            event.pointerId
+          );
+        } catch {
+          // Ignore unsupported pointer capture.
+        }
+      },
+      [
+        getPointerPosition,
+        drawDot,
+        updateProgress,
+      ]
+    );
+
+  // =========================================================
+  // POINTER MOVE
+  //
+  // Only store the latest point.
+  //
+  // RAF processes at screen refresh speed.
+  // =========================================================
+
+  const handlePointerMove =
+    useCallback(
+      (event) => {
+        if (
+          !drawingRef.current ||
+          completedRef.current
+        ) {
+          return;
+        }
+
+        event.preventDefault();
+
+        const point =
+          getPointerPosition(event);
+
+        if (!point) return;
+
+        pendingPointRef.current =
+          point;
+
+        if (
+          pointerFrameRef.current
+        ) {
+          return;
+        }
+
+        pointerFrameRef.current =
+          requestAnimationFrame(
+            processPendingPoint
+          );
+      },
+      [
+        getPointerPosition,
+        processPendingPoint,
+      ]
+    );
 
   // =========================================================
   // POINTER UP
   // =========================================================
 
-  const handlePointerUp = (event) => {
-    drawingRef.current = false;
+  const handlePointerUp =
+    useCallback(
+      (event) => {
+        if (
+          pointerFrameRef.current
+        ) {
+          cancelAnimationFrame(
+            pointerFrameRef.current
+          );
 
-    currentStrokeRef.current = null;
+          pointerFrameRef.current =
+            null;
 
-    try {
-      event.currentTarget.releasePointerCapture(
-        event.pointerId
-      );
-    } catch {
-      // Ignore unsupported pointer capture.
-    }
+          processPendingPoint();
+        }
 
-    draw();
-  };
+        drawingRef.current = false;
+
+        currentStrokeRef.current =
+          null;
+
+        pendingPointRef.current =
+          null;
+
+        updateProgress(true);
+
+        try {
+          event.currentTarget.releasePointerCapture(
+            event.pointerId
+          );
+        } catch {
+          // Ignore unsupported pointer capture.
+        }
+      },
+      [
+        processPendingPoint,
+        updateProgress,
+      ]
+    );
 
   // =========================================================
   // SUBMIT
   // =========================================================
 
-  const submitConstellation = () => {
-    if (completedRef.current) {
-      return;
-    }
-
-    const count =
-      getPointCount();
-
-    if (count < TARGET_POINTS) {
-      setHint(true);
-      return;
-    }
-
-    completeActivity();
-  };
-
-  // =========================================================
-  // COMPLETE
-  // =========================================================
-
-  const completeActivity = () => {
-    if (completedRef.current) {
-      return;
-    }
-
-    completedRef.current = true;
-
-    drawingRef.current = false;
-    currentStrokeRef.current = null;
-
-    // Capture the finished constellation.
-
-    const canvas = canvasRef.current;
-
-    if (canvas) {
-      try {
-        const image =
-          canvas.toDataURL("image/png");
-
-        setDrawingImage(image);
-      } catch (error) {
-        console.error(
-          "Unable to capture constellation:",
-          error
-        );
+  const submitConstellation =
+    useCallback(() => {
+      if (
+        completedRef.current
+      ) {
+        return;
       }
-    }
 
-    setProgress(100);
-    setCompleted(true);
+      const count =
+        pointCountRef.current;
 
-    const randomIndex =
-      Math.floor(
-        Math.random() *
-          STAR_SENTENCES.length
+      if (
+        count <
+        TARGET_POINTS
+      ) {
+        setHint(true);
+
+        return;
+      }
+
+      completedRef.current =
+        true;
+
+      drawingRef.current =
+        false;
+
+      currentStrokeRef.current =
+        null;
+
+      updateProgress(true);
+
+      const canvas =
+        canvasRef.current;
+
+      if (canvas) {
+        try {
+          const image =
+            canvas.toDataURL(
+              "image/png"
+            );
+
+          setDrawingImage(
+            image
+          );
+        } catch (
+          error
+        ) {
+          console.error(
+            "Unable to capture constellation:",
+            error
+          );
+        }
+      }
+
+      setProgress(100);
+
+      setCompleted(true);
+
+      const randomIndex =
+        Math.floor(
+          Math.random() *
+            STAR_SENTENCES.length
+        );
+
+      setStarSentence(
+        STAR_SENTENCES[
+          randomIndex
+        ]
       );
 
-    setStarSentence(
-      STAR_SENTENCES[randomIndex]
-    );
-
-    draw();
-
-    window.setTimeout(() => {
-      setShowReveal(true);
-    }, 950);
-  };
+      window.setTimeout(() => {
+        setShowReveal(true);
+      }, 950);
+    }, [
+      updateProgress,
+    ]);
 
   // =========================================================
   // RESET
   // =========================================================
 
-  const resetActivity = () => {
-    completedRef.current = false;
-    drawingRef.current = false;
+  const resetActivity =
+    useCallback(() => {
+      completedRef.current =
+        false;
 
-    strokesRef.current = [];
-    currentStrokeRef.current = null;
+      drawingRef.current =
+        false;
 
-    setStarted(false);
-    setProgress(0);
-    setCompleted(false);
-    setShowReveal(false);
-    setHint(false);
-    setStarSentence("");
+      strokesRef.current =
+        [];
 
-    setDrawingImage("");
+      currentStrokeRef.current =
+        null;
 
-    draw();
-  };
+      pendingPointRef.current =
+        null;
+
+      pointCountRef.current =
+        0;
+
+      if (
+        pointerFrameRef.current
+      ) {
+        cancelAnimationFrame(
+          pointerFrameRef.current
+        );
+
+        pointerFrameRef.current =
+          null;
+      }
+
+      setStarted(false);
+
+      setProgress(0);
+
+      setCompleted(false);
+
+      setShowReveal(false);
+
+      setHint(false);
+
+      setStarSentence("");
+
+      setDrawingImage("");
+
+      lastProgressUpdateRef.current =
+        0;
+
+      redrawEverything();
+    }, [redrawEverything]);
 
   // =========================================================
   // UI
@@ -909,28 +1194,31 @@ export default function Create() {
           "
         />
 
-        {ambientStars.map((star) => (
-          <span
-            key={star.id}
-            className="
-              absolute
-              rounded-full
-              bg-white
-              animate-[activityTwinkle_var(--duration)_ease-in-out_infinite]
-            "
-            style={{
-              left: `${star.x}%`,
-              top: `${star.y}%`,
-              width: `${star.size}px`,
-              height: `${star.size}px`,
-              opacity:
-                0.12 +
-                (star.id % 8) / 18,
-              animationDelay: `${star.delay}s`,
-              "--duration": `${star.duration}s`,
-            }}
-          />
-        ))}
+        {ambientStars.map(
+          (star) => (
+            <span
+              key={star.id}
+              className="
+                absolute
+                rounded-full
+                bg-white
+                animate-[activityTwinkle_var(--duration)_ease-in-out_infinite]
+              "
+              style={{
+                left: `${star.x}%`,
+                top: `${star.y}%`,
+                width: `${star.size}px`,
+                height: `${star.size}px`,
+                opacity:
+                  0.12 +
+                  (star.id % 8) /
+                    18,
+                animationDelay: `${star.delay}s`,
+                "--duration": `${star.duration}s`,
+              }}
+            />
+          )
+        )}
 
         <div
           className="
@@ -959,7 +1247,6 @@ export default function Create() {
                 border
                 border-white/[0.1]
                 bg-white/[0.025]
-                shadow-[0_0_25px_rgba(255,225,170,.03)]
               "
             >
               <Star
@@ -1068,6 +1355,7 @@ export default function Create() {
         >
           Leave a star
           <br />
+
           <span className="text-white/20">
             behind.
           </span>
@@ -1128,7 +1416,10 @@ export default function Create() {
               }
             `}
           >
-            {String(progress).padStart(3, "0")}%
+            {String(
+              progress
+            ).padStart(3, "0")}
+            %
           </span>
         </div>
 
@@ -1214,10 +1505,18 @@ export default function Create() {
 
           <canvas
             ref={canvasRef}
-            onPointerDown={handlePointerDown}
-            onPointerMove={handlePointerMove}
-            onPointerUp={handlePointerUp}
-            onPointerCancel={handlePointerUp}
+            onPointerDown={
+              handlePointerDown
+            }
+            onPointerMove={
+              handlePointerMove
+            }
+            onPointerUp={
+              handlePointerUp
+            }
+            onPointerCancel={
+              handlePointerUp
+            }
             className="
               relative
               block
@@ -1226,6 +1525,7 @@ export default function Create() {
               cursor-crosshair
               touch-none
               select-none
+              [touch-action:none]
               sm:h-[560px]
               md:h-[650px]
             "
@@ -1234,115 +1534,116 @@ export default function Create() {
 
           {/* CENTER GUIDE */}
 
-          {!started && !completed && (
-            <div
-              className="
-                pointer-events-none
-                absolute
-                left-1/2
-                top-1/2
-                flex
-                -translate-x-1/2
-                -translate-y-1/2
-                flex-col
-                items-center
-                text-center
-              "
-            >
+          {!started &&
+            !completed && (
               <div
                 className="
-                  mb-5
+                  pointer-events-none
+                  absolute
+                  left-1/2
+                  top-1/2
                   flex
-                  h-16
-                  w-16
+                  -translate-x-1/2
+                  -translate-y-1/2
+                  flex-col
                   items-center
-                  justify-center
-                  rounded-full
-                  border
-                  border-white/[0.1]
-                  bg-white/[0.025]
-                  shadow-[0_0_60px_rgba(255,225,170,.04)]
-                  animate-[guidePulse_2.5s_ease-in-out_infinite]
+                  text-center
                 "
               >
-                <WandSparkles
-                  size={18}
-                  strokeWidth={1}
-                  className="text-white/45"
-                />
+                <div
+                  className="
+                    mb-5
+                    flex
+                    h-16
+                    w-16
+                    items-center
+                    justify-center
+                    rounded-full
+                    border
+                    border-white/[0.1]
+                    bg-white/[0.025]
+                    animate-[guidePulse_2.5s_ease-in-out_infinite]
+                  "
+                >
+                  <WandSparkles
+                    size={18}
+                    strokeWidth={1}
+                    className="text-white/45"
+                  />
+                </div>
+
+                <p
+                  className="
+                    font-mono
+                    text-[8px]
+                    uppercase
+                    tracking-[0.38em]
+                    text-white/45
+                  "
+                >
+                  Touch the universe
+                </p>
+
+                <p
+                  className="
+                    mt-2
+                    max-w-[230px]
+                    font-serif
+                    text-[11px]
+                    italic
+                    leading-relaxed
+                    text-white/20
+                  "
+                >
+                  Draw freely. Lift your finger
+                  whenever you want.
+                </p>
               </div>
-
-              <p
-                className="
-                  font-mono
-                  text-[8px]
-                  uppercase
-                  tracking-[0.38em]
-                  text-white/45
-                "
-              >
-                Touch the universe
-              </p>
-
-              <p
-                className="
-                  mt-2
-                  max-w-[230px]
-                  font-serif
-                  text-[11px]
-                  italic
-                  leading-relaxed
-                  text-white/20
-                "
-              >
-                Draw freely. Lift your finger
-                whenever you want.
-              </p>
-            </div>
-          )}
+            )}
 
           {/* ACTIVE STATUS */}
 
-          {started && !completed && (
-            <div
-              className="
-                pointer-events-none
-                absolute
-                bottom-5
-                left-1/2
-                flex
-                -translate-x-1/2
-                items-center
-                gap-2
-                whitespace-nowrap
-                rounded-full
-                border
-                border-white/[0.08]
-                bg-black/45
-                px-4
-                py-2
-                backdrop-blur-md
-              "
-            >
-              <MousePointer2
-                size={9}
-                strokeWidth={1}
-                className="text-amber-100/40"
-              />
-
-              <p
+          {started &&
+            !completed && (
+              <div
                 className="
-                  font-mono
-                  text-[6px]
-                  uppercase
-                  tracking-[0.35em]
-                  text-white/40
+                  pointer-events-none
+                  absolute
+                  bottom-5
+                  left-1/2
+                  flex
+                  -translate-x-1/2
+                  items-center
+                  gap-2
+                  whitespace-nowrap
+                  rounded-full
+                  border
+                  border-white/[0.08]
+                  bg-black/45
+                  px-4
+                  py-2
+                  backdrop-blur-md
                 "
               >
-                Lift & draw somewhere new
-              </p>
-            </div>
-          )}
+                <MousePointer2
+                  size={9}
+                  strokeWidth={1}
+                  className="text-amber-100/40"
+                />
+
+                <p
+                  className="
+                    font-mono
+                    text-[6px]
+                    uppercase
+                    tracking-[0.35em]
+                    text-white/40
+                  "
+                >
+                  Lift & draw somewhere new
+                </p>
+              </div>
+            )}
 
           {/* COMPLETION GLOW */}
 
@@ -1461,114 +1762,119 @@ export default function Create() {
           CONTROLS
       ===================================================== */}
 
-      {!completed && started && (
-        <div
-          className="
-            relative
-            z-10
-            mx-auto
-            mt-7
-            flex
-            flex-col
-            items-center
-            gap-4
-          "
-        >
-          <button
-            type="button"
-            onClick={submitConstellation}
-            disabled={
-              getPointCount() < TARGET_POINTS
-            }
-            className={`
-              group
-              relative
-              flex
-              items-center
-              gap-3
-              overflow-hidden
-              rounded-full
-              border
-              px-7
-              py-4
-              font-mono
-              text-[7px]
-              uppercase
-              tracking-[0.35em]
-              transition-all
-              duration-300
-              ${
-                progress >= 100
-                  ? "border-amber-100/30 bg-amber-100/[0.08] text-amber-100 hover:bg-amber-100/[0.14] hover:shadow-[0_0_35px_rgba(255,225,170,.12)]"
-                  : "cursor-not-allowed border-white/[0.07] bg-white/[0.02] text-white/20"
-              }
-              active:scale-95
-            `}
-          >
-            <span
-              className="
-                absolute
-                inset-0
-                -translate-x-full
-                bg-white
-                transition-transform
-                duration-500
-                group-hover:translate-x-0
-              "
-            />
-
-            <Send
-              size={11}
-              strokeWidth={1.2}
-              className="
-                relative
-                z-10
-                transition-transform
-                duration-300
-                group-hover:translate-x-0.5
-              "
-            />
-
-            <span
-              className="
-                relative
-                z-10
-                transition-colors
-                group-hover:text-black
-              "
-            >
-              {progress >= 100
-                ? "Submit constellation"
-                : "Keep drawing"}
-            </span>
-          </button>
-
-          <button
-            type="button"
-            onClick={resetActivity}
+      {!completed &&
+        started && (
+          <div
             className="
+              relative
+              z-10
+              mx-auto
+              mt-7
               flex
+              flex-col
               items-center
-              gap-2
-              font-mono
-              text-[6px]
-              uppercase
-              tracking-[0.35em]
-              text-white/20
-              transition-colors
-              duration-300
-              hover:text-white/50
+              gap-4
             "
           >
-            <RotateCcw
-              size={10}
-              strokeWidth={1}
-            />
+            <button
+              type="button"
+              onClick={
+                submitConstellation
+              }
+              disabled={
+                progress < 100
+              }
+              className={`
+                group
+                relative
+                flex
+                items-center
+                gap-3
+                overflow-hidden
+                rounded-full
+                border
+                px-7
+                py-4
+                font-mono
+                text-[7px]
+                uppercase
+                tracking-[0.35em]
+                transition-all
+                duration-300
+                ${
+                  progress >= 100
+                    ? "border-amber-100/30 bg-amber-100/[0.08] text-amber-100 hover:bg-amber-100/[0.14]"
+                    : "cursor-not-allowed border-white/[0.07] bg-white/[0.02] text-white/20"
+                }
+                active:scale-95
+              `}
+            >
+              <span
+                className="
+                  absolute
+                  inset-0
+                  -translate-x-full
+                  bg-white
+                  transition-transform
+                  duration-500
+                  group-hover:translate-x-0
+                "
+              />
 
-            Start over
-          </button>
-        </div>
-      )}
+              <Send
+                size={11}
+                strokeWidth={1.2}
+                className="
+                  relative
+                  z-10
+                  transition-transform
+                  duration-300
+                  group-hover:translate-x-0.5
+                "
+              />
+
+              <span
+                className="
+                  relative
+                  z-10
+                  transition-colors
+                  group-hover:text-black
+                "
+              >
+                {progress >= 100
+                  ? "Submit constellation"
+                  : "Keep drawing"}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={
+                resetActivity
+              }
+              className="
+                flex
+                items-center
+                gap-2
+                font-mono
+                text-[6px]
+                uppercase
+                tracking-[0.35em]
+                text-white/20
+                transition-colors
+                duration-300
+                hover:text-white/50
+              "
+            >
+              <RotateCcw
+                size={10}
+                strokeWidth={1}
+              />
+
+              Start over
+            </button>
+          </div>
+        )}
 
       {/* =====================================================
           REVEAL MODAL
@@ -1591,8 +1897,6 @@ export default function Create() {
             sm:p-6
           "
         >
-          {/* Ambient glow */}
-
           <div
             className="
               pointer-events-none
@@ -1608,8 +1912,6 @@ export default function Create() {
               blur-[120px]
             "
           />
-
-          {/* Portal rings */}
 
           <div
             className="
@@ -1655,8 +1957,6 @@ export default function Create() {
             />
           </div>
 
-          {/* MODAL CARD */}
-
           <div
             className="
               relative
@@ -1677,8 +1977,6 @@ export default function Create() {
               sm:py-10
             "
           >
-            {/* Card light */}
-
             <div
               className="
                 pointer-events-none
@@ -1707,8 +2005,6 @@ export default function Create() {
                 shadow-[0_0_80px_rgba(255,225,170,.08)]
               "
             >
-              {/* Glow behind image */}
-
               <div
                 className="
                   pointer-events-none
@@ -1725,8 +2021,6 @@ export default function Create() {
                 "
               />
 
-              {/* Image */}
-
               <div
                 className="
                   relative
@@ -1738,7 +2032,9 @@ export default function Create() {
               >
                 {drawingImage ? (
                   <img
-                    src={drawingImage}
+                    src={
+                      drawingImage
+                    }
                     alt="Your constellation"
                     className="
                       relative
@@ -1767,8 +2063,6 @@ export default function Create() {
                   </div>
                 )}
 
-                {/* Vignette */}
-
                 <div
                   className="
                     pointer-events-none
@@ -1778,87 +2072,7 @@ export default function Create() {
                     bg-[radial-gradient(circle_at_center,transparent_35%,rgba(0,0,0,.15)_70%,rgba(0,0,0,.65)_100%)]
                   "
                 />
-
-                {/* Top reflection */}
-
-                <div
-                  className="
-                    pointer-events-none
-                    absolute
-                    inset-x-0
-                    top-0
-                    z-30
-                    h-20
-                    bg-gradient-to-b
-                    from-white/[0.07]
-                    to-transparent
-                  "
-                />
-
-                {/* Corners */}
-
-                <span
-                  className="
-                    pointer-events-none
-                    absolute
-                    left-4
-                    top-4
-                    z-40
-                    h-3
-                    w-3
-                    border-l
-                    border-t
-                    border-amber-100/30
-                  "
-                />
-
-                <span
-                  className="
-                    pointer-events-none
-                    absolute
-                    right-4
-                    top-4
-                    z-40
-                    h-3
-                    w-3
-                    border-r
-                    border-t
-                    border-amber-100/30
-                  "
-                />
-
-                <span
-                  className="
-                    pointer-events-none
-                    absolute
-                    bottom-4
-                    left-4
-                    z-40
-                    h-3
-                    w-3
-                    border-b
-                    border-l
-                    border-amber-100/30
-                  "
-                />
-
-                <span
-                  className="
-                    pointer-events-none
-                    absolute
-                    bottom-4
-                    right-4
-                    z-40
-                    h-3
-                    w-3
-                    border-b
-                    border-r
-                    border-amber-100/30
-                  "
-                />
               </div>
-
-              {/* Image metadata */}
 
               <div
                 className="
@@ -1903,7 +2117,6 @@ export default function Create() {
                       w-1
                       rounded-full
                       bg-amber-100
-                      shadow-[0_0_8px_rgba(255,225,170,.8)]
                     "
                   />
 
@@ -1911,8 +2124,6 @@ export default function Create() {
                 </span>
               </div>
             </div>
-
-            {/* TITLE */}
 
             <p
               className="
@@ -1942,6 +2153,7 @@ export default function Create() {
             >
               You made
               <br />
+
               <span className="text-white/25">
                 a new star.
               </span>
@@ -1959,8 +2171,6 @@ export default function Create() {
                 to-transparent
               "
             />
-
-            {/* STAR MESSAGE */}
 
             <div
               className="
@@ -2002,8 +2212,6 @@ export default function Create() {
               </p>
             </div>
 
-            {/* Recorded status */}
-
             <div
               className="
                 mt-6
@@ -2019,7 +2227,6 @@ export default function Create() {
                   w-1.5
                   rounded-full
                   bg-amber-100
-                  shadow-[0_0_10px_rgba(255,225,170,.8)]
                 "
               />
 
@@ -2036,13 +2243,13 @@ export default function Create() {
               </span>
             </div>
 
-            {/* =================================================
-                CONTINUE → UNIVERSE
-            ================================================= */}
-
             <button
               type="button"
-              onClick={() => navigate("/universe")}
+              onClick={() =>
+                navigate(
+                  "/universe"
+                )
+              }
               className="
                 group
                 relative
@@ -2105,11 +2312,11 @@ export default function Create() {
               />
             </button>
 
-            {/* Create another */}
-
             <button
               type="button"
-              onClick={resetActivity}
+              onClick={
+                resetActivity
+              }
               className="
                 relative
                 mt-5
@@ -2207,52 +2414,59 @@ export default function Create() {
         @keyframes revealCard {
           0% {
             opacity: 0;
+
             transform:
               translateY(45px)
               scale(.92);
-            filter: blur(10px);
+
+            filter:
+              blur(10px);
           }
 
           65% {
             opacity: 1;
+
             transform:
               translateY(-5px)
               scale(1.015);
-            filter: blur(0);
+
+            filter:
+              blur(0);
           }
 
           100% {
             opacity: 1;
+
             transform:
               translateY(0)
               scale(1);
-            filter: blur(0);
+
+            filter:
+              blur(0);
           }
         }
 
         @keyframes textReveal {
           from {
             opacity: 0;
-            transform: translateY(12px);
+
+            transform:
+              translateY(12px);
           }
 
           to {
             opacity: 1;
-            transform: translateY(0);
+
+            transform:
+              translateY(0);
           }
         }
 
-        @keyframes ringPulse {
-          0%,
-          100% {
-            transform: scale(.9);
-            opacity: .2;
-          }
-
-          50% {
-            transform: scale(1.15);
-            opacity: .6;
-          }
+        canvas {
+          touch-action: none;
+          -webkit-user-select: none;
+          user-select: none;
+          -webkit-touch-callout: none;
         }
 
         @media (prefers-reduced-motion: reduce) {

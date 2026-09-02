@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ArrowUpRight,
   Feather,
@@ -14,25 +14,206 @@ export default function Letters() {
   const [opened, setOpened] = useState(null);
   const [activeCard, setActiveCard] = useState(0);
 
+  /*
+   * ============================================================
+   * PROTECTED NAVIGATION REFERENCES
+   * ============================================================
+   *
+   * These refs prevent duplicate history states and allow the
+   * page to distinguish between:
+   *
+   * - Opening a letter normally
+   * - Closing a letter using Back / swipe-back
+   * - Closing using the X button
+   * - Protected main Letters page Back behavior
+   *
+   * ============================================================
+   */
+
+  const openedRef = useRef(null);
+
+  const isClosingFromHistoryRef = useRef(false);
+
+  const hasBaseProtectionRef = useRef(false);
+
+  const isRestoringBaseRef = useRef(false);
+
   const letters = birthdayData.letters || [];
 
-  // Lock body scroll while a letter is open.
+  /*
+   * ============================================================
+   * KEEP OPENED REF SYNCHRONIZED
+   * ============================================================
+   */
+
+  useEffect(() => {
+    openedRef.current = opened;
+  }, [opened]);
+
+  /*
+   * ============================================================
+   * PROTECTED BASE HISTORY STATE
+   * ============================================================
+   *
+   * The Letters page itself is protected.
+   *
+   * Browser Back / Android Back / swipe-back should not
+   * unexpectedly navigate away from the Letters page.
+   *
+   * ============================================================
+   */
+
+  useEffect(() => {
+    const currentState = window.history.state;
+
+    if (!currentState?.memoryUniverseLettersBase) {
+      window.history.replaceState(
+        {
+          ...(currentState || {}),
+          memoryUniverseLettersBase: true,
+        },
+        "",
+        window.location.href
+      );
+    }
+
+    hasBaseProtectionRef.current = true;
+
+    /*
+     * Add one controlled protection entry.
+     *
+     * This allows Back navigation to be intercepted while
+     * keeping the current Letters route visible.
+     */
+
+    window.history.pushState(
+      {
+        ...(window.history.state || {}),
+        memoryUniverseLettersBase: true,
+        memoryUniverseLettersGuard: true,
+      },
+      "",
+      window.location.href
+    );
+
+    const handlePopState = (event) => {
+      const state = event.state;
+
+      /*
+       * ========================================================
+       * PRIORITY 1
+       * OPEN LETTER
+       *
+       * Back must close the letter first.
+       * ========================================================
+       */
+
+      if (openedRef.current) {
+        isClosingFromHistoryRef.current = true;
+
+        setOpened(null);
+
+        /*
+         * We are now back on the Letters page.
+         * Restore protection without changing routes.
+         */
+
+        window.setTimeout(() => {
+          if (isRestoringBaseRef.current) return;
+
+          isRestoringBaseRef.current = true;
+
+          const currentHistoryState = window.history.state || {};
+
+          if (!currentHistoryState.memoryUniverseLettersGuard) {
+            window.history.pushState(
+              {
+                ...currentHistoryState,
+                memoryUniverseLettersBase: true,
+                memoryUniverseLettersGuard: true,
+              },
+              "",
+              window.location.href
+            );
+          }
+
+          isRestoringBaseRef.current = false;
+          isClosingFromHistoryRef.current = false;
+        }, 0);
+
+        return;
+      }
+
+      /*
+       * ========================================================
+       * PRIORITY 2
+       * MAIN LETTERS PAGE PROTECTION
+       *
+       * No letter is open.
+       *
+       * Back must NOT leave the current Letters page.
+       * ========================================================
+       */
+
+      if (!isRestoringBaseRef.current) {
+        isRestoringBaseRef.current = true;
+
+        window.history.pushState(
+          {
+            ...(state || {}),
+            memoryUniverseLettersBase: true,
+            memoryUniverseLettersGuard: true,
+          },
+          "",
+          window.location.href
+        );
+
+        window.setTimeout(() => {
+          isRestoringBaseRef.current = false;
+        }, 0);
+      }
+    };
+
+    window.addEventListener("popstate", handlePopState);
+
+    return () => {
+      window.removeEventListener("popstate", handlePopState);
+    };
+  }, []);
+
+  /*
+   * ============================================================
+   * LOCK BODY SCROLL
+   * ============================================================
+   */
+
   useEffect(() => {
     if (!opened) return;
 
     const previousOverflow = document.body.style.overflow;
+    const previousOverscrollBehavior =
+      document.body.style.overscrollBehavior;
+
     document.body.style.overflow = "hidden";
+    document.body.style.overscrollBehavior = "none";
 
     return () => {
       document.body.style.overflow = previousOverflow;
+      document.body.style.overscrollBehavior =
+        previousOverscrollBehavior;
     };
   }, [opened]);
 
-  // Keyboard support.
+  /*
+   * ============================================================
+   * KEYBOARD SUPPORT
+   * ============================================================
+   */
+
   useEffect(() => {
     const handleKeyDown = (event) => {
-      if (event.key === "Escape") {
-        setOpened(null);
+      if (event.key === "Escape" && openedRef.current) {
+        closeLetter();
       }
     };
 
@@ -43,20 +224,81 @@ export default function Letters() {
     };
   }, []);
 
+  /*
+   * ============================================================
+   * OPEN LETTER
+   * ============================================================
+   */
+
   const openLetter = (letter, index) => {
     setActiveCard(index);
     setOpened(letter);
+
+    /*
+     * Create exactly one history state for the modal.
+     *
+     * This makes:
+     *
+     * Open letter
+     * ↓
+     * Swipe Back
+     * ↓
+     * Close letter
+     * ↓
+     * Stay on Letters page
+     */
+
+    window.history.pushState(
+      {
+        ...(window.history.state || {}),
+        memoryUniverseLettersBase: true,
+        memoryUniverseLettersModal: true,
+        letterId: letter.id,
+      },
+      "",
+      window.location.href
+    );
+  };
+
+  /*
+   * ============================================================
+   * CLOSE LETTER
+   * ============================================================
+   */
+
+  const closeLetter = () => {
+    if (!openedRef.current) return;
+
+    /*
+     * If closing normally using:
+     *
+     * - X button
+     * - Backdrop
+     * - ESC
+     *
+     * remove the modal history entry using history.back().
+     *
+     * The popstate listener will close the modal.
+     */
+
+    if (
+      window.history.state?.memoryUniverseLettersModal &&
+      !isClosingFromHistoryRef.current
+    ) {
+      window.history.back();
+      return;
+    }
+
+    setOpened(null);
   };
 
   return (
     <main className="relative min-h-screen overflow-hidden bg-[#030303] px-4 pb-32 pt-24 text-white sm:px-6 sm:pt-28 md:px-10 md:pb-40 md:pt-32">
-
       {/* =========================================================
           PERFORMANCE-FRIENDLY BACKGROUND
       ========================================================= */}
 
       <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
-
         {/* Base */}
 
         <div className="absolute inset-0 bg-[#030303]" />
@@ -135,9 +377,7 @@ export default function Letters() {
       ========================================================= */}
 
       <div className="mx-auto flex max-w-7xl items-center justify-between">
-
         <div className="flex items-center gap-3">
-
           <div
             className="
               flex
@@ -167,11 +407,9 @@ export default function Letters() {
               PRIVATE ARCHIVE
             </p>
           </div>
-
         </div>
 
         <div className="hidden items-center gap-3 sm:flex">
-
           <span className="font-mono text-[5px] uppercase tracking-[0.4em] text-white/15">
             CORRESPONDENCE
           </span>
@@ -181,9 +419,7 @@ export default function Letters() {
           <span className="font-mono text-[5px] tracking-[0.3em] text-white/10">
             {String(letters.length).padStart(2, "0")} FRAGMENTS
           </span>
-
         </div>
-
       </div>
 
       {/* =========================================================
@@ -191,13 +427,8 @@ export default function Letters() {
       ========================================================= */}
 
       <header className="relative mx-auto max-w-5xl pt-16 text-center sm:pt-20 md:pt-24">
-
-        {/* Small orbital mark */}
-
         <div className="mx-auto mb-8 flex h-14 w-14 items-center justify-center">
-
           <div className="relative flex h-10 w-10 items-center justify-center">
-
             <span
               className="
                 absolute
@@ -224,15 +455,10 @@ export default function Letters() {
               strokeWidth={1}
               className="relative rotate-[-12deg] text-white/45"
             />
-
           </div>
-
         </div>
 
-        {/* Eyebrow */}
-
         <div className="flex items-center justify-center gap-3">
-
           <span className="h-px w-8 bg-gradient-to-r from-transparent to-white/20 sm:w-14" />
 
           <span className="font-mono text-[6px] uppercase tracking-[0.55em] text-white/25">
@@ -240,10 +466,7 @@ export default function Letters() {
           </span>
 
           <span className="h-px w-8 bg-gradient-to-l from-transparent to-white/20 sm:w-14" />
-
         </div>
-
-        {/* Main title */}
 
         <h1
           className="
@@ -260,12 +483,8 @@ export default function Letters() {
           Words
           <br />
 
-          <span className="text-white/20">
-            for you.
-          </span>
+          <span className="text-white/20">for you.</span>
         </h1>
-
-        {/* Subtitle */}
 
         <p
           className="
@@ -285,10 +504,7 @@ export default function Letters() {
           written for the person who means so much to me.
         </p>
 
-        {/* Archive status */}
-
         <div className="mt-8 flex items-center justify-center gap-3">
-
           <span className="h-1 w-1 rounded-full bg-white/50 shadow-[0_0_8px_rgba(255,255,255,.5)]" />
 
           <span className="font-mono text-[5px] uppercase tracking-[0.5em] text-white/15">
@@ -300,9 +516,7 @@ export default function Letters() {
             fill="currentColor"
             className="text-white/20"
           />
-
         </div>
-
       </header>
 
       {/* =========================================================
@@ -310,19 +524,12 @@ export default function Letters() {
       ========================================================= */}
 
       <section className="relative mx-auto mt-16 max-w-7xl sm:mt-20 md:mt-28">
-
-        {/* Desktop constellation */}
-
         <div className="pointer-events-none absolute left-1/2 top-1/2 hidden h-[620px] w-[620px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/[0.025] md:block" />
 
         <div className="pointer-events-none absolute left-1/2 top-1/2 hidden h-[440px] w-[440px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-dashed border-white/[0.018] md:block" />
 
-        {/* Cards */}
-
         <div className="grid gap-4 md:grid-cols-3 md:gap-5">
-
           {letters.map((letter, index) => {
-
             const isActive = activeCard === index;
 
             return (
@@ -344,11 +551,6 @@ export default function Letters() {
                   }
                 `}
               >
-
-                {/* =================================================
-                    CARD TOP LIGHT
-                ================================================= */}
-
                 <div
                   className="
                     pointer-events-none
@@ -368,10 +570,6 @@ export default function Letters() {
                   "
                 />
 
-                {/* =================================================
-                    INNER ATMOSPHERE
-                ================================================= */}
-
                 <div
                   className="
                     pointer-events-none
@@ -386,16 +584,8 @@ export default function Letters() {
                   "
                 />
 
-                {/* =================================================
-                    CARD CONTENT
-                ================================================= */}
-
                 <div className="relative flex min-h-[430px] flex-col p-6 sm:p-7">
-
-                  {/* Header row */}
-
                   <div className="flex items-start justify-between">
-
                     <div
                       className="
                         flex
@@ -421,7 +611,6 @@ export default function Letters() {
                     </div>
 
                     <div className="text-right">
-
                       <span className="font-mono text-[6px] tracking-[0.3em] text-white/10">
                         ARCHIVE
                       </span>
@@ -429,24 +618,16 @@ export default function Letters() {
                       <p className="mt-1 font-mono text-[9px] tracking-[0.2em] text-white/25">
                         0{index + 1}
                       </p>
-
                     </div>
-
                   </div>
 
-                  {/* Status */}
-
                   <div className="mt-10 flex items-center gap-2">
-
                     <span className="h-1 w-1 rounded-full bg-white/40" />
 
                     <span className="font-mono text-[6px] uppercase tracking-[0.4em] text-white/20">
                       PRIVATE LETTER
                     </span>
-
                   </div>
-
-                  {/* Title */}
 
                   <h2
                     className="
@@ -466,8 +647,6 @@ export default function Letters() {
                     {letter.title}
                   </h2>
 
-                  {/* Subtitle */}
-
                   <p
                     className="
                       mt-5
@@ -485,12 +664,8 @@ export default function Letters() {
                     {letter.subtitle}
                   </p>
 
-                  {/* Decorative quote */}
-
                   <div className="mt-auto">
-
                     <div className="mb-6 flex items-center gap-3">
-
                       <span className="h-px w-10 bg-white/[0.08]" />
 
                       <Sparkles
@@ -500,10 +675,7 @@ export default function Letters() {
                       />
 
                       <span className="h-px flex-1 bg-white/[0.05]" />
-
                     </div>
-
-                    {/* CTA */}
 
                     <button
                       type="button"
@@ -527,9 +699,7 @@ export default function Letters() {
                         active:scale-[0.98]
                       "
                     >
-
                       <span className="flex items-center gap-2.5">
-
                         <Lock
                           size={10}
                           strokeWidth={1}
@@ -539,7 +709,6 @@ export default function Letters() {
                         <span className="font-mono text-[6px] uppercase tracking-[0.35em] text-white/35">
                           Open this letter
                         </span>
-
                       </span>
 
                       <ArrowUpRight
@@ -553,19 +722,13 @@ export default function Letters() {
                           group-hover:-translate-y-0.5
                         "
                       />
-
                     </button>
-
                   </div>
-
                 </div>
-
               </article>
             );
           })}
-
         </div>
-
       </section>
 
       {/* =========================================================
@@ -573,11 +736,9 @@ export default function Letters() {
       ========================================================= */}
 
       <div className="mx-auto mt-16 flex max-w-5xl items-center justify-center gap-4 sm:mt-20">
-
         <span className="h-px flex-1 bg-white/[0.05]" />
 
         <div className="text-center">
-
           <Heart
             size={11}
             fill="currentColor"
@@ -587,11 +748,9 @@ export default function Letters() {
           <p className="mt-3 font-mono text-[5px] uppercase tracking-[0.5em] text-white/10">
             Written only for you
           </p>
-
         </div>
 
         <span className="h-px flex-1 bg-white/[0.05]" />
-
       </div>
 
       {/* =========================================================
@@ -599,7 +758,6 @@ export default function Letters() {
       ========================================================= */}
 
       <footer className="mx-auto mt-12 max-w-xl text-center sm:mt-16">
-
         <p className="font-serif text-sm italic leading-[1.8] text-white/20 sm:text-base">
           Some words are meant to be read once.
           <br />
@@ -607,7 +765,6 @@ export default function Letters() {
         </p>
 
         <div className="mt-6 flex items-center justify-center gap-3">
-
           <span className="h-px w-8 bg-white/[0.06]" />
 
           <span className="font-mono text-[5px] tracking-[0.45em] text-white/10">
@@ -615,9 +772,7 @@ export default function Letters() {
           </span>
 
           <span className="h-px w-8 bg-white/[0.06]" />
-
         </div>
-
       </footer>
 
       {/* =========================================================
@@ -625,7 +780,6 @@ export default function Letters() {
       ========================================================= */}
 
       {opened && (
-
         <div
           className="
             fixed
@@ -638,28 +792,17 @@ export default function Letters() {
             sm:px-5
             sm:py-8
           "
-          onClick={() => setOpened(null)}
+          onClick={closeLetter}
         >
-
-          {/* =====================================================
-              MODAL BACKGROUND
-          ===================================================== */}
-
           <div className="pointer-events-none fixed inset-0">
-
             <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_25%,rgba(255,255,255,.045),transparent_45%)]" />
 
             <div className="absolute inset-0 bg-[linear-gradient(to_bottom,rgba(0,0,0,.15),rgba(0,0,0,.8))]" />
-
           </div>
-
-          {/* =====================================================
-              CLOSE BUTTON
-          ===================================================== */}
 
           <button
             type="button"
-            onClick={() => setOpened(null)}
+            onClick={closeLetter}
             aria-label="Close letter"
             className="
               fixed
@@ -693,12 +836,7 @@ export default function Letters() {
             />
           </button>
 
-          {/* =====================================================
-              MODAL COUNTER
-          ===================================================== */}
-
           <div className="fixed left-4 top-5 z-[120] sm:left-7 sm:top-7">
-
             <p className="font-mono text-[5px] uppercase tracking-[0.4em] text-white/20">
               LOVE ARCHIVE
             </p>
@@ -706,12 +844,7 @@ export default function Letters() {
             <p className="mt-1 font-mono text-[6px] tracking-[0.25em] text-white/10">
               LETTER 0{opened.id} / 0{letters.length}
             </p>
-
           </div>
-
-          {/* =====================================================
-              PAPER
-          ===================================================== */}
 
           <article
             onClick={(event) => event.stopPropagation()}
@@ -729,18 +862,9 @@ export default function Letters() {
               sm:rounded-[3px]
             "
           >
-
-            {/* =================================================
-                PAPER EDGE
-            ================================================= */}
-
             <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-transparent via-black/20 to-transparent" />
 
             <div className="absolute inset-x-0 bottom-0 h-1 bg-gradient-to-r from-transparent via-black/10 to-transparent" />
-
-            {/* =================================================
-                PAPER GRAIN
-            ================================================= */}
 
             <div
               className="
@@ -753,10 +877,6 @@ export default function Letters() {
               "
             />
 
-            {/* =================================================
-                PAPER LIGHT
-            ================================================= */}
-
             <div
               className="
                 pointer-events-none
@@ -765,10 +885,6 @@ export default function Letters() {
                 bg-[radial-gradient(circle_at_50%_15%,rgba(255,255,255,.55),transparent_45%)]
               "
             />
-
-            {/* =================================================
-                PAPER CONTENT
-            ================================================= */}
 
             <div
               className="
@@ -781,17 +897,9 @@ export default function Letters() {
                 md:py-20
               "
             >
-
-              {/* =================================================
-                  LETTER HEADER
-              ================================================= */}
-
               <div className="flex items-start justify-between gap-6">
-
                 <div>
-
                   <div className="flex items-center gap-2">
-
                     <Heart
                       size={9}
                       fill="currentColor"
@@ -801,17 +909,14 @@ export default function Letters() {
                     <p className="font-mono text-[6px] uppercase tracking-[0.5em] text-black/30">
                       PRIVATE CORRESPONDENCE
                     </p>
-
                   </div>
 
                   <p className="mt-2 font-mono text-[5px] uppercase tracking-[0.35em] text-black/15">
                     MEMORY UNIVERSE // LETTER 0{opened.id}
                   </p>
-
                 </div>
 
                 <div className="relative flex h-10 w-10 shrink-0 items-center justify-center">
-
                   <span className="absolute inset-0 rotate-45 border border-black/[0.09]" />
 
                   <Feather
@@ -819,28 +924,16 @@ export default function Letters() {
                     strokeWidth={1}
                     className="rotate-[-15deg] text-black/25"
                   />
-
                 </div>
-
               </div>
 
-              {/* =================================================
-                  DATE / PERSONAL NOTE
-              ================================================= */}
-
               <div className="mt-12 flex items-center gap-3">
-
                 <span className="h-px w-8 bg-black/10" />
 
                 <span className="font-mono text-[6px] uppercase tracking-[0.35em] text-black/20">
                   Written from the heart
                 </span>
-
               </div>
-
-              {/* =================================================
-                  TITLE
-              ================================================= */}
 
               <h2
                 className="
@@ -857,8 +950,6 @@ export default function Letters() {
                 {opened.title}
               </h2>
 
-              {/* Subtitle */}
-
               <p
                 className="
                   mt-5
@@ -874,16 +965,10 @@ export default function Letters() {
                 {opened.subtitle}
               </p>
 
-              {/* =================================================
-                  ORNAMENT
-              ================================================= */}
-
               <div className="my-12 flex items-center gap-4 sm:my-14">
-
                 <span className="h-px flex-1 bg-black/10" />
 
                 <div className="relative flex h-7 w-7 items-center justify-center">
-
                   <span className="absolute inset-0 rotate-45 border border-black/10" />
 
                   <Heart
@@ -891,16 +976,10 @@ export default function Letters() {
                     fill="currentColor"
                     className="relative text-black/25"
                   />
-
                 </div>
 
                 <span className="h-px flex-1 bg-black/10" />
-
               </div>
-
-              {/* =================================================
-                  LETTER BODY
-              ================================================= */}
 
               <div
                 className="
@@ -918,12 +997,7 @@ export default function Letters() {
                 {opened.text}
               </div>
 
-              {/* =================================================
-                  FINAL ORNAMENT
-              ================================================= */}
-
               <div className="mt-16 flex items-center gap-4">
-
                 <span className="h-px w-10 bg-black/10" />
 
                 <Sparkles
@@ -933,15 +1007,9 @@ export default function Letters() {
                 />
 
                 <span className="h-px flex-1 bg-black/10" />
-
               </div>
 
-              {/* =================================================
-                  SIGNATURE
-              ================================================= */}
-
               <div className="mt-10">
-
                 <p className="font-serif text-sm italic text-black/30">
                   With all the love that words can hold,
                 </p>
@@ -949,15 +1017,9 @@ export default function Letters() {
                 <p className="mt-4 font-serif text-xl italic text-black/55 sm:text-2xl">
                   {opened.signature}
                 </p>
-
               </div>
 
-              {/* =================================================
-                  KD WATERMARK
-              ================================================= */}
-
               <div className="mt-14 flex justify-end">
-
                 <div
                   className="
                     relative
@@ -972,7 +1034,6 @@ export default function Letters() {
                     border-black/10
                   "
                 >
-
                   <span
                     className="
                       absolute
@@ -987,15 +1048,10 @@ export default function Letters() {
                   <span className="font-serif text-xl italic tracking-[-0.05em] text-black/25">
                     KD
                   </span>
-
                 </div>
-
               </div>
-
             </div>
-
           </article>
-
         </div>
       )}
 
@@ -1004,7 +1060,6 @@ export default function Letters() {
       ========================================================= */}
 
       <div className="mt-12 flex items-center justify-center gap-3 md:hidden">
-
         <span className="h-px w-8 bg-white/[0.05]" />
 
         <span className="font-mono text-[5px] uppercase tracking-[0.45em] text-white/10">
@@ -1012,9 +1067,7 @@ export default function Letters() {
         </span>
 
         <span className="h-px w-8 bg-white/[0.05]" />
-
       </div>
-
     </main>
   );
 }

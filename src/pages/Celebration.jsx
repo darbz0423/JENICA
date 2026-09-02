@@ -7,6 +7,7 @@ import {
   Heart,
   ArrowRight,
   Stars,
+  Rocket,
 } from "lucide-react";
 import { birthdayData } from "../data/birthdayData";
 
@@ -15,29 +16,79 @@ export default function Celebration() {
 
   const [countdown, setCountdown] = useState(5);
   const [started, setStarted] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
 
   const celebrationStarted = countdown <= 0;
 
-  // --------------------------------------------------
-  // CONFETTI PARTICLES
-  // --------------------------------------------------
+  // ==========================================================
+  // DEVICE DETECTION
+  // ==========================================================
 
-  const confetti = useMemo(() => {
-    return Array.from({ length: 75 }, (_, index) => ({
-      id: index,
-      left: Math.random() * 100,
-      delay: Math.random() * 1.8,
-      duration: 3.5 + Math.random() * 3,
-      size: 3 + Math.random() * 5,
-      rotation: Math.random() * 360,
-      drift: -120 + Math.random() * 240,
-      type: index % 3,
-    }));
+  useEffect(() => {
+    const media = window.matchMedia("(max-width: 640px)");
+
+    const updateDevice = () => {
+      setIsMobile(media.matches);
+    };
+
+    updateDevice();
+
+    media.addEventListener("change", updateDevice);
+
+    return () => {
+      media.removeEventListener("change", updateDevice);
+    };
   }, []);
 
-  // --------------------------------------------------
+  // ==========================================================
+  // STABLE RANDOM GENERATOR
+  // ==========================================================
+
+  const random = (seed) => {
+    const value = Math.sin(seed * 9999.91) * 10000;
+    return value - Math.floor(value);
+  };
+
+  // ==========================================================
+  // STARS
+  // ==========================================================
+
+  const stars = useMemo(() => {
+    const total = isMobile ? 18 : 42;
+
+    return Array.from({ length: total }, (_, index) => ({
+      id: index,
+      left: 3 + random(index * 11 + 2) * 94,
+      top: 4 + random(index * 17 + 7) * 90,
+      size: 1 + random(index * 31 + 3) * 2.2,
+      delay: random(index * 13 + 9) * 4,
+      duration: 3 + random(index * 23 + 4) * 5,
+      opacity: 0.2 + random(index * 19 + 8) * 0.6,
+    }));
+  }, [isMobile]);
+
+  // ==========================================================
+  // CONFETTI
+  // ==========================================================
+
+  const confetti = useMemo(() => {
+    const total = isMobile ? 32 : 80;
+
+    return Array.from({ length: total }, (_, index) => ({
+      id: index,
+      left: random(index * 5 + 2) * 100,
+      delay: random(index * 7 + 4) * 1.6,
+      duration: 3.8 + random(index * 11 + 8) * 2.8,
+      size: 3 + random(index * 17 + 5) * 4,
+      rotation: random(index * 23 + 7) * 360,
+      drift: -90 + random(index * 29 + 3) * 180,
+      type: index % 4,
+    }));
+  }, [isMobile]);
+
+  // ==========================================================
   // COUNTDOWN
-  // --------------------------------------------------
+  // ==========================================================
 
   useEffect(() => {
     if (!started || countdown <= 0) return;
@@ -46,110 +97,138 @@ export default function Celebration() {
       setCountdown((value) => value - 1);
     }, 1000);
 
-    return () => window.clearTimeout(timer);
+    return () => {
+      window.clearTimeout(timer);
+    };
   }, [started, countdown]);
+
+  // ==========================================================
+  // START
+  // ==========================================================
+
+  const handleStart = () => {
+    setStarted(true);
+
+    if (navigator.vibrate) {
+      navigator.vibrate(25);
+    }
+  };
+
+  // ==========================================================
+  // FINALE
+  // ==========================================================
+
+  const handleFinale = () => {
+    if (navigator.vibrate) {
+      navigator.vibrate([20, 40, 20]);
+    }
+
+    navigate("/finale");
+  };
 
   return (
     <main className="celebration-page relative min-h-[100svh] overflow-hidden bg-[#020202] text-white">
-
       {/* =====================================================
           ATMOSPHERE
-      ===================================================== */}
+      ====================================================== */}
 
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
+        {/* BASE */}
 
-        {/* Deep space background */}
+        <div className="absolute inset-0 bg-[#020202]" />
 
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_45%,#171717_0%,#080808_32%,#020202_75%)]" />
+        {/* DEEP SPACE */}
 
-        {/* Cinematic light */}
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_45%,#1a1a1a_0%,#090909_35%,#020202_78%)]" />
+
+        {/* AURORA */}
 
         <div
-          className={`absolute left-1/2 top-1/2 h-[240px] w-[240px]
-          -translate-x-1/2 -translate-y-1/2 rounded-full
-          transition-all duration-[2200ms] ease-out
-          sm:h-[420px] sm:w-[420px]
-          ${
-            celebrationStarted
-              ? "scale-[3.5] opacity-100"
-              : "scale-100 opacity-70"
+          className={`aurora-layer ${
+            celebrationStarted ? "aurora-active" : ""
           }`}
-          style={{
-            background:
-              "radial-gradient(circle, rgba(255,255,255,.16) 0%, rgba(255,255,255,.055) 30%, transparent 72%)",
-          }}
         />
 
-        {/* Left ambient glow */}
+        {/* ENERGY HORIZON */}
 
-        <div className="absolute -left-32 top-[20%] h-72 w-72 rounded-full bg-white/[0.025] blur-[90px]" />
+        <div
+          className={`energy-horizon ${
+            celebrationStarted ? "energy-active" : ""
+          }`}
+        />
 
-        {/* Right ambient glow */}
+        {/* CENTRAL LIGHT */}
 
-        <div className="absolute -right-32 bottom-[20%] h-72 w-72 rounded-full bg-white/[0.025] blur-[90px]" />
+        <div
+          className={`central-light ${
+            celebrationStarted ? "central-light-active" : ""
+          }`}
+        />
 
-        {/* Top cinematic gradient */}
+        {/* SIDE GLOWS */}
+
+        <div className="ambient-glow ambient-left" />
+        <div className="ambient-glow ambient-right" />
+
+        {/* CINEMATIC GRADIENTS */}
 
         <div className="absolute inset-x-0 top-0 h-40 bg-gradient-to-b from-black via-black/60 to-transparent" />
 
-        {/* Bottom cinematic gradient */}
+        <div className="absolute inset-x-0 bottom-0 h-56 bg-gradient-to-t from-black via-black/70 to-transparent" />
 
-        <div className="absolute inset-x-0 bottom-0 h-48 bg-gradient-to-t from-black via-black/60 to-transparent" />
+        {/* VIGNETTE */}
 
-        {/* Vignette */}
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_18%,rgba(0,0,0,.25)_58%,rgba(0,0,0,.88)_100%)]" />
 
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_15%,rgba(0,0,0,.28)_55%,rgba(0,0,0,.92)_100%)]" />
+        {/* GRAIN */}
 
-        {/* Grain */}
-
-        <div className="grain absolute inset-0 opacity-[0.035]" />
+        <div className="grain absolute inset-0 opacity-[0.025]" />
       </div>
 
-
       {/* =====================================================
-          STARS
-      ===================================================== */}
+          STAR FIELD
+      ====================================================== */}
 
-      <div className="pointer-events-none absolute inset-0">
-
-        {Array.from({ length: 24 }).map((_, index) => (
+      <div className="pointer-events-none absolute inset-0 overflow-hidden">
+        {stars.map((star) => (
           <span
-            key={index}
+            key={star.id}
             className="cosmic-star"
             style={{
-              left: `${5 + Math.random() * 90}%`,
-              top: `${8 + Math.random() * 84}%`,
-              animationDelay: `${Math.random() * 4}s`,
+              left: `${star.left}%`,
+              top: `${star.top}%`,
+              width: `${star.size}px`,
+              height: `${star.size}px`,
+              opacity: star.opacity,
+              animationDelay: `${star.delay}s`,
+              animationDuration: `${star.duration}s`,
             }}
           />
         ))}
-
       </div>
-
 
       {/* =====================================================
           ORBITAL SYSTEM
-      ===================================================== */}
+      ====================================================== */}
 
       <div
-        className={`pointer-events-none absolute left-1/2 top-1/2
+        className={`orbital-system pointer-events-none absolute left-1/2 top-1/2
         h-[320px] w-[320px] -translate-x-1/2 -translate-y-1/2
-        transition-all duration-[2000ms]
         sm:h-[520px] sm:w-[520px]
         md:h-[700px] md:w-[700px]
         ${
           celebrationStarted
-            ? "scale-[1.5] opacity-0"
-            : "scale-100 opacity-100"
+            ? "orbital-system-hidden"
+            : "orbital-system-visible"
         }`}
       >
         <div className="absolute inset-0 rounded-full border border-white/[0.045]" />
 
-        <div className="orbit-one absolute inset-[10%] rounded-full border border-dashed border-white/[0.055]" />
+        <div className="orbit-one absolute inset-[9%] rounded-full border border-dashed border-white/[0.055]" />
 
-        <div className="orbit-two absolute inset-[23%] rounded-full border border-white/[0.035]" />
+        <div className="orbit-two absolute inset-[22%] rounded-full border border-white/[0.04]" />
 
-        <div className="absolute inset-[38%] rounded-full border border-white/[0.045]" />
+        <div className="absolute inset-[37%] rounded-full border border-white/[0.04]" />
 
         <span className="orbit-dot orbit-dot-top" />
         <span className="orbit-dot orbit-dot-right" />
@@ -157,17 +236,13 @@ export default function Celebration() {
         <span className="orbit-dot orbit-dot-left" />
       </div>
 
-
       {/* =====================================================
           TOP HUD
-      ===================================================== */}
+      ====================================================== */}
 
       <header className="absolute left-0 right-0 top-0 z-40 flex items-center justify-between px-5 py-5 sm:px-8 sm:py-7">
-
         <div className="flex items-center gap-3">
-
           <div className="relative flex h-8 w-8 items-center justify-center rounded-full border border-white/10 bg-white/[0.025]">
-
             <Sparkles
               size={11}
               strokeWidth={1}
@@ -175,7 +250,6 @@ export default function Celebration() {
             />
 
             <span className="absolute inset-0 animate-ping rounded-full border border-white/10" />
-
           </div>
 
           <div>
@@ -187,51 +261,39 @@ export default function Celebration() {
               FINAL CELEBRATION
             </p>
           </div>
-
         </div>
 
         <div className="hidden items-center gap-3 sm:flex">
-
           <span className="font-mono text-[6px] uppercase tracking-[0.5em] text-white/20">
             08.17.2026
           </span>
 
           <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-white/50 shadow-[0_0_14px_rgba(255,255,255,.7)]" />
-
         </div>
-
       </header>
-
 
       {/* =====================================================
           CELEBRATION EXPLOSION
-      ===================================================== */}
+      ====================================================== */}
 
       {celebrationStarted && (
         <div className="pointer-events-none absolute inset-0 z-10 overflow-hidden">
-
-          {/* Giant rings */}
+          {/* RINGS */}
 
           <div className="celebration-ring ring-a" />
           <div className="celebration-ring ring-b" />
           <div className="celebration-ring ring-c" />
 
-          {/* Central flash */}
+          {/* CORE */}
 
           <div className="celebration-core" />
 
-          {/* Radial rays */}
+          {/* ENERGY SHOCKWAVE */}
 
-          <div className="light-ray ray-1" />
-          <div className="light-ray ray-2" />
-          <div className="light-ray ray-3" />
-          <div className="light-ray ray-4" />
-          <div className="light-ray ray-5" />
-          <div className="light-ray ray-6" />
-          <div className="light-ray ray-7" />
-          <div className="light-ray ray-8" />
+          <div className="shockwave shockwave-a" />
+          <div className="shockwave shockwave-b" />
 
-          {/* Burst particles */}
+          {/* PARTICLES */}
 
           <span className="burst-particle p1" />
           <span className="burst-particle p2" />
@@ -242,7 +304,7 @@ export default function Celebration() {
           <span className="burst-particle p7" />
           <span className="burst-particle p8" />
 
-          {/* Confetti */}
+          {/* CONFETTI */}
 
           <div className="absolute inset-0">
             {confetti.map((piece) => (
@@ -252,7 +314,7 @@ export default function Celebration() {
                 style={{
                   left: `${piece.left}%`,
                   width: `${piece.size}px`,
-                  height: `${piece.size * 1.7}px`,
+                  height: `${piece.size * 1.6}px`,
                   animationDelay: `${piece.delay}s`,
                   animationDuration: `${piece.duration}s`,
                   "--drift": `${piece.drift}px`,
@@ -262,40 +324,33 @@ export default function Celebration() {
             ))}
           </div>
 
-          {/* Floating sparkle symbols */}
+          {/* FLOATING SPARKLES */}
 
           <Stars className="floating-sparkle sparkle-1" />
           <Stars className="floating-sparkle sparkle-2" />
           <Stars className="floating-sparkle sparkle-3" />
           <Stars className="floating-sparkle sparkle-4" />
-
         </div>
       )}
 
-
       {/* =====================================================
           MAIN
-      ===================================================== */}
+      ====================================================== */}
 
       <section className="relative z-20 flex min-h-[100svh] items-center justify-center px-5 pb-24 pt-24">
-
         <div className="w-full max-w-5xl text-center">
-
-
           {/* =================================================
               INTRO
           ================================================= */}
 
           {!started && (
             <div className="animate-intro">
-
               <div className="relative mx-auto flex h-20 w-20 items-center justify-center">
-
                 <div className="absolute inset-0 animate-[spin_18s_linear_infinite] rounded-full border border-white/[0.07]" />
 
                 <div className="absolute inset-2 rounded-full border border-dashed border-white/[0.08]" />
 
-                <div className="absolute inset-5 rounded-full bg-white/[0.025] shadow-[0_0_40px_rgba(255,255,255,.04)]" />
+                <div className="absolute inset-5 rounded-full bg-white/[0.025]" />
 
                 <PartyPopper
                   size={23}
@@ -307,7 +362,6 @@ export default function Celebration() {
                   size={9}
                   className="absolute right-0 top-1 animate-pulse text-white/60"
                 />
-
               </div>
 
               <p className="mt-8 font-mono text-[6px] uppercase tracking-[0.65em] text-white/30 sm:text-[7px]">
@@ -324,6 +378,7 @@ export default function Celebration() {
               <p className="mx-auto mt-7 max-w-xs font-serif text-sm leading-[1.8] text-white/35 sm:max-w-sm sm:text-base">
                 Every memory led here.
                 <br />
+
                 <span className="text-white/60">
                   One final moment remains.
                 </span>
@@ -331,8 +386,8 @@ export default function Celebration() {
 
               <button
                 type="button"
-                onClick={() => setStarted(true)}
-                className="group relative mx-auto mt-9 flex min-h-14 items-center justify-center overflow-hidden rounded-full border border-white/[0.14] bg-white/[0.035] px-7 shadow-[0_0_40px_rgba(255,255,255,.025)] transition-all duration-500 hover:border-white/30 hover:bg-white/[0.07] active:scale-[0.96] sm:px-9"
+                onClick={handleStart}
+                className="group relative mx-auto mt-9 flex min-h-14 items-center justify-center overflow-hidden rounded-full border border-white/[0.14] bg-white/[0.035] px-7 transition-all duration-500 hover:border-white/30 hover:bg-white/[0.07] active:scale-[0.96] sm:px-9"
               >
                 <span className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/[0.1] to-transparent transition-transform duration-700 group-hover:translate-x-full" />
 
@@ -355,10 +410,8 @@ export default function Celebration() {
 
                 <span className="h-px w-8 bg-white/[0.08]" />
               </div>
-
             </div>
           )}
-
 
           {/* =================================================
               COUNTDOWN
@@ -366,13 +419,11 @@ export default function Celebration() {
 
           {started && !celebrationStarted && (
             <div className="animate-countdown">
-
               <p className="font-mono text-[6px] uppercase tracking-[0.65em] text-white/25 sm:text-[7px]">
                 LIGHTING THE MEMORY UNIVERSE
               </p>
 
               <div className="relative mx-auto mt-7 h-[230px] w-[230px] sm:h-[340px] sm:w-[340px]">
-
                 <div className="absolute inset-0 rounded-full border border-white/[0.07]" />
 
                 <div className="absolute inset-[11%] rounded-full border border-dashed border-white/[0.065]" />
@@ -386,14 +437,12 @@ export default function Celebration() {
                 </div>
 
                 <div className="absolute inset-0 flex items-center justify-center">
-
                   <span
                     key={countdown}
                     className="countdown-number font-display text-[9rem] leading-none tracking-[-0.08em] text-white sm:text-[13rem]"
                   >
                     {countdown}
                   </span>
-
                 </div>
 
                 <Orbit
@@ -401,7 +450,6 @@ export default function Celebration() {
                   strokeWidth={1}
                   className="absolute left-1/2 top-[-7px] -translate-x-1/2 text-white/30"
                 />
-
               </div>
 
               <p className="mt-3 font-serif text-sm italic text-white/25">
@@ -411,10 +459,8 @@ export default function Celebration() {
                 {countdown === 2 && "Take one breath."}
                 {countdown === 1 && "Here we go."}
               </p>
-
             </div>
           )}
-
 
           {/* =================================================
               FINAL CELEBRATION
@@ -422,61 +468,37 @@ export default function Celebration() {
 
           {celebrationStarted && (
             <div className="animate-final">
-
-              {/* Core */}
-
               <div className="relative mx-auto flex h-20 w-20 items-center justify-center">
-
                 <div className="absolute inset-0 animate-pulse rounded-full bg-white/[0.035]" />
 
                 <div className="absolute inset-2 rounded-full border border-white/[0.1]" />
 
                 <div className="absolute inset-0 rounded-full border border-white/[0.04] animate-[spin_12s_linear_infinite]" />
 
-                <div className="relative flex h-11 w-11 items-center justify-center rounded-full bg-white text-black shadow-[0_0_70px_rgba(255,255,255,.28)] sm:h-14 sm:w-14">
-
-                  <Sparkles
-                    size={19}
-                    strokeWidth={1.2}
-                  />
-
+                <div className="relative flex h-11 w-11 items-center justify-center rounded-full bg-white text-black shadow-[0_0_60px_rgba(255,255,255,.22)] sm:h-14 sm:w-14">
+                  <Sparkles size={19} strokeWidth={1.2} />
                 </div>
-
               </div>
-
-
-              {/* Label */}
 
               <p className="mt-8 font-mono text-[6px] uppercase tracking-[0.65em] text-white/40 sm:text-[7px]">
                 THE MEMORY UNIVERSE IS CELEBRATING
               </p>
 
-
-              {/* Main title */}
-
               <h1 className="birthday-title mt-7 font-display text-[4.3rem] leading-[0.73] tracking-[-0.075em] text-white sm:text-[7rem] md:text-[10rem]">
-
                 HAPPY
 
                 <br />
 
                 <span className="relative">
-
                   BIRTHDAY
 
                   <span className="absolute -right-4 -top-5 text-lg text-white/30 sm:-right-7 sm:-top-7 sm:text-3xl">
                     ✦
                   </span>
-
                 </span>
-
               </h1>
 
-
-              {/* Name */}
-
               <div className="mt-10 flex items-center justify-center gap-3 sm:mt-12 sm:gap-5">
-
                 <span className="h-px w-6 bg-gradient-to-r from-transparent to-white/25 sm:w-16" />
 
                 <p className="font-serif text-3xl italic text-white/80 sm:text-5xl md:text-6xl">
@@ -484,14 +506,9 @@ export default function Celebration() {
                 </p>
 
                 <span className="h-px w-6 bg-gradient-to-l from-transparent to-white/25 sm:w-16" />
-
               </div>
 
-
-              {/* Message */}
-
               <p className="mx-auto mt-9 max-w-xl px-2 font-serif text-[15px] leading-[1.9] text-white/45 sm:mt-10 sm:text-lg md:text-xl">
-
                 May the next chapter bring you moments
 
                 <br className="hidden sm:block" />
@@ -501,59 +518,36 @@ export default function Celebration() {
                 <br className="hidden sm:block" />
 
                 and reasons to smile when you least expect them.
-
               </p>
 
-
-              {/* Signature */}
-
               <div className="mx-auto mt-9 flex max-w-[320px] items-center justify-center gap-2 text-white/25 sm:max-w-none">
-
-                <Heart
-                  size={9}
-                  fill="currentColor"
-                />
+                <Heart size={9} fill="currentColor" />
 
                 <span className="font-mono text-[5px] uppercase tracking-[0.4em] sm:text-[6px]">
                   A universe made for one beautiful moment
                 </span>
 
-                <Heart
-                  size={9}
-                  fill="currentColor"
-                />
-
+                <Heart size={9} fill="currentColor" />
               </div>
-
-
-              {/* Finale button */}
 
               <button
                 type="button"
-                onClick={() => navigate("/finale")}
-                className="group relative mx-auto mt-10 flex min-h-14 items-center justify-center gap-3 overflow-hidden rounded-full border border-white/[0.15] bg-white/[0.035] px-8 shadow-[0_0_50px_rgba(255,255,255,.025)] transition-all duration-500 hover:border-white/40 hover:bg-white hover:text-black active:scale-[0.96] sm:px-10"
+                onClick={handleFinale}
+                className="group relative mx-auto mt-10 flex min-h-14 items-center justify-center gap-3 overflow-hidden rounded-full border border-white/[0.15] bg-white/[0.035] px-8 transition-all duration-500 hover:border-white/40 hover:bg-white hover:text-black active:scale-[0.96] sm:px-10"
               >
-
                 <span className="absolute inset-0 -translate-x-full bg-white transition-transform duration-500 group-hover:translate-x-0" />
 
                 <span className="relative flex items-center gap-3 font-mono text-[7px] uppercase tracking-[0.45em] text-white/70 group-hover:text-black">
-
                   ENTER THE FINALE
 
-                  <ArrowRight
+                  <Rocket
                     size={11}
                     className="transition-transform duration-300 group-hover:translate-x-1"
                   />
-
                 </span>
-
               </button>
 
-
-              {/* Status */}
-
               <div className="mt-10 flex items-center justify-center gap-3">
-
                 <span className="h-1 w-1 animate-pulse rounded-full bg-white shadow-[0_0_10px_white]" />
 
                 <span className="font-mono text-[5px] tracking-[0.5em] text-white/15">
@@ -561,22 +555,17 @@ export default function Celebration() {
                 </span>
 
                 <span className="h-1 w-1 animate-pulse rounded-full bg-white shadow-[0_0_10px_white]" />
-
               </div>
-
             </div>
           )}
-
         </div>
       </section>
 
-
       {/* =====================================================
-          BOTTOM HUD
-      ===================================================== */}
+          FOOTER
+      ====================================================== */}
 
       <footer className="pointer-events-none absolute bottom-6 left-1/2 z-30 flex -translate-x-1/2 items-center gap-3 whitespace-nowrap">
-
         <span className="h-px w-6 bg-white/[0.08] sm:w-10" />
 
         <span className="font-mono text-[5px] tracking-[0.5em] text-white/15">
@@ -584,29 +573,209 @@ export default function Celebration() {
         </span>
 
         <span className="h-px w-6 bg-white/[0.08] sm:w-10" />
-
       </footer>
-
 
       {/* =====================================================
           CSS
-      ===================================================== */}
+      ====================================================== */}
 
       <style>{`
+        /* =====================================================
+           PERFORMANCE
+        ====================================================== */
 
-        /* =================================================
+        .celebration-page {
+          isolation: isolate;
+          contain: layout paint;
+        }
+
+        .cosmic-star,
+        .confetti,
+        .burst-particle,
+        .celebration-ring,
+        .shockwave,
+        .floating-sparkle,
+        .orbital-system {
+          will-change: transform, opacity;
+        }
+
+        /* =====================================================
+           AURORA
+        ====================================================== */
+
+        .aurora-layer {
+          position: absolute;
+          inset: -30%;
+          opacity: 0;
+          transform: scale(.8);
+          background:
+            radial-gradient(
+              circle at 50% 40%,
+              rgba(255,255,255,.08),
+              transparent 35%
+            );
+          transition:
+            opacity 1800ms ease,
+            transform 2400ms cubic-bezier(.16,1,.3,1);
+        }
+
+        .aurora-active {
+          opacity: 1;
+          transform: scale(1.4);
+        }
+
+        /* =====================================================
+           ENERGY HORIZON
+        ====================================================== */
+
+        .energy-horizon {
+          position: absolute;
+          left: 50%;
+          top: 58%;
+          width: 40vw;
+          height: 1px;
+
+          transform:
+            translateX(-50%)
+            scaleX(.1);
+
+          opacity: 0;
+
+          background:
+            linear-gradient(
+              90deg,
+              transparent,
+              rgba(255,255,255,.55),
+              white,
+              rgba(255,255,255,.55),
+              transparent
+            );
+
+          box-shadow:
+            0 0 30px rgba(255,255,255,.25);
+
+          transition:
+            transform 1800ms cubic-bezier(.16,1,.3,1),
+            opacity 800ms ease;
+        }
+
+        .energy-active {
+          opacity: .7;
+
+          transform:
+            translateX(-50%)
+            scaleX(4);
+        }
+
+        /* =====================================================
+           CENTRAL LIGHT
+        ====================================================== */
+
+        .central-light {
+          position: absolute;
+
+          left: 50%;
+          top: 50%;
+
+          width: 240px;
+          height: 240px;
+
+          border-radius: 999px;
+
+          transform:
+            translate(-50%, -50%)
+            scale(1);
+
+          opacity: .55;
+
+          background:
+            radial-gradient(
+              circle,
+              rgba(255,255,255,.15),
+              rgba(255,255,255,.04) 38%,
+              transparent 72%
+            );
+
+          transition:
+            transform 2200ms cubic-bezier(.16,1,.3,1),
+            opacity 1500ms ease;
+        }
+
+        .central-light-active {
+          opacity: .95;
+
+          transform:
+            translate(-50%, -50%)
+            scale(4.5);
+        }
+
+        /* =====================================================
+           AMBIENT
+        ====================================================== */
+
+        .ambient-glow {
+          position: absolute;
+
+          width: 350px;
+          height: 350px;
+
+          border-radius: 999px;
+
+          opacity: .12;
+
+          background:
+            radial-gradient(
+              circle,
+              rgba(255,255,255,.08),
+              transparent 70%
+            );
+        }
+
+        .ambient-left {
+          left: -180px;
+          top: 18%;
+        }
+
+        .ambient-right {
+          right: -180px;
+          bottom: 15%;
+        }
+
+        /* =====================================================
+           ORBITAL SYSTEM
+        ====================================================== */
+
+        .orbital-system {
+          transition:
+            opacity 1400ms ease,
+            transform 1800ms cubic-bezier(.16,1,.3,1);
+        }
+
+        .orbital-system-visible {
+          opacity: 1;
+        }
+
+        .orbital-system-hidden {
+          opacity: 0;
+
+          transform:
+            translate(-50%, -50%)
+            scale(1.6);
+        }
+
+        /* =====================================================
            INTRO
-        ================================================= */
+        ====================================================== */
 
         @keyframes intro {
           from {
             opacity: 0;
-            transform: translateY(28px) scale(.97);
+            transform: translate3d(0,28px,0) scale(.97);
           }
 
           to {
             opacity: 1;
-            transform: translateY(0) scale(1);
+            transform: translate3d(0,0,0) scale(1);
           }
         }
 
@@ -615,39 +784,28 @@ export default function Celebration() {
             intro 1000ms cubic-bezier(.16,1,.3,1) both;
         }
 
-
-        /* =================================================
+        /* =====================================================
            COUNTDOWN
-        ================================================= */
+        ====================================================== */
 
         @keyframes countdownIn {
           0% {
             opacity: 0;
-            transform: scale(1.35);
-            filter: blur(8px);
-          }
-
-          70% {
-            opacity: 1;
-            filter: blur(0);
+            transform: scale(1.25);
           }
 
           100% {
+            opacity: 1;
             transform: scale(1);
           }
         }
 
         .countdown-number {
           animation:
-            countdownIn 600ms cubic-bezier(.16,1,.3,1);
+            countdownIn 550ms cubic-bezier(.16,1,.3,1);
         }
 
-
         @keyframes countdownOrbit {
-          from {
-            transform: rotate(0deg);
-          }
-
           to {
             transform: rotate(360deg);
           }
@@ -658,37 +816,30 @@ export default function Celebration() {
             countdownOrbit 5s linear infinite;
         }
 
-
-        /* =================================================
-           FINAL REVEAL
-        ================================================= */
+        /* =====================================================
+           FINAL
+        ====================================================== */
 
         @keyframes finalReveal {
           0% {
             opacity: 0;
-            transform: translateY(35px) scale(.94);
-            filter: blur(8px);
-          }
-
-          60% {
-            filter: blur(0);
+            transform: translate3d(0,40px,0) scale(.96);
           }
 
           100% {
             opacity: 1;
-            transform: translateY(0) scale(1);
+            transform: translate3d(0,0,0) scale(1);
           }
         }
 
         .animate-final {
           animation:
-            finalReveal 1400ms cubic-bezier(.16,1,.3,1) both;
+            finalReveal 1300ms cubic-bezier(.16,1,.3,1) both;
         }
 
-
-        /* =================================================
-           BIRTHDAY TITLE
-        ================================================= */
+        /* =====================================================
+           TITLE
+        ====================================================== */
 
         @keyframes titleGlow {
           0%,
@@ -699,64 +850,58 @@ export default function Celebration() {
 
           50% {
             text-shadow:
-              0 0 45px rgba(255,255,255,.12),
-              0 0 100px rgba(255,255,255,.05);
+              0 0 35px rgba(255,255,255,.11);
           }
         }
 
         .birthday-title {
           animation:
-            titleGlow 4s ease-in-out infinite;
+            titleGlow 4.5s ease-in-out infinite;
         }
 
-
-        /* =================================================
+        /* =====================================================
            ORBITS
-        ================================================= */
+        ====================================================== */
 
         @keyframes orbitOne {
-          from {
-            transform: rotate(0deg);
-          }
-
           to {
             transform: rotate(360deg);
           }
         }
 
         @keyframes orbitTwo {
-          from {
-            transform: rotate(360deg);
-          }
-
           to {
-            transform: rotate(0deg);
+            transform: rotate(-360deg);
           }
         }
 
         .orbit-one {
           animation:
-            orbitOne 34s linear infinite;
+            orbitOne 36s linear infinite;
         }
 
         .orbit-two {
           animation:
-            orbitTwo 46s linear infinite;
+            orbitTwo 52s linear infinite;
         }
 
-
-        /* =================================================
+        /* =====================================================
            ORBIT DOTS
-        ================================================= */
+        ====================================================== */
 
         .orbit-dot {
           position: absolute;
+
           width: 5px;
           height: 5px;
+
           border-radius: 999px;
-          background: rgba(255,255,255,.55);
+
+          background:
+            rgba(255,255,255,.6);
+
           box-shadow:
-            0 0 14px rgba(255,255,255,.4);
+            0 0 12px rgba(255,255,255,.35);
         }
 
         .orbit-dot-top {
@@ -783,66 +928,67 @@ export default function Celebration() {
           transform: translateY(-50%);
         }
 
-
-        /* =================================================
+        /* =====================================================
            STARS
-        ================================================= */
+        ====================================================== */
 
         .cosmic-star {
           position: absolute;
-          width: 2px;
-          height: 2px;
+
           border-radius: 999px;
+
           background: white;
-          opacity: .15;
+
           animation:
-            starPulse 4s ease-in-out infinite;
+            starPulse ease-in-out infinite;
         }
 
         @keyframes starPulse {
           0%,
           100% {
-            opacity: .08;
             transform: scale(.6);
           }
 
           50% {
-            opacity: .75;
             transform: scale(1.8);
-            box-shadow:
-              0 0 10px rgba(255,255,255,.7);
           }
         }
 
-
-        /* =================================================
+        /* =====================================================
            CELEBRATION RINGS
-        ================================================= */
+        ====================================================== */
 
-        .celebration-ring {
+        .celebration-ring,
+        .shockwave {
           position: absolute;
+
           left: 50%;
           top: 50%;
-          width: 80px;
-          height: 80px;
+
+          border-radius: 999px;
 
           transform:
             translate(-50%, -50%)
             scale(.1);
 
-          border-radius: 999px;
-          border: 1px solid rgba(255,255,255,.2);
+          border:
+            1px solid rgba(255,255,255,.22);
 
           animation:
-            celebrationRing 2.4s cubic-bezier(.16,1,.3,1) forwards;
+            celebrationRing 2200ms cubic-bezier(.16,1,.3,1) forwards;
+        }
+
+        .celebration-ring {
+          width: 90px;
+          height: 90px;
         }
 
         .ring-b {
-          animation-delay: .16s;
+          animation-delay: .15s;
         }
 
         .ring-c {
-          animation-delay: .32s;
+          animation-delay: .3s;
         }
 
         @keyframes celebrationRing {
@@ -863,31 +1009,50 @@ export default function Celebration() {
           }
         }
 
+        /* =====================================================
+           SHOCKWAVES
+        ====================================================== */
 
-        /* =================================================
-           CORE FLASH
-        ================================================= */
+        .shockwave {
+          width: 40px;
+          height: 40px;
+
+          border-color:
+            rgba(255,255,255,.4);
+
+          animation-duration:
+            1500ms;
+        }
+
+        .shockwave-b {
+          animation-delay: .35s;
+        }
+
+        /* =====================================================
+           CORE
+        ====================================================== */
 
         .celebration-core {
           position: absolute;
+
           left: 50%;
           top: 50%;
 
-          width: 100px;
-          height: 100px;
+          width: 120px;
+          height: 120px;
+
+          border-radius: 999px;
+
+          background: white;
+
+          opacity: 0;
 
           transform:
             translate(-50%, -50%)
             scale(.1);
 
-          border-radius: 999px;
-          background: white;
-          filter: blur(28px);
-
-          opacity: 0;
-
           animation:
-            coreFlash 1.3s ease-out forwards;
+            coreFlash 1200ms ease-out forwards;
         }
 
         @keyframes coreFlash {
@@ -899,7 +1064,7 @@ export default function Celebration() {
           }
 
           18% {
-            opacity: .45;
+            opacity: .22;
           }
 
           100% {
@@ -907,67 +1072,13 @@ export default function Celebration() {
 
             transform:
               translate(-50%, -50%)
-              scale(4);
+              scale(5);
           }
         }
 
-
-        /* =================================================
-           LIGHT RAYS
-        ================================================= */
-
-        .light-ray {
-          position: absolute;
-          left: 50%;
-          top: 50%;
-
-          width: 2px;
-          height: 45vh;
-
-          transform-origin: center bottom;
-
-          background:
-            linear-gradient(
-              to top,
-              rgba(255,255,255,.35),
-              transparent
-            );
-
-          opacity: 0;
-
-          animation:
-            rayBurst 1.4s cubic-bezier(.16,1,.3,1) forwards;
-        }
-
-        .ray-1 { transform: translate(-50%, -100%) rotate(0deg); }
-        .ray-2 { transform: translate(-50%, -100%) rotate(45deg); }
-        .ray-3 { transform: translate(-50%, -100%) rotate(90deg); }
-        .ray-4 { transform: translate(-50%, -100%) rotate(135deg); }
-        .ray-5 { transform: translate(-50%, -100%) rotate(180deg); }
-        .ray-6 { transform: translate(-50%, -100%) rotate(225deg); }
-        .ray-7 { transform: translate(-50%, -100%) rotate(270deg); }
-        .ray-8 { transform: translate(-50%, -100%) rotate(315deg); }
-
-        @keyframes rayBurst {
-          0% {
-            opacity: 0;
-            height: 0;
-          }
-
-          20% {
-            opacity: .5;
-          }
-
-          100% {
-            opacity: 0;
-            height: 45vh;
-          }
-        }
-
-
-        /* =================================================
+        /* =====================================================
            BURST PARTICLES
-        ================================================= */
+        ====================================================== */
 
         .burst-particle {
           position: absolute;
@@ -985,7 +1096,7 @@ export default function Celebration() {
           opacity: 0;
 
           animation:
-            particleBurst 1.7s cubic-bezier(.16,1,.3,1) forwards;
+            particleBurst 1600ms cubic-bezier(.16,1,.3,1) forwards;
         }
 
         @keyframes particleBurst {
@@ -995,8 +1106,7 @@ export default function Celebration() {
             transform:
               translate(-50%, -50%)
               rotate(var(--angle))
-              translateY(0)
-              scale(.5);
+              translateY(0);
           }
 
           15% {
@@ -1009,8 +1119,8 @@ export default function Celebration() {
             transform:
               translate(-50%, -50%)
               rotate(var(--angle))
-              translateY(-190px)
-              scale(.05);
+              translateY(-180px)
+              scale(.2);
           }
         }
 
@@ -1023,40 +1133,50 @@ export default function Celebration() {
         .p7 { --angle: 270deg; }
         .p8 { --angle: 315deg; }
 
-
-        /* =================================================
+        /* =====================================================
            CONFETTI
-        ================================================= */
+        ====================================================== */
 
         .confetti {
           position: absolute;
+
           top: -20px;
 
-          border-radius: 1px;
-
           opacity: 0;
+
+          border-radius: 2px;
 
           animation:
             confettiFall linear forwards;
         }
 
         .confetti-0 {
-          background: rgba(255,255,255,.9);
-          box-shadow: 0 0 8px rgba(255,255,255,.35);
+          background:
+            rgba(255,255,255,.95);
         }
 
         .confetti-1 {
-          background: rgba(255,255,255,.45);
+          background:
+            rgba(255,255,255,.45);
         }
 
         .confetti-2 {
-          background: rgba(255,255,255,.7);
-          border-radius: 50%;
+          background:
+            rgba(255,255,255,.7);
+
+          border-radius:
+            50%;
+        }
+
+        .confetti-3 {
+          background:
+            rgba(255,255,255,.25);
         }
 
         @keyframes confettiFall {
           0% {
             opacity: 0;
+
             transform:
               translate3d(0,-20px,0)
               rotate(var(--rotation));
@@ -1075,14 +1195,15 @@ export default function Celebration() {
                 110vh,
                 0
               )
-              rotate(calc(var(--rotation) + 720deg));
+              rotate(
+                calc(var(--rotation) + 720deg)
+              );
           }
         }
 
-
-        /* =================================================
+        /* =====================================================
            FLOATING SPARKLES
-        ================================================= */
+        ====================================================== */
 
         .floating-sparkle {
           position: absolute;
@@ -1090,7 +1211,8 @@ export default function Celebration() {
           width: 15px;
           height: 15px;
 
-          color: rgba(255,255,255,.35);
+          color:
+            rgba(255,255,255,.35);
 
           animation:
             floatSparkle 4s ease-in-out infinite;
@@ -1123,52 +1245,61 @@ export default function Celebration() {
           0%,
           100% {
             opacity: .15;
+
             transform:
-              translateY(0)
+              translate3d(0,0,0)
               rotate(0deg)
               scale(.7);
           }
 
           50% {
             opacity: .7;
+
             transform:
-              translateY(-18px)
+              translate3d(0,-16px,0)
               rotate(90deg)
-              scale(1.15);
+              scale(1.1);
           }
         }
 
-
-        /* =================================================
+        /* =====================================================
            GRAIN
-        ================================================= */
+        ====================================================== */
 
         .grain {
           background-image:
             url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.5'/%3E%3C/svg%3E");
         }
 
-
-        /* =================================================
-           MOBILE
-        ================================================= */
+        /* =====================================================
+           MOBILE PERFORMANCE MODE
+        ====================================================== */
 
         @media (max-width: 640px) {
 
+          .ambient-glow {
+            opacity: .06;
+          }
+
+          .aurora-layer {
+            opacity: .45;
+          }
+
+          .central-light {
+            width: 180px;
+            height: 180px;
+          }
+
+          .energy-horizon {
+            width: 60vw;
+          }
+
           .orbit-one {
-            animation-duration: 45s;
+            animation-duration: 48s;
           }
 
           .orbit-two {
-            animation-duration: 60s;
-          }
-
-          .cosmic-star {
-            animation-duration: 5s;
-          }
-
-          .light-ray {
-            height: 32vh;
+            animation-duration: 64s;
           }
 
           .floating-sparkle {
@@ -1176,12 +1307,27 @@ export default function Celebration() {
             height: 11px;
           }
 
+          .celebration-core {
+            width: 90px;
+            height: 90px;
+          }
+
+          .birthday-title {
+            animation-duration: 6s;
+          }
+
+          .grain {
+            opacity: .015;
+          }
+
+          .shockwave {
+            display: none;
+          }
         }
 
-
-        /* =================================================
+        /* =====================================================
            REDUCED MOTION
-        ================================================= */
+        ====================================================== */
 
         @media (prefers-reduced-motion: reduce) {
 
@@ -1194,9 +1340,7 @@ export default function Celebration() {
           }
 
         }
-
       `}</style>
-
     </main>
   );
 }

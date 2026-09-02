@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ArrowUpRight,
   CalendarDays,
@@ -12,18 +12,338 @@ export default function Memories() {
   const [selected, setSelected] = useState(null);
   const [hovered, setHovered] = useState(null);
 
+  /*
+   * ============================================================
+   * PROTECTED NAVIGATION REFS
+   * ============================================================
+   */
+
+  const selectedRef = useRef(null);
+  const isClosingFromPopState = useRef(false);
+  const hasProtectedHistoryState = useRef(false);
+  const isRestoringHistory = useRef(false);
+
   const memories = birthdayData.memories || [];
+
+  /*
+   * ============================================================
+   * KEEP SELECTED REF SYNCHRONIZED
+   * ============================================================
+   */
+
+  useEffect(() => {
+    selectedRef.current = selected;
+  }, [selected]);
+
+  /*
+   * ============================================================
+   * CREATE PROTECTED MAIN PAGE HISTORY STATE
+   *
+   * This creates one controlled state for the Memories page.
+   * It prevents accidental Back navigation from immediately
+   * leaving the current route.
+   * ============================================================
+   */
+
+  useEffect(() => {
+    const currentState = window.history.state || {};
+
+    if (!currentState.__memoryUniverseMemoriesPage) {
+      window.history.replaceState(
+        {
+          ...currentState,
+          __memoryUniverseMemoriesPage: true,
+          __memoryUniverseViewerOpen: false,
+        },
+        "",
+        window.location.href
+      );
+    }
+
+    hasProtectedHistoryState.current = true;
+
+    return () => {
+      hasProtectedHistoryState.current = false;
+    };
+  }, []);
+
+  /*
+   * ============================================================
+   * LOCK BODY SCROLL WHILE VIEWER IS OPEN
+   * ============================================================
+   */
+
+  useEffect(() => {
+    if (!selected) return;
+
+    const previousOverflow = document.body.style.overflow;
+    const previousOverscrollBehavior =
+      document.body.style.overscrollBehavior;
+
+    document.body.style.overflow = "hidden";
+    document.body.style.overscrollBehavior = "none";
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.body.style.overscrollBehavior =
+        previousOverscrollBehavior;
+    };
+  }, [selected]);
+
+  /*
+   * ============================================================
+   * OPEN MEMORY
+   *
+   * A history state is pushed only when opening the viewer.
+   * This allows Back/swipe-back to close the viewer instead
+   * of leaving the Memories page.
+   * ============================================================
+   */
+
+  const openMemory = (memory) => {
+    if (!memory) return;
+
+    setSelected(memory);
+
+    window.history.pushState(
+      {
+        ...(window.history.state || {}),
+        __memoryUniverseMemoriesPage: true,
+        __memoryUniverseViewerOpen: true,
+        __memoryUniverseMemoryId: memory.id,
+      },
+      "",
+      window.location.href
+    );
+  };
+
+  /*
+   * ============================================================
+   * CLOSE MEMORY
+   *
+   * Normal close button should return to the protected page state
+   * without creating duplicate history entries.
+   * ============================================================
+   */
+
+  const closeMemory = () => {
+    if (!selectedRef.current) return;
+
+    const currentState = window.history.state || {};
+
+    setSelected(null);
+
+    if (
+      currentState.__memoryUniverseViewerOpen &&
+      !isClosingFromPopState.current
+    ) {
+      isRestoringHistory.current = true;
+      window.history.back();
+
+      window.setTimeout(() => {
+        isRestoringHistory.current = false;
+      }, 100);
+    }
+
+    isClosingFromPopState.current = false;
+  };
+
+  /*
+   * ============================================================
+   * BACK / SWIPE-BACK / BROWSER HISTORY PROTECTION
+   *
+   * Priority:
+   *
+   * 1. If a memory viewer is open:
+   *    Back closes it.
+   *
+   * 2. If the viewer is already closed:
+   *    Back is consumed and the user stays on Memories.
+   *
+   * Works with:
+   * - Browser Back
+   * - Android Back gesture
+   * - Android hardware/system Back
+   * - iPhone browser swipe-back
+   * - Browser history navigation
+   * ============================================================
+   */
+
+  useEffect(() => {
+    const handlePopState = (event) => {
+      const currentViewer = selectedRef.current;
+
+      /*
+       * ========================================================
+       * VIEWER IS OPEN
+       *
+       * Browser Back/swipe-back closes the viewer only.
+       * User stays on Memories.
+       * ========================================================
+       */
+
+      if (currentViewer) {
+        isClosingFromPopState.current = true;
+
+        setSelected(null);
+
+        return;
+      }
+
+      /*
+       * ========================================================
+       * MAIN PAGE PROTECTION
+       *
+       * No viewer is open.
+       * Restore the protected Memories page history state.
+       * ========================================================
+       */
+
+      if (isRestoringHistory.current) {
+        return;
+      }
+
+      const state = event.state || {};
+
+      /*
+       * If navigation reached a state outside this protected page,
+       * immediately restore the Memories page state.
+       */
+
+      if (!state.__memoryUniverseMemoriesPage) {
+        window.history.pushState(
+          {
+            ...(window.history.state || {}),
+            __memoryUniverseMemoriesPage: true,
+            __memoryUniverseViewerOpen: false,
+          },
+          "",
+          window.location.href
+        );
+
+        return;
+      }
+
+      /*
+       * If we returned to the protected Memories state,
+       * ensure the viewer remains closed.
+       */
+
+      if (!state.__memoryUniverseViewerOpen) {
+        setSelected(null);
+      }
+    };
+
+    window.addEventListener("popstate", handlePopState);
+
+    return () => {
+      window.removeEventListener("popstate", handlePopState);
+    };
+  }, []);
+
+  /*
+   * ============================================================
+   * KEYBOARD SUPPORT
+   * ============================================================
+   */
+
+  useEffect(() => {
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape" && selectedRef.current) {
+        closeMemory();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, []);
+
+  /*
+   * ============================================================
+   * TOUCH / MOBILE EDGE SWIPE PROTECTION
+   *
+   * Prevents accidental horizontal browser navigation gestures
+   * from interfering while the memory viewer is active.
+   * The actual browser Back action is still handled by popstate.
+   * ============================================================
+   */
+
+  useEffect(() => {
+    let touchStartX = 0;
+    let touchStartY = 0;
+
+    const handleTouchStart = (event) => {
+      if (!selectedRef.current) return;
+
+      const touch = event.touches[0];
+
+      touchStartX = touch.clientX;
+      touchStartY = touch.clientY;
+    };
+
+    const handleTouchEnd = (event) => {
+      if (!selectedRef.current) return;
+
+      const touch = event.changedTouches[0];
+
+      const deltaX = touch.clientX - touchStartX;
+      const deltaY = touch.clientY - touchStartY;
+
+      /*
+       * Right swipe from the left side of the screen.
+       * Acts as an additional mobile close interaction.
+       */
+
+      const startedNearLeftEdge = touchStartX <= 45;
+      const isHorizontalSwipe =
+        Math.abs(deltaX) > Math.abs(deltaY);
+
+      if (
+        startedNearLeftEdge &&
+        isHorizontalSwipe &&
+        deltaX > 90
+      ) {
+        closeMemory();
+      }
+    };
+
+    window.addEventListener(
+      "touchstart",
+      handleTouchStart,
+      { passive: true }
+    );
+
+    window.addEventListener(
+      "touchend",
+      handleTouchEnd,
+      { passive: true }
+    );
+
+    return () => {
+      window.removeEventListener(
+        "touchstart",
+        handleTouchStart
+      );
+
+      window.removeEventListener(
+        "touchend",
+        handleTouchEnd
+      );
+    };
+  }, []);
 
   return (
     <main className="relative min-h-screen overflow-hidden px-5 pb-40 pt-28 md:px-12 md:pt-32">
-
       {/* =========================================================
           CINEMATIC BACKGROUND
       ========================================================= */}
 
       <div className="pointer-events-none fixed inset-0 -z-30 overflow-hidden bg-[#020202]">
-
         {/* Main atmosphere */}
+
         <div
           className="
             absolute
@@ -39,6 +359,7 @@ export default function Memories() {
         />
 
         {/* Warm glow */}
+
         <div
           className="
             absolute
@@ -53,6 +374,7 @@ export default function Memories() {
         />
 
         {/* Violet glow */}
+
         <div
           className="
             absolute
@@ -67,6 +389,7 @@ export default function Memories() {
         />
 
         {/* Subtle star field */}
+
         <div
           className="
             absolute
@@ -78,6 +401,7 @@ export default function Memories() {
         />
 
         {/* Fine grid */}
+
         <div
           className="
             absolute
@@ -89,6 +413,7 @@ export default function Memories() {
         />
 
         {/* Vignette */}
+
         <div
           className="
             absolute
@@ -103,9 +428,7 @@ export default function Memories() {
       ========================================================= */}
 
       <header className="relative mx-auto max-w-6xl">
-
         <div className="flex items-center gap-4">
-
           <span className="h-px w-12 bg-gradient-to-r from-transparent to-white/20" />
 
           <p
@@ -121,11 +444,9 @@ export default function Memories() {
           </p>
 
           <span className="h-px w-12 bg-gradient-to-l from-transparent to-white/20" />
-
         </div>
 
         <div className="relative mt-7">
-
           <h1
             className="
               font-display
@@ -144,8 +465,6 @@ export default function Memories() {
               are places.
             </span>
           </h1>
-
-          {/* floating ornament */}
 
           <div
             className="
@@ -187,11 +506,9 @@ export default function Memories() {
               "
             />
           </div>
-
         </div>
 
         <div className="mt-9 flex items-center gap-4">
-
           <p
             className="
               max-w-xl
@@ -209,15 +526,12 @@ export default function Memories() {
               {" "}Enter it.
             </span>
           </p>
-
         </div>
 
-        {/* archive status */}
+        {/* Archive status */}
 
         <div className="mt-10 flex items-center gap-4">
-
           <div className="flex items-center gap-2">
-
             <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-white/60 shadow-[0_0_15px_rgba(255,255,255,.8)]" />
 
             <span
@@ -231,7 +545,6 @@ export default function Memories() {
             >
               ARCHIVE ONLINE
             </span>
-
           </div>
 
           <span className="h-px w-8 bg-white/[0.06]" />
@@ -246,9 +559,7 @@ export default function Memories() {
           >
             {String(memories.length).padStart(2, "0")} FRAGMENTS
           </span>
-
         </div>
-
       </header>
 
       {/* =========================================================
@@ -256,8 +567,7 @@ export default function Memories() {
       ========================================================= */}
 
       <section className="relative mx-auto mt-20 max-w-6xl md:mt-28">
-
-        {/* orbital rings */}
+        {/* Orbital rings */}
 
         <div
           className="
@@ -296,17 +606,18 @@ export default function Memories() {
         />
 
         <div className="grid gap-10 md:grid-cols-2 md:gap-x-16 md:gap-y-28">
-
           {memories.map((memory, index) => {
-
             const isHovered = hovered === index;
 
             return (
               <button
                 key={memory.id}
-                onClick={() => setSelected(memory)}
+                type="button"
+                onClick={() => openMemory(memory)}
                 onMouseEnter={() => setHovered(index)}
                 onMouseLeave={() => setHovered(null)}
+                onFocus={() => setHovered(index)}
+                onBlur={() => setHovered(null)}
                 className={`
                   group
                   relative
@@ -318,13 +629,8 @@ export default function Memories() {
                   }
                 `}
               >
-
-                {/* =================================================
-                    CARD
-                ================================================= */}
-
                 <div
-                  className="
+                  className={`
                     relative
                     overflow-hidden
                     rounded-[3px]
@@ -334,27 +640,28 @@ export default function Memories() {
                     shadow-[0_30px_100px_rgba(0,0,0,.45)]
                     transition-all
                     duration-700
-                    group-hover:-translate-y-3
-                    group-hover:border-white/[0.18]
-                    group-hover:shadow-[0_40px_120px_rgba(0,0,0,.7)]
-                  "
+                    ${
+                      isHovered
+                        ? "md:-translate-y-3 md:border-white/[0.18] md:shadow-[0_40px_120px_rgba(0,0,0,.7)]"
+                        : ""
+                    }
+                  `}
                 >
-
-                  {/* image */}
+                  {/* Image */}
 
                   <div className="relative aspect-[4/5] overflow-hidden">
-
                     <img
                       src={memory.image}
                       alt={memory.title}
                       loading="lazy"
                       decoding="async"
+                      draggable="false"
                       className="
                         h-full
                         w-full
+                        scale-[1.01]
                         object-cover
                         grayscale-[25%]
-                        scale-[1.01]
                         transition-all
                         duration-[1800ms]
                         ease-out
@@ -363,7 +670,7 @@ export default function Memories() {
                       "
                     />
 
-                    {/* cinematic image tint */}
+                    {/* Cinematic image tint */}
 
                     <div
                       className="
@@ -376,7 +683,7 @@ export default function Memories() {
                       "
                     />
 
-                    {/* image shine */}
+                    {/* Image shine */}
 
                     <div
                       className="
@@ -397,7 +704,7 @@ export default function Memories() {
                       "
                     />
 
-                    {/* top metadata */}
+                    {/* Top metadata */}
 
                     <div
                       className="
@@ -410,7 +717,6 @@ export default function Memories() {
                         justify-between
                       "
                     >
-
                       <div
                         className="
                           flex
@@ -425,7 +731,6 @@ export default function Memories() {
                           backdrop-blur-md
                         "
                       >
-
                         <CalendarDays
                           size={9}
                           strokeWidth={1}
@@ -442,7 +747,6 @@ export default function Memories() {
                         >
                           {memory.date}
                         </span>
-
                       </div>
 
                       <span
@@ -453,12 +757,11 @@ export default function Memories() {
                           text-white/30
                         "
                       >
-                        0{index + 1}
+                        {String(index + 1).padStart(2, "0")}
                       </span>
-
                     </div>
 
-                    {/* center focus */}
+                    {/* Center focus */}
 
                     <div
                       className="
@@ -472,7 +775,6 @@ export default function Memories() {
                         justify-center
                       "
                     >
-
                       <span
                         className="
                           absolute
@@ -514,17 +816,13 @@ export default function Memories() {
                           strokeWidth={1}
                         />
                       </span>
-
                     </div>
 
-                    {/* bottom content */}
+                    {/* Bottom content */}
 
                     <div className="absolute bottom-0 left-0 right-0 p-7">
-
                       <div className="flex items-end justify-between gap-5">
-
                         <div>
-
                           <p
                             className="
                               font-mono
@@ -555,7 +853,6 @@ export default function Memories() {
                           >
                             {memory.title}
                           </h2>
-
                         </div>
 
                         <div
@@ -583,16 +880,11 @@ export default function Memories() {
                             strokeWidth={1}
                           />
                         </div>
-
                       </div>
-
                     </div>
-
                   </div>
 
-                  {/* =================================================
-                      CARD FOOTER
-                  ================================================= */}
+                  {/* Card footer */}
 
                   <div
                     className="
@@ -605,7 +897,6 @@ export default function Memories() {
                       py-4
                     "
                   >
-
                     <span
                       className="
                         font-mono
@@ -629,15 +920,11 @@ export default function Memories() {
                         group-hover:text-white/60
                       "
                     />
-
                   </div>
-
                 </div>
-
               </button>
             );
           })}
-
         </div>
       </section>
 
@@ -646,11 +933,9 @@ export default function Memories() {
       ========================================================= */}
 
       <div className="mx-auto mt-28 flex max-w-6xl items-center gap-4">
-
         <span className="h-px flex-1 bg-white/[0.05]" />
 
         <div className="flex items-center gap-3">
-
           <Sparkles
             size={10}
             strokeWidth={1}
@@ -668,11 +953,9 @@ export default function Memories() {
           >
             Every memory leaves a trace
           </span>
-
         </div>
 
         <span className="h-px flex-1 bg-white/[0.05]" />
-
       </div>
 
       {/* =========================================================
@@ -680,7 +963,6 @@ export default function Memories() {
       ========================================================= */}
 
       {selected && (
-
         <div
           className="
             fixed
@@ -692,10 +974,9 @@ export default function Memories() {
             backdrop-blur-2xl
             sm:p-6
           "
-          onClick={() => setSelected(null)}
+          onClick={closeMemory}
         >
-
-          {/* background glow */}
+          {/* Background glow */}
 
           <div
             className="
@@ -713,10 +994,14 @@ export default function Memories() {
             "
           />
 
-          {/* close */}
+          {/* Close */}
 
           <button
-            onClick={() => setSelected(null)}
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
+              closeMemory();
+            }}
             aria-label="Close memory"
             className="
               fixed
@@ -736,9 +1021,11 @@ export default function Memories() {
               backdrop-blur-xl
               transition-all
               duration-300
+              hover:rotate-90
               hover:border-white/30
               hover:bg-white
               hover:text-black
+              active:scale-90
               sm:right-8
               sm:top-8
             "
@@ -746,7 +1033,7 @@ export default function Memories() {
             <X size={16} strokeWidth={1} />
           </button>
 
-          {/* viewer */}
+          {/* Viewer */}
 
           <div
             onClick={(event) => event.stopPropagation()}
@@ -766,14 +1053,13 @@ export default function Memories() {
               md:grid-cols-[1.15fr_.85fr]
             "
           >
-
-            {/* image */}
+            {/* Image */}
 
             <div className="relative min-h-[55vh] overflow-hidden md:min-h-[75vh]">
-
               <img
                 src={selected.image}
                 alt={selected.title}
+                draggable="false"
                 className="
                   h-full
                   w-full
@@ -796,7 +1082,6 @@ export default function Memories() {
               />
 
               <div className="absolute bottom-6 left-6">
-
                 <span
                   className="
                     rounded-full
@@ -815,12 +1100,10 @@ export default function Memories() {
                 >
                   MEMORY {String(selected.id).padStart(2, "0")}
                 </span>
-
               </div>
-
             </div>
 
-            {/* information */}
+            {/* Information */}
 
             <div
               className="
@@ -834,9 +1117,6 @@ export default function Memories() {
                 lg:p-20
               "
             >
-
-              {/* vertical glow */}
-
               <div
                 className="
                   pointer-events-none
@@ -853,9 +1133,7 @@ export default function Memories() {
               />
 
               <div className="relative">
-
                 <div className="flex items-center gap-3">
-
                   <span className="h-px w-8 bg-white/20" />
 
                   <p
@@ -869,7 +1147,6 @@ export default function Memories() {
                   >
                     {selected.date}
                   </p>
-
                 </div>
 
                 <h2
@@ -888,7 +1165,6 @@ export default function Memories() {
                 </h2>
 
                 <div className="my-10 flex items-center gap-4">
-
                   <span className="h-px flex-1 bg-white/[0.08]" />
 
                   <Sparkles
@@ -898,7 +1174,6 @@ export default function Memories() {
                   />
 
                   <span className="h-px flex-1 bg-white/[0.08]" />
-
                 </div>
 
                 <p
@@ -914,11 +1189,8 @@ export default function Memories() {
                 </p>
 
                 <div className="mt-12 border-t border-white/[0.08] pt-6">
-
                   <div className="flex items-center justify-between">
-
                     <div>
-
                       <p
                         className="
                           font-mono
@@ -940,9 +1212,9 @@ export default function Memories() {
                           text-white/35
                         "
                       >
-                        MEMORY #{String(selected.id).padStart(2, "0")}
+                        MEMORY #
+                        {String(selected.id).padStart(2, "0")}
                       </p>
-
                     </div>
 
                     <div
@@ -963,15 +1235,30 @@ export default function Memories() {
                         strokeWidth={1}
                       />
                     </div>
-
                   </div>
-
                 </div>
 
+                {/* Mobile swipe hint */}
+
+                <div className="mt-10 flex items-center gap-3 md:hidden">
+                  <span className="h-px flex-1 bg-white/[0.08]" />
+
+                  <span
+                    className="
+                      font-mono
+                      text-[5px]
+                      uppercase
+                      tracking-[0.35em]
+                      text-white/20
+                    "
+                  >
+                    Swipe back to close
+                  </span>
+
+                  <span className="h-px flex-1 bg-white/[0.08]" />
+                </div>
               </div>
-
             </div>
-
           </div>
         </div>
       )}
@@ -990,8 +1277,17 @@ export default function Memories() {
             transform: rotate(360deg);
           }
         }
-      `}</style>
 
+        @media (prefers-reduced-motion: reduce) {
+          *,
+          *::before,
+          *::after {
+            animation-duration: 0.01ms !important;
+            transition-duration: 0.01ms !important;
+            scroll-behavior: auto !important;
+          }
+        }
+      `}</style>
     </main>
   );
 }

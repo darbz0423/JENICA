@@ -5,83 +5,469 @@ import {
   Maximize2,
   X,
   ScanLine,
+  Camera,
+  MoveHorizontal,
+  Sparkles,
+  CircleDot,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { birthdayData } from "../data/birthdayData";
 
 export default function Gallery() {
   const [selected, setSelected] = useState(null);
   const [hovered, setHovered] = useState(null);
-  const [cursor, setCursor] = useState({ x: 50, y: 35 });
+  const [cursor, setCursor] = useState({
+    x: 50,
+    y: 35,
+  });
+  const [viewerDirection, setViewerDirection] = useState(0);
+  const [isViewerReady, setIsViewerReady] = useState(false);
+  const [swipeOffset, setSwipeOffset] = useState(0);
+  const [isSwiping, setIsSwiping] = useState(false);
+
+  const selectedRef = useRef(null);
+  const viewerHistoryActiveRef = useRef(false);
+  const historyLockRef = useRef(false);
+  const mountedRef = useRef(true);
+
+  const touchStartRef = useRef({
+    x: 0,
+    y: 0,
+    time: 0,
+  });
+
+  const touchLastRef = useRef({
+    x: 0,
+    y: 0,
+  });
 
   const photos = birthdayData.gallery || [];
+
+  /*
+   * ============================================================
+   * COMPONENT MOUNT
+   * ============================================================
+   */
+
+  useEffect(() => {
+    mountedRef.current = true;
+
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
+  /*
+   * ============================================================
+   * KEEP SELECTED REF SYNCHRONIZED
+   * ============================================================
+   */
+
+  useEffect(() => {
+    selectedRef.current = selected;
+  }, [selected]);
+
+  /*
+   * ============================================================
+   * SELECTED INDEX
+   * ============================================================
+   */
 
   const selectedIndex = useMemo(() => {
     if (!selected) return -1;
 
-    return photos.findIndex((photo) => photo.id === selected.id);
+    return photos.findIndex(
+      (photo) => photo.id === selected.id
+    );
   }, [selected, photos]);
 
   /*
    * ============================================================
-   * VIEWER / KEYBOARD
+   * PROTECTED GALLERY HISTORY
+   *
+   * This page becomes a protected main page.
+   *
+   * Back priority:
+   *
+   * 1. Viewer open -> close viewer
+   * 2. Viewer closed -> remain on Gallery
+   *
+   * ============================================================
+   */
+
+  useEffect(() => {
+    const currentState = window.history.state;
+
+    if (!currentState?.galleryProtected) {
+      window.history.replaceState(
+        {
+          ...(currentState || {}),
+          galleryProtected: true,
+          galleryBase: true,
+        },
+        "",
+        window.location.href
+      );
+    }
+  }, []);
+
+  /*
+   * ============================================================
+   * OPEN PHOTO
+   *
+   * Push exactly ONE history state for the viewer.
+   * Navigating between photos does NOT push more states.
+   *
+   * ============================================================
+   */
+
+  const openPhoto = useCallback((photo) => {
+    if (!photo) return;
+
+    setViewerDirection(0);
+    setSwipeOffset(0);
+    setIsViewerReady(false);
+
+    setSelected(photo);
+
+    requestAnimationFrame(() => {
+      if (mountedRef.current) {
+        setIsViewerReady(true);
+      }
+    });
+
+    if (!viewerHistoryActiveRef.current) {
+      viewerHistoryActiveRef.current = true;
+
+      window.history.pushState(
+        {
+          ...(window.history.state || {}),
+          galleryProtected: true,
+          galleryViewer: true,
+          photoId: photo.id,
+        },
+        "",
+        window.location.href
+      );
+    }
+  }, []);
+
+  /*
+   * ============================================================
+   * CLOSE VIEWER
+   *
+   * Clicking close should remove the temporary viewer state.
+   *
+   * Browser Back / swipe-back is handled separately by popstate.
+   *
+   * ============================================================
+   */
+
+  const closePhoto = useCallback(() => {
+    if (!selectedRef.current) return;
+
+    setIsViewerReady(false);
+    setSwipeOffset(0);
+    setSelected(null);
+
+    if (
+      viewerHistoryActiveRef.current &&
+      !historyLockRef.current
+    ) {
+      viewerHistoryActiveRef.current = false;
+      historyLockRef.current = true;
+
+      window.history.back();
+
+      window.setTimeout(() => {
+        historyLockRef.current = false;
+      }, 100);
+    }
+  }, []);
+
+  /*
+   * ============================================================
+   * CHANGE PHOTO
+   *
+   * Replaces the current viewer history state.
+   * Does not create duplicate history entries.
+   *
+   * ============================================================
+   */
+
+  const goToPhoto = useCallback(
+    (nextIndex, direction = 1) => {
+      if (!photos.length) return;
+
+      const normalizedIndex =
+        ((nextIndex % photos.length) + photos.length) %
+        photos.length;
+
+      const nextPhoto = photos[normalizedIndex];
+
+      if (!nextPhoto) return;
+
+      setViewerDirection(direction);
+      setSwipeOffset(0);
+      setSelected(nextPhoto);
+
+      if (viewerHistoryActiveRef.current) {
+        window.history.replaceState(
+          {
+            ...(window.history.state || {}),
+            galleryProtected: true,
+            galleryViewer: true,
+            photoId: nextPhoto.id,
+          },
+          "",
+          window.location.href
+        );
+      }
+    },
+    [photos]
+  );
+
+  const nextPhoto = useCallback(
+    (event) => {
+      event?.stopPropagation();
+
+      if (!photos.length || selectedIndex < 0) return;
+
+      goToPhoto(selectedIndex + 1, 1);
+    },
+    [photos.length, selectedIndex, goToPhoto]
+  );
+
+  const previousPhoto = useCallback(
+    (event) => {
+      event?.stopPropagation();
+
+      if (!photos.length || selectedIndex < 0) return;
+
+      goToPhoto(selectedIndex - 1, -1);
+    },
+    [photos.length, selectedIndex, goToPhoto]
+  );
+
+  /*
+   * ============================================================
+   * PROTECTED BROWSER BACK / MOBILE SWIPE-BACK
+   *
+   * This is the important navigation logic.
+   *
+   * If photo viewer is open:
+   *     Back -> close viewer -> remain Gallery
+   *
+   * If Gallery is already visible:
+   *     Back -> consume navigation -> remain Gallery
+   *
+   * ============================================================
+   */
+
+  useEffect(() => {
+    const handlePopState = () => {
+      /*
+       * PRIORITY 1:
+       *
+       * A photo viewer is open.
+       *
+       * Browser Back / Android Back /
+       * iPhone swipe-back should ONLY close viewer.
+       */
+
+      if (selectedRef.current) {
+        viewerHistoryActiveRef.current = false;
+
+        setIsViewerReady(false);
+        setSwipeOffset(0);
+        setSelected(null);
+
+        return;
+      }
+
+      /*
+       * PRIORITY 2:
+       *
+       * Gallery itself is protected.
+       *
+       * Restore the current Gallery route/state.
+       */
+
+      if (historyLockRef.current) return;
+
+      historyLockRef.current = true;
+
+      window.history.pushState(
+        {
+          ...(window.history.state || {}),
+          galleryProtected: true,
+          galleryBase: true,
+        },
+        "",
+        window.location.href
+      );
+
+      window.setTimeout(() => {
+        historyLockRef.current = false;
+      }, 80);
+    };
+
+    window.addEventListener("popstate", handlePopState);
+
+    return () => {
+      window.removeEventListener(
+        "popstate",
+        handlePopState
+      );
+    };
+  }, []);
+
+  /*
+   * ============================================================
+   * VIEWER KEYBOARD
    * ============================================================
    */
 
   useEffect(() => {
     if (!selected) return;
 
-    const previousOverflow = document.body.style.overflow;
+    const previousOverflow =
+      document.body.style.overflow;
 
     document.body.style.overflow = "hidden";
 
     const handleKey = (event) => {
       if (event.key === "Escape") {
-        setSelected(null);
+        closePhoto();
       }
 
       if (event.key === "ArrowLeft") {
-        setSelected((current) => {
-          if (!current || !photos.length) return current;
-
-          const index = photos.findIndex(
-            (photo) => photo.id === current.id
-          );
-
-          return photos[
-            index <= 0 ? photos.length - 1 : index - 1
-          ];
-        });
+        previousPhoto();
       }
 
       if (event.key === "ArrowRight") {
-        setSelected((current) => {
-          if (!current || !photos.length) return current;
-
-          const index = photos.findIndex(
-            (photo) => photo.id === current.id
-          );
-
-          return photos[
-            index >= photos.length - 1 ? 0 : index + 1
-          ];
-        });
+        nextPhoto();
       }
     };
 
-    window.addEventListener("keydown", handleKey);
+    window.addEventListener(
+      "keydown",
+      handleKey
+    );
 
     return () => {
-      document.body.style.overflow = previousOverflow;
-      window.removeEventListener("keydown", handleKey);
+      document.body.style.overflow =
+        previousOverflow;
+
+      window.removeEventListener(
+        "keydown",
+        handleKey
+      );
     };
-  }, [selected, photos]);
+  }, [
+    selected,
+    closePhoto,
+    previousPhoto,
+    nextPhoto,
+  ]);
 
   /*
    * ============================================================
-   * CURSOR ATMOSPHERE
-   * Desktop only.
-   * Mobile does not run this effect.
+   * MOBILE PHOTO SWIPE
+   *
+   * Swipe LEFT  -> Next photo
+   * Swipe RIGHT -> Previous photo
+   *
+   * ============================================================
+   */
+
+  const handleTouchStart = (event) => {
+    if (!event.touches?.length) return;
+
+    const touch = event.touches[0];
+
+    touchStartRef.current = {
+      x: touch.clientX,
+      y: touch.clientY,
+      time: Date.now(),
+    };
+
+    touchLastRef.current = {
+      x: touch.clientX,
+      y: touch.clientY,
+    };
+
+    setIsSwiping(true);
+  };
+
+  const handleTouchMove = (event) => {
+    if (!isSwiping) return;
+
+    const touch = event.touches?.[0];
+
+    if (!touch) return;
+
+    touchLastRef.current = {
+      x: touch.clientX,
+      y: touch.clientY,
+    };
+
+    const deltaX =
+      touch.clientX - touchStartRef.current.x;
+
+    const deltaY =
+      touch.clientY - touchStartRef.current.y;
+
+    /*
+     * Only use horizontal movement.
+     */
+
+    if (Math.abs(deltaX) > Math.abs(deltaY)) {
+      event.preventDefault();
+
+      setSwipeOffset(deltaX * 0.7);
+    }
+  };
+
+  const handleTouchEnd = () => {
+    if (!isSwiping) return;
+
+    const deltaX =
+      touchLastRef.current.x -
+      touchStartRef.current.x;
+
+    const elapsed =
+      Date.now() -
+      touchStartRef.current.time;
+
+    const velocity =
+      Math.abs(deltaX) / Math.max(elapsed, 1);
+
+    const shouldChangePhoto =
+      Math.abs(deltaX) > 70 ||
+      velocity > 0.55;
+
+    setIsSwiping(false);
+    setSwipeOffset(0);
+
+    if (!shouldChangePhoto) return;
+
+    if (deltaX < 0) {
+      nextPhoto();
+    } else {
+      previousPhoto();
+    }
+  };
+
+  /*
+   * ============================================================
+   * DESKTOP CURSOR ATMOSPHERE
    * ============================================================
    */
 
@@ -89,56 +475,21 @@ export default function Gallery() {
     if (window.innerWidth < 1024) return;
 
     setCursor({
-      x: (event.clientX / window.innerWidth) * 100,
-      y: (event.clientY / window.innerHeight) * 100,
+      x:
+        (event.clientX /
+          window.innerWidth) *
+        100,
+
+      y:
+        (event.clientY /
+          window.innerHeight) *
+        100,
     });
   };
 
   /*
    * ============================================================
-   * ACTIONS
-   * ============================================================
-   */
-
-  const openPhoto = (photo) => {
-    setSelected(photo);
-  };
-
-  const closePhoto = () => {
-    setSelected(null);
-  };
-
-  const nextPhoto = (event) => {
-    event?.stopPropagation();
-
-    if (!photos.length) return;
-
-    setSelected(
-      photos[
-        selectedIndex >= photos.length - 1
-          ? 0
-          : selectedIndex + 1
-      ]
-    );
-  };
-
-  const previousPhoto = (event) => {
-    event?.stopPropagation();
-
-    if (!photos.length) return;
-
-    setSelected(
-      photos[
-        selectedIndex <= 0
-          ? photos.length - 1
-          : selectedIndex - 1
-      ]
-    );
-  };
-
-  /*
-   * ============================================================
-   * EDITORIAL LAYOUT
+   * EDITORIAL PHOTO LAYOUTS
    * ============================================================
    */
 
@@ -160,6 +511,13 @@ export default function Gallery() {
     "rotate-[0.6deg]",
   ];
 
+  const viewerProgress =
+    selectedIndex >= 0 && photos.length
+      ? ((selectedIndex + 1) /
+          photos.length) *
+        100
+      : 0;
+
   return (
     <main
       className="
@@ -177,26 +535,26 @@ export default function Gallery() {
       "
       onPointerMove={handlePointerMove}
     >
-      {/* ========================================================
+      {/* ======================================================
           BACKGROUND UNIVERSE
-      ======================================================== */}
+      ====================================================== */}
 
       <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
-        {/* Base */}
         <div className="absolute inset-0 bg-[#020202]" />
 
-        {/* Desktop cursor atmosphere */}
+        {/* Desktop cursor glow */}
+
         <div
           className="
             absolute
             hidden
-            h-[380px]
-            w-[380px]
+            h-[420px]
+            w-[420px]
             -translate-x-1/2
             -translate-y-1/2
             rounded-full
-            bg-white/[0.025]
-            blur-[100px]
+            bg-violet-300/[0.035]
+            blur-[120px]
             transition-[left,top]
             duration-[1000ms]
             ease-out
@@ -208,105 +566,76 @@ export default function Gallery() {
           }}
         />
 
-        {/* Central atmosphere */}
+        {/* Main atmosphere */}
+
         <div
           className="
             absolute
             left-1/2
-            top-[30%]
-            h-[500px]
-            w-[500px]
+            top-[25%]
+            h-[520px]
+            w-[520px]
             -translate-x-1/2
             rounded-full
-            bg-violet-300/[0.012]
-            blur-[120px]
-            sm:h-[650px]
-            sm:w-[650px]
+            bg-violet-300/[0.018]
+            blur-[140px]
+            sm:h-[700px]
+            sm:w-[700px]
           "
         />
 
-        {/* Left atmosphere */}
         <div
           className="
             absolute
             -left-48
             top-[60%]
             hidden
-            h-[400px]
-            w-[400px]
+            h-[500px]
+            w-[500px]
             rounded-full
-            bg-amber-100/[0.012]
-            blur-[110px]
+            bg-amber-100/[0.015]
+            blur-[130px]
             sm:block
           "
         />
 
-        {/* Right atmosphere */}
         <div
           className="
             absolute
             -right-48
             top-[15%]
             hidden
-            h-[400px]
-            w-[400px]
+            h-[500px]
+            w-[500px]
             rounded-full
-            bg-blue-200/[0.01]
-            blur-[110px]
+            bg-blue-300/[0.014]
+            blur-[130px]
             sm:block
           "
         />
 
-        {/* Grid */}
         <div className="gallery-grid absolute inset-0 opacity-[0.018]" />
 
-        {/* Vignette */}
-        <div
-          className="
-            absolute
-            inset-0
-            bg-[radial-gradient(circle_at_50%_30%,transparent_18%,rgba(0,0,0,.72)_100%)]
-          "
-        />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_30%,transparent_18%,rgba(0,0,0,.78)_100%)]" />
 
-        {/* Noise */}
         <div className="gallery-noise absolute inset-0 opacity-[0.018]" />
 
-        {/* Top cinematic shadow */}
-        <div
-          className="
-            absolute
-            left-0
-            right-0
-            top-0
-            h-48
-            bg-gradient-to-b
-            from-black
-            to-transparent
-            opacity-70
-          "
-        />
+        <div className="absolute left-0 right-0 top-0 h-56 bg-gradient-to-b from-black via-black/40 to-transparent" />
       </div>
 
-      {/* ========================================================
+      {/* ======================================================
           TOP IDENTIFIER
-      ======================================================== */}
+      ====================================================== */}
 
       <header className="relative mx-auto max-w-7xl">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="relative flex h-7 w-7 items-center justify-center">
-              <span
-                className="
-                  absolute
-                  inset-0
-                  rotate-45
-                  border
-                  border-white/[0.12]
-                "
-              />
+            <div className="relative flex h-8 w-8 items-center justify-center">
+              <span className="absolute inset-0 rotate-45 border border-white/[0.14]" />
 
-              <span className="relative h-1 w-1 rounded-full bg-white/70" />
+              <span className="absolute h-3 w-3 rotate-45 border border-white/[0.08]" />
+
+              <span className="relative h-1 w-1 rounded-full bg-white/70 shadow-[0_0_18px_rgba(255,255,255,.8)]" />
             </div>
 
             <div>
@@ -326,7 +655,7 @@ export default function Gallery() {
             </p>
 
             <div className="mt-2 flex items-center justify-end gap-2">
-              <span className="h-1 w-1 animate-pulse rounded-full bg-white/60" />
+              <span className="h-1 w-1 animate-pulse rounded-full bg-violet-200/70 shadow-[0_0_12px_rgba(196,181,253,.8)]" />
 
               <span className="font-mono text-[6px] uppercase tracking-[0.3em] text-white/30">
                 PRESERVED
@@ -335,20 +664,24 @@ export default function Gallery() {
           </div>
         </div>
 
-        {/* ======================================================
+        {/* ====================================================
             HERO
-        ====================================================== */}
+        ==================================================== */}
 
         <div className="mt-16 sm:mt-20 lg:mt-24">
           <div className="grid gap-10 lg:grid-cols-[1fr_auto] lg:items-end">
             <div>
-              <p className="font-mono text-[6px] uppercase tracking-[0.45em] text-white/15">
-                ARCHIVE 001 / PERSONAL COLLECTION
-              </p>
+              <div className="flex items-center gap-3">
+                <span className="h-px w-8 bg-white/20" />
+
+                <p className="font-mono text-[6px] uppercase tracking-[0.45em] text-white/15">
+                  ARCHIVE 001 / PERSONAL COLLECTION
+                </p>
+              </div>
 
               <h1
                 className="
-                  mt-5
+                  mt-6
                   max-w-5xl
                   font-display
                   text-[4.4rem]
@@ -360,66 +693,51 @@ export default function Gallery() {
                   lg:text-[9.5rem]
                 "
               >
-                Photographs
-                <span className="text-white/[0.08]">.</span>
+                Photo
+                <span className="text-white/[0.08]">
+                  graphs.
+                </span>
               </h1>
 
               <div className="mt-8 max-w-xl">
-                <p
-                  className="
-                    font-serif
-                    text-[17px]
-                    leading-[1.8]
-                    text-white/30
-                    sm:text-xl
-                  "
-                >
+                <p className="font-serif text-[17px] leading-[1.8] text-white/30 sm:text-xl">
                   Some moments disappear the second
                   they happen. Others stay somewhere
                   inside us.
                 </p>
 
-                <p
-                  className="
-                    mt-2
-                    font-serif
-                    text-[17px]
-                    italic
-                    leading-[1.8]
-                    text-white/55
-                    sm:text-xl
-                  "
-                >
+                <p className="mt-2 font-serif text-[17px] italic leading-[1.8] text-white/55 sm:text-xl">
                   These are the ones worth keeping.
                 </p>
               </div>
             </div>
 
-            {/* Archive stats */}
             <div className="flex items-end gap-8 sm:gap-12">
               <div>
                 <p className="font-mono text-[6px] uppercase tracking-[0.35em] text-white/15">
                   FRAMES
                 </p>
 
-                <p className="mt-1 font-display text-4xl leading-none text-white/55 sm:text-5xl">
-                  {String(photos.length).padStart(2, "0")}
+                <p className="mt-1 font-display text-4xl leading-none text-white/60 sm:text-5xl">
+                  {String(photos.length).padStart(
+                    2,
+                    "0"
+                  )}
                 </p>
               </div>
 
               <div>
                 <p className="font-mono text-[6px] uppercase tracking-[0.35em] text-white/15">
-                  TYPE
+                  FORMAT
                 </p>
 
                 <p className="mt-2 font-mono text-[6px] uppercase tracking-[0.3em] text-white/35">
-                  MEMORIES
+                  ANALOG MEMORY
                 </p>
               </div>
             </div>
           </div>
 
-          {/* Cinematic divider */}
           <div className="mt-14 flex items-center gap-4 sm:mt-20">
             <span className="h-px flex-1 bg-gradient-to-r from-white/20 to-transparent" />
 
@@ -440,46 +758,14 @@ export default function Gallery() {
         </div>
       </header>
 
-      {/* ========================================================
+      {/* ======================================================
           MEMORY FIELD
-      ======================================================== */}
+      ====================================================== */}
 
       <section className="relative mx-auto mt-20 max-w-7xl sm:mt-28 lg:mt-32">
-        {/* Desktop orbital rings */}
-        <div
-          className="
-            pointer-events-none
-            absolute
-            left-1/2
-            top-[40%]
-            hidden
-            h-[800px]
-            w-[800px]
-            -translate-x-1/2
-            rounded-full
-            border
-            border-white/[0.018]
-            lg:block
-          "
-        />
+        <div className="pointer-events-none absolute left-1/2 top-[40%] hidden h-[800px] w-[800px] -translate-x-1/2 rounded-full border border-white/[0.018] lg:block" />
 
-        <div
-          className="
-            pointer-events-none
-            absolute
-            left-1/2
-            top-[40%]
-            hidden
-            h-[560px]
-            w-[560px]
-            -translate-x-1/2
-            rounded-full
-            border
-            border-dashed
-            border-white/[0.012]
-            lg:block
-          "
-        />
+        <div className="pointer-events-none absolute left-1/2 top-[40%] hidden h-[560px] w-[560px] -translate-x-1/2 rounded-full border border-dashed border-white/[0.012] lg:block" />
 
         <div
           className="
@@ -495,19 +781,20 @@ export default function Gallery() {
           "
         >
           {photos.map((photo, index) => {
-            const isHovered = hovered === index;
+            const isHovered =
+              hovered === index;
 
             return (
               <article
                 key={photo.id}
                 className={`
                   relative
-                  ${layouts[index % layouts.length]}
+                  ${layouts[
+                    index % layouts.length
+                  ]}
                 `}
               >
-                {/* ==================================================
-                    MEMORY INDEX
-                ================================================== */}
+                {/* Memory index */}
 
                 <div
                   className={`
@@ -527,33 +814,50 @@ export default function Gallery() {
                     }
                   `}
                 >
+                  <CircleDot
+                    size={7}
+                    strokeWidth={1}
+                    className="text-white/20"
+                  />
+
                   <span className="font-mono text-[5px] uppercase tracking-[0.4em] text-white/20">
                     MEMORY
                   </span>
 
                   <span className="font-display text-lg leading-none text-white/20">
-                    {String(index + 1).padStart(2, "0")}
+                    {String(index + 1).padStart(
+                      2,
+                      "0"
+                    )}
                   </span>
                 </div>
 
-                {/* ==================================================
-                    PHOTO BUTTON
-                ================================================== */}
+                {/* Photo */}
 
                 <button
                   type="button"
                   onClick={() => openPhoto(photo)}
-                  onMouseEnter={() => setHovered(index)}
-                  onMouseLeave={() => setHovered(null)}
-                  onFocus={() => setHovered(index)}
-                  onBlur={() => setHovered(null)}
+                  onMouseEnter={() =>
+                    setHovered(index)
+                  }
+                  onMouseLeave={() =>
+                    setHovered(null)
+                  }
+                  onFocus={() =>
+                    setHovered(index)
+                  }
+                  onBlur={() =>
+                    setHovered(null)
+                  }
                   className={`
                     group
                     relative
                     block
                     w-full
                     text-left
-                    ${rotations[index % rotations.length]}
+                    ${rotations[
+                      index % rotations.length
+                    ]}
                     ${
                       isHovered
                         ? "z-30 lg:scale-[1.025] lg:rotate-0"
@@ -564,15 +868,16 @@ export default function Gallery() {
                     ease-[cubic-bezier(.22,1,.36,1)]
                   `}
                 >
-                  {/* Ambient glow */}
+                  {/* Glow */}
+
                   <div
                     className={`
                       pointer-events-none
                       absolute
-                      -inset-6
-                      rounded-[30px]
-                      bg-white/[0.025]
-                      blur-2xl
+                      -inset-8
+                      rounded-[40px]
+                      bg-violet-200/[0.025]
+                      blur-3xl
                       transition-opacity
                       duration-700
                       ${
@@ -583,9 +888,7 @@ export default function Gallery() {
                     `}
                   />
 
-                  {/* =================================================
-                      POLAROID FRAME
-                  ================================================= */}
+                  {/* Polaroid */}
 
                   <div
                     className="
@@ -598,44 +901,28 @@ export default function Gallery() {
                       p-2
                       pb-20
                       shadow-[0_25px_70px_rgba(0,0,0,.65)]
+                      transition-shadow
+                      duration-700
                       sm:p-3
                       sm:pb-24
+                      lg:group-hover:shadow-[0_35px_100px_rgba(0,0,0,.85)]
                     "
                   >
-                    {/* Paper texture */}
                     <div className="paper-noise pointer-events-none absolute inset-0 opacity-[0.045]" />
 
-                    {/* Paper highlight */}
-                    <div
-                      className="
-                        pointer-events-none
-                        absolute
-                        inset-x-0
-                        top-0
-                        h-20
-                        bg-gradient-to-b
-                        from-white/30
-                        to-transparent
-                        opacity-30
-                      "
-                    />
+                    <div className="pointer-events-none absolute inset-x-0 top-0 h-20 bg-gradient-to-b from-white/30 to-transparent opacity-30" />
 
-                    {/* =================================================
-                        PHOTO
-                    ================================================= */}
+                    {/* Image */}
 
-                    <div
-                      className="
-                        relative
-                        aspect-[4/5]
-                        overflow-hidden
-                        bg-black
-                      "
-                    >
+                    <div className="relative aspect-[4/5] overflow-hidden bg-black">
                       <img
                         src={photo.image}
                         alt={photo.title}
-                        loading={index < 2 ? "eager" : "lazy"}
+                        loading={
+                          index < 2
+                            ? "eager"
+                            : "lazy"
+                        }
                         decoding="async"
                         draggable="false"
                         className={`
@@ -643,17 +930,18 @@ export default function Gallery() {
                           w-full
                           object-cover
                           transition-transform
-                          duration-[1200ms]
+                          duration-[1400ms]
                           ease-[cubic-bezier(.22,1,.36,1)]
                           ${
                             isHovered
-                              ? "lg:scale-[1.06]"
+                              ? "lg:scale-[1.08]"
                               : "scale-100"
                           }
                         `}
                       />
 
-                      {/* Cinematic gradient */}
+                      {/* Image overlay */}
+
                       <div
                         className={`
                           pointer-events-none
@@ -674,6 +962,7 @@ export default function Gallery() {
                       />
 
                       {/* Film frame */}
+
                       <div
                         className={`
                           pointer-events-none
@@ -684,13 +973,14 @@ export default function Gallery() {
                           duration-700
                           ${
                             isHovered
-                              ? "border-white/30"
+                              ? "border-white/35"
                               : "border-white/0"
                           }
                         `}
                       />
 
-                      {/* Top scan line */}
+                      {/* Scan */}
+
                       <span
                         className={`
                           pointer-events-none
@@ -712,6 +1002,7 @@ export default function Gallery() {
                       />
 
                       {/* Center focus */}
+
                       <div
                         className={`
                           pointer-events-none
@@ -729,21 +1020,40 @@ export default function Gallery() {
                           }
                         `}
                       >
-                        <span className="absolute left-1/2 top-1/2 h-5 w-px -translate-x-1/2 -translate-y-1/2 bg-white/50" />
-                        <span className="absolute left-1/2 top-1/2 h-px w-5 -translate-x-1/2 -translate-y-1/2 bg-white/50" />
+                        <span className="absolute left-1/2 top-1/2 h-6 w-px -translate-x-1/2 -translate-y-1/2 bg-white/50" />
+
+                        <span className="absolute left-1/2 top-1/2 h-px w-6 -translate-x-1/2 -translate-y-1/2 bg-white/50" />
+
+                        <span className="absolute left-1/2 top-1/2 h-10 w-10 -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/20" />
                       </div>
 
                       {/* Frame number */}
+
                       <div className="absolute right-3 top-3">
-                        <span className="font-mono text-[5px] tracking-[0.3em] text-white/30">
-                          {String(index + 1).padStart(2, "0")}
+                        <span className="font-mono text-[5px] tracking-[0.3em] text-white/35">
+                          {String(index + 1).padStart(
+                            2,
+                            "0"
+                          )}
+                        </span>
+                      </div>
+
+                      {/* Camera indicator */}
+
+                      <div className="absolute bottom-3 left-3 flex items-center gap-2">
+                        <Camera
+                          size={9}
+                          strokeWidth={1}
+                          className="text-white/30"
+                        />
+
+                        <span className="font-mono text-[5px] tracking-[0.25em] text-white/30">
+                          ARCHIVE
                         </span>
                       </div>
                     </div>
 
-                    {/* =================================================
-                        POLAROID META
-                    ================================================= */}
+                    {/* Polaroid information */}
 
                     <div
                       className="
@@ -776,21 +1086,26 @@ export default function Gallery() {
                         </p>
 
                         <p className="font-display text-xl leading-none text-black/20">
-                          {String(index + 1).padStart(2, "0")}
+                          {String(index + 1).padStart(
+                            2,
+                            "0"
+                          )}
                         </p>
                       </div>
                     </div>
 
                     {/* Frame corners */}
+
                     <span className="absolute left-2 top-2 h-4 w-4 border-l border-t border-black/10" />
+
                     <span className="absolute right-2 top-2 h-4 w-4 border-r border-t border-black/10" />
+
                     <span className="absolute bottom-2 left-2 h-4 w-4 border-b border-l border-black/10" />
+
                     <span className="absolute bottom-2 right-2 h-4 w-4 border-b border-r border-black/10" />
                   </div>
 
-                  {/* =================================================
-                      OPEN MEMORY
-                  ================================================= */}
+                  {/* Open memory */}
 
                   <div
                     className={`
@@ -824,16 +1139,16 @@ export default function Gallery() {
         </div>
       </section>
 
-      {/* ========================================================
+      {/* ======================================================
           ARCHIVE END
-      ======================================================== */}
+      ====================================================== */}
 
       <footer className="relative mx-auto mt-36 max-w-7xl sm:mt-48">
         <div className="flex items-center gap-4">
           <span className="h-px flex-1 bg-white/[0.06]" />
 
           <div className="text-center">
-            <div className="mx-auto flex h-8 w-8 items-center justify-center rounded-full border border-white/[0.08]">
+            <div className="mx-auto flex h-9 w-9 items-center justify-center rounded-full border border-white/[0.08]">
               <span className="font-display text-[10px] tracking-[-0.05em] text-white/25">
                 KD
               </span>
@@ -852,9 +1167,9 @@ export default function Gallery() {
         </div>
       </footer>
 
-      {/* ========================================================
-          MOBILE MEMORY HINT
-      ======================================================== */}
+      {/* ======================================================
+          MOBILE HINT
+      ====================================================== */}
 
       <div className="mt-16 flex items-center justify-center gap-3 sm:mt-20">
         <span className="h-px w-8 bg-white/[0.06]" />
@@ -866,13 +1181,13 @@ export default function Gallery() {
         <span className="h-px w-8 bg-white/[0.06]" />
       </div>
 
-      {/* ========================================================
-          CINEMATIC VIEWER
-      ======================================================== */}
+      {/* ======================================================
+          CINEMATIC PHOTO VIEWER
+      ====================================================== */}
 
       {selected && (
         <div
-          className="
+          className={`
             fixed
             inset-0
             z-[300]
@@ -882,11 +1197,21 @@ export default function Gallery() {
             overflow-hidden
             bg-[#010101]
             p-3
+            transition-opacity
+            duration-500
             sm:p-8
-          "
+            ${
+              isViewerReady
+                ? "opacity-100"
+                : "opacity-0"
+            }
+          `}
           onClick={closePhoto}
         >
-          {/* Viewer backdrop */}
+          {/* ==================================================
+              VIEWER BACKGROUND
+          ================================================== */}
+
           <div className="pointer-events-none absolute inset-0 overflow-hidden">
             <img
               src={selected.image}
@@ -899,25 +1224,28 @@ export default function Gallery() {
                 w-full
                 scale-110
                 object-cover
-                opacity-[0.035]
-                blur-2xl
+                opacity-[0.045]
+                blur-3xl
               "
             />
 
             <div className="absolute inset-0 bg-black/90" />
 
-            <div
-              className="
-                absolute
-                inset-0
-                bg-[radial-gradient(circle_at_50%_45%,rgba(255,255,255,.045),transparent_45%)]
-              "
-            />
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_45%,rgba(139,92,246,.08),transparent_45%)]" />
 
             <div className="viewer-noise absolute inset-0 opacity-[0.025]" />
+
+            {/* Orbital glow */}
+
+            <div className="absolute left-1/2 top-1/2 h-[700px] w-[700px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/[0.018]" />
+
+            <div className="absolute left-1/2 top-1/2 h-[500px] w-[500px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-dashed border-white/[0.012]" />
           </div>
 
-          {/* Top bar */}
+          {/* ==================================================
+              TOP BAR
+          ================================================== */}
+
           <div
             className="
               absolute
@@ -934,31 +1262,45 @@ export default function Gallery() {
             "
           >
             <div>
-              <p className="font-mono text-[5px] uppercase tracking-[0.5em] text-white/20">
-                MEMORY ARCHIVE
-              </p>
+              <div className="flex items-center gap-2">
+                <Sparkles
+                  size={9}
+                  strokeWidth={1}
+                  className="text-violet-200/35"
+                />
 
-              <p className="mt-2 max-w-[200px] font-display text-xl leading-none text-white/70 sm:max-w-none sm:text-2xl">
+                <p className="font-mono text-[5px] uppercase tracking-[0.5em] text-white/20">
+                  MEMORY ARCHIVE
+                </p>
+              </div>
+
+              <p className="mt-3 max-w-[220px] font-display text-xl leading-none text-white/75 sm:max-w-none sm:text-3xl">
                 {selected.title}
               </p>
 
-              <div className="mt-2 flex items-center gap-2">
-                <span className="h-1 w-1 rounded-full bg-white/40" />
+              <div className="mt-3 flex items-center gap-2">
+                <span className="h-1 w-1 animate-pulse rounded-full bg-violet-200/60" />
 
                 <span className="font-mono text-[5px] uppercase tracking-[0.3em] text-white/20">
-                  FRAME {String(selectedIndex + 1).padStart(2, "0")}
+                  FRAME{" "}
+                  {String(
+                    selectedIndex + 1
+                  ).padStart(2, "0")}
                 </span>
               </div>
             </div>
 
             <button
               type="button"
-              onClick={closePhoto}
+              onClick={(event) => {
+                event.stopPropagation();
+                closePhoto();
+              }}
               className="
                 group
                 flex
-                h-10
-                w-10
+                h-11
+                w-11
                 shrink-0
                 items-center
                 justify-center
@@ -976,13 +1318,19 @@ export default function Gallery() {
                 hover:text-black
                 active:scale-90
               "
-              aria-label="Close"
+              aria-label="Close photo"
             >
-              <X size={15} strokeWidth={1.2} />
+              <X
+                size={16}
+                strokeWidth={1.2}
+              />
             </button>
           </div>
 
-          {/* Main image */}
+          {/* ==================================================
+              IMAGE
+          ================================================== */}
+
           <div
             className="
               relative
@@ -994,39 +1342,69 @@ export default function Gallery() {
               sm:max-h-[80vh]
               sm:max-w-[86vw]
             "
-            onClick={(event) => event.stopPropagation()}
+            onClick={(event) =>
+              event.stopPropagation()
+            }
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleTouchEnd}
+            style={{
+              touchAction: "pan-y",
+            }}
           >
             {/* Image glow */}
-            <div className="pointer-events-none absolute -inset-8 rounded-full bg-white/[0.025] blur-3xl" />
+
+            <div className="pointer-events-none absolute -inset-10 rounded-full bg-violet-200/[0.025] blur-3xl" />
 
             {/* Image */}
+
             <img
               src={selected.image}
               alt={selected.title}
               decoding="async"
               draggable="false"
-              className="
+              className={`
                 relative
                 max-h-[76vh]
                 max-w-[90vw]
+                select-none
                 object-contain
                 shadow-[0_40px_120px_rgba(0,0,0,.95)]
+                transition-all
+                duration-500
+                ease-[cubic-bezier(.22,1,.36,1)]
                 sm:max-h-[74vh]
                 sm:max-w-[82vw]
-              "
+                ${
+                  isViewerReady
+                    ? "scale-100 opacity-100"
+                    : "scale-[.96] opacity-0"
+                }
+              `}
+              style={{
+                transform: `translateX(${swipeOffset}px)`,
+              }}
             />
 
             {/* Film corners */}
-            <span className="absolute -left-2 -top-2 h-7 w-7 border-l border-t border-white/25 sm:-left-4 sm:-top-4 sm:h-10 sm:w-10" />
-            <span className="absolute -right-2 -top-2 h-7 w-7 border-r border-t border-white/25 sm:-right-4 sm:-top-4 sm:h-10 sm:w-10" />
-            <span className="absolute -bottom-2 -left-2 h-7 w-7 border-b border-l border-white/25 sm:-bottom-4 sm:-left-4 sm:h-10 sm:w-10" />
-            <span className="absolute -bottom-2 -right-2 h-7 w-7 border-b border-r border-white/25 sm:-bottom-4 sm:-right-4 sm:h-10 sm:w-10" />
 
-            {/* Viewer scan line */}
+            <span className="pointer-events-none absolute -left-2 -top-2 h-7 w-7 border-l border-t border-white/25 sm:-left-4 sm:-top-4 sm:h-10 sm:w-10" />
+
+            <span className="pointer-events-none absolute -right-2 -top-2 h-7 w-7 border-r border-t border-white/25 sm:-right-4 sm:-top-4 sm:h-10 sm:w-10" />
+
+            <span className="pointer-events-none absolute -bottom-2 -left-2 h-7 w-7 border-b border-l border-white/25 sm:-bottom-4 sm:-left-4 sm:h-10 sm:w-10" />
+
+            <span className="pointer-events-none absolute -bottom-2 -right-2 h-7 w-7 border-b border-r border-white/25 sm:-bottom-4 sm:-right-4 sm:h-10 sm:w-10" />
+
+            {/* Scan line */}
+
             <span className="pointer-events-none absolute left-0 top-0 h-px w-full animate-viewerScan bg-gradient-to-r from-transparent via-white/50 to-transparent" />
           </div>
 
-          {/* Previous */}
+          {/* ==================================================
+              PREVIOUS
+          ================================================== */}
+
           {photos.length > 1 && (
             <button
               type="button"
@@ -1067,7 +1445,10 @@ export default function Gallery() {
             </button>
           )}
 
-          {/* Next */}
+          {/* ==================================================
+              NEXT
+          ================================================== */}
+
           {photos.length > 1 && (
             <button
               type="button"
@@ -1108,13 +1489,17 @@ export default function Gallery() {
             </button>
           )}
 
-          {/* Bottom information */}
+          {/* ==================================================
+              BOTTOM HUD
+          ================================================== */}
+
           <div
             className="
               absolute
               bottom-5
               left-1/2
               z-[320]
+              w-[min(88vw,420px)]
               -translate-x-1/2
               text-center
               sm:bottom-8
@@ -1124,20 +1509,52 @@ export default function Gallery() {
               {selected.date}
             </p>
 
-            <div className="mt-3 flex items-center justify-center gap-4">
+            {/* Progress */}
+
+            <div className="mt-4 h-px w-full overflow-hidden bg-white/10">
+              <div
+                className="h-full bg-gradient-to-r from-violet-300/20 via-white/60 to-violet-300/20 transition-all duration-700"
+                style={{
+                  width: `${viewerProgress}%`,
+                }}
+              />
+            </div>
+
+            <div className="mt-4 flex items-center justify-center gap-4">
               <span className="h-px w-8 bg-white/10" />
 
               <span className="font-mono text-[6px] tracking-[0.4em] text-white/35">
-                {String(selectedIndex + 1).padStart(2, "0")}
+                {String(
+                  selectedIndex + 1
+                ).padStart(2, "0")}
                 {" / "}
-                {String(photos.length).padStart(2, "0")}
+                {String(
+                  photos.length
+                ).padStart(2, "0")}
               </span>
 
               <span className="h-px w-8 bg-white/10" />
             </div>
           </div>
 
-          {/* Desktop keyboard */}
+          {/* ==================================================
+              MOBILE SWIPE HINT
+          ================================================== */}
+
+          <div className="absolute bottom-7 left-1/2 z-[320] hidden -translate-x-1/2 items-center gap-2 sm:hidden">
+            <MoveHorizontal
+              size={11}
+              strokeWidth={1}
+              className="text-white/15"
+            />
+
+            <span className="font-mono text-[5px] uppercase tracking-[0.3em] text-white/15">
+              SWIPE TO EXPLORE
+            </span>
+          </div>
+
+          {/* Desktop keyboard hint */}
+
           <div className="absolute bottom-7 right-8 hidden items-center gap-2 sm:flex">
             <Maximize2
               size={9}
@@ -1146,15 +1563,15 @@ export default function Gallery() {
             />
 
             <span className="font-mono text-[5px] uppercase tracking-[0.3em] text-white/15">
-              ESC TO CLOSE
+              ARROWS TO NAVIGATE • ESC TO CLOSE
             </span>
           </div>
         </div>
       )}
 
-      {/* ========================================================
+      {/* ======================================================
           CSS
-      ======================================================== */}
+      ====================================================== */}
 
       <style>{`
         @keyframes photoScan {
@@ -1184,7 +1601,7 @@ export default function Gallery() {
           }
 
           15% {
-            opacity: 0.4;
+            opacity: 0.45;
           }
 
           50% {
@@ -1192,7 +1609,7 @@ export default function Gallery() {
           }
 
           85% {
-            opacity: 0.4;
+            opacity: 0.45;
           }
 
           100% {
@@ -1202,11 +1619,14 @@ export default function Gallery() {
         }
 
         .animate-photoScan {
-          animation: photoScan 1.15s cubic-bezier(.22,1,.36,1);
+          animation:
+            photoScan 1.15s
+            cubic-bezier(.22,1,.36,1);
         }
 
         .animate-viewerScan {
-          animation: viewerScan 3.5s linear infinite;
+          animation:
+            viewerScan 3.5s linear infinite;
         }
 
         .gallery-grid {
@@ -1221,7 +1641,8 @@ export default function Gallery() {
               transparent 1px
             );
 
-          background-size: 80px 80px;
+          background-size:
+            80px 80px;
         }
 
         .gallery-noise {
@@ -1241,7 +1662,8 @@ export default function Gallery() {
 
         @media (max-width: 767px) {
           .gallery-grid {
-            background-size: 55px 55px;
+            background-size:
+              55px 55px;
           }
 
           .gallery-noise,
@@ -1254,7 +1676,8 @@ export default function Gallery() {
           }
 
           .animate-viewerScan {
-            animation-duration: 5s;
+            animation-duration:
+              5s;
           }
         }
 
@@ -1267,9 +1690,14 @@ export default function Gallery() {
           *,
           *::before,
           *::after {
-            scroll-behavior: auto !important;
-            transition-duration: 0.01ms !important;
-            animation-duration: 0.01ms !important;
+            scroll-behavior:
+              auto !important;
+
+            transition-duration:
+              0.01ms !important;
+
+            animation-duration:
+              0.01ms !important;
           }
         }
       `}</style>
