@@ -16,62 +16,65 @@ export default function Letters() {
   const [opened, setOpened] = useState(null);
   const [activeCard, setActiveCard] = useState(0);
 
+  /*
+   * ============================================================
+   * PROTECTED NAVIGATION REFS
+   * ============================================================
+   */
+
   const openedRef = useRef(null);
   const isUnmountingRef = useRef(false);
-  const isHandlingPopRef = useRef(false);
-  const ignoreNextPopRef = useRef(false);
+  const isRestoringRef = useRef(false);
+  const isClosingFromPopRef = useRef(false);
+  const hasGuardRef = useRef(false);
 
   const letters = birthdayData.letters || [];
 
-  /* ============================================================
-     KEEP OPENED REF SYNCHRONIZED
-  ============================================================ */
+  /*
+   * ============================================================
+   * KEEP OPENED REF SYNCHRONIZED
+   * ============================================================
+   */
 
   useEffect(() => {
     openedRef.current = opened;
   }, [opened]);
 
-  /* ============================================================
-     PROTECTED HISTORY SYSTEM
-
-     Structure:
-
-     Previous page
-        ↓
-     Letters Base
-        ↓
-     Letters Guard
-
-     Opening a modal:
-
-     Letters Base
-        ↓
-     Letters Guard
-        ↓
-     Letter Modal
-
-     BACK PRIORITY:
-
-     Modal open
-        → close modal
-
-     Main Letters page
-        → restore guard and stay
-
-     ============================================================ */
+  /*
+   * ============================================================
+   * CREATE PROTECTED LETTERS PAGE STATE
+   *
+   * History structure:
+   *
+   * Previous Route
+   *      ↓
+   * Letters Base
+   *      ↓
+   * Letters Guard
+   *
+   * Opening a modal:
+   *
+   * Letters Base
+   *      ↓
+   * Letters Guard
+   *      ↓
+   * Letter Modal
+   *
+   * The guard protects the Letters page from accidental Back.
+   * ============================================================
+   */
 
   useEffect(() => {
     isUnmountingRef.current = false;
 
     const currentState = window.history.state || {};
+    const currentLettersState = currentState[HISTORY_KEY];
 
     /*
-     * Mark the current history entry as the Letters base.
-     *
-     * replaceState does NOT create a new history entry.
+     * Mark the current route as the Letters base state.
      */
 
-    if (!currentState?.[HISTORY_KEY]?.base) {
+    if (!currentLettersState?.base) {
       window.history.replaceState(
         {
           ...currentState,
@@ -87,15 +90,14 @@ export default function Letters() {
     }
 
     /*
-     * Create exactly ONE guard entry.
-     *
-     * This is what catches Back/swipe-back while
-     * the user is on the main Letters page.
+     * Create exactly ONE guard state.
      */
 
     const stateAfterBase = window.history.state || {};
+    const lettersStateAfterBase =
+      stateAfterBase[HISTORY_KEY];
 
-    if (!stateAfterBase?.[HISTORY_KEY]?.guard) {
+    if (!lettersStateAfterBase?.guard) {
       window.history.pushState(
         {
           ...stateAfterBase,
@@ -110,49 +112,71 @@ export default function Letters() {
       );
     }
 
-    const handlePopState = () => {
+    hasGuardRef.current = true;
+
+    return () => {
+      isUnmountingRef.current = true;
+      hasGuardRef.current = false;
+    };
+  }, []);
+
+  /*
+   * ============================================================
+   * BACK / SWIPE-BACK / BROWSER HISTORY PROTECTION
+   *
+   * PRIORITY:
+   *
+   * 1. Modal open
+   *    → close modal only.
+   *
+   * 2. Modal closed
+   *    → restore guard.
+   *
+   * The user remains on Letters.
+   * ============================================================
+   */
+
+  useEffect(() => {
+    const handlePopState = (event) => {
       if (isUnmountingRef.current) return;
 
-      if (ignoreNextPopRef.current) {
-        ignoreNextPopRef.current = false;
-        return;
-      }
-
-      const currentHistoryState = window.history.state || {};
-      const memoryState = currentHistoryState[HISTORY_KEY];
+      const currentOpened = openedRef.current;
+      const state = event.state || {};
+      const lettersState = state[HISTORY_KEY];
 
       /*
        * ========================================================
        * PRIORITY 1
-       * CLOSE OPEN LETTER
        *
-       * Swipe Back / Browser Back should close
-       * the modal before doing anything else.
+       * MODAL IS OPEN
+       *
+       * Back/swipe-back closes the letter and stays on Letters.
        * ========================================================
        */
 
-      if (openedRef.current) {
-        isHandlingPopRef.current = true;
+      if (currentOpened) {
+        isClosingFromPopRef.current = true;
 
         setOpened(null);
         openedRef.current = null;
 
+        /*
+         * If Back landed on the base state, restore the guard.
+         */
+
         window.setTimeout(() => {
           if (isUnmountingRef.current) return;
 
-          const state = window.history.state || {};
-          const pageState = state[HISTORY_KEY];
+          const currentState = window.history.state || {};
+          const currentLettersState =
+            currentState[HISTORY_KEY];
 
-          /*
-           * We are now on the Letters page.
-           *
-           * Restore ONE guard entry only if necessary.
-           */
+          if (!currentLettersState?.guard) {
+            isRestoringRef.current = true;
 
-          if (!pageState?.guard) {
             window.history.pushState(
               {
-                ...state,
+                ...currentState,
                 [HISTORY_KEY]: {
                   base: true,
                   guard: true,
@@ -162,9 +186,13 @@ export default function Letters() {
               "",
               window.location.href
             );
+
+            window.setTimeout(() => {
+              isRestoringRef.current = false;
+            }, 50);
           }
 
-          isHandlingPopRef.current = false;
+          isClosingFromPopRef.current = false;
         }, 0);
 
         return;
@@ -173,19 +201,22 @@ export default function Letters() {
       /*
        * ========================================================
        * PRIORITY 2
+       *
        * MAIN LETTERS PAGE PROTECTION
        *
-       * If Back reaches the base Letters entry,
-       * push ONE guard entry again.
-       *
-       * This prevents leaving the website/page.
+       * If Back reaches the Letters base entry,
+       * restore one guard entry.
        * ========================================================
        */
 
-      if (!memoryState?.guard && !isHandlingPopRef.current) {
+      if (isRestoringRef.current) return;
+
+      if (!lettersState?.guard) {
+        isRestoringRef.current = true;
+
         window.history.pushState(
           {
-            ...currentHistoryState,
+            ...state,
             [HISTORY_KEY]: {
               base: true,
               guard: true,
@@ -195,64 +226,71 @@ export default function Letters() {
           "",
           window.location.href
         );
+
+        window.setTimeout(() => {
+          isRestoringRef.current = false;
+        }, 50);
       }
     };
 
-    window.addEventListener("popstate", handlePopState);
+    window.addEventListener(
+      "popstate",
+      handlePopState
+    );
 
     return () => {
-      isUnmountingRef.current = true;
-
-      window.removeEventListener("popstate", handlePopState);
+      window.removeEventListener(
+        "popstate",
+        handlePopState
+      );
     };
   }, []);
 
-  /* ============================================================
-     LOCK BODY SCROLL
-  ============================================================ */
+  /*
+   * ============================================================
+   * LOCK BODY SCROLL WHILE LETTER IS OPEN
+   * ============================================================
+   */
 
   useEffect(() => {
     if (!opened) return;
 
-    const previousOverflow = document.body.style.overflow;
+    const previousOverflow =
+      document.body.style.overflow;
+
     const previousOverscrollBehavior =
       document.body.style.overscrollBehavior;
-    const previousTouchAction =
-      document.body.style.touchAction;
 
     document.body.style.overflow = "hidden";
     document.body.style.overscrollBehavior = "none";
-    document.body.style.touchAction = "none";
 
     return () => {
-      document.body.style.overflow = previousOverflow;
+      document.body.style.overflow =
+        previousOverflow;
+
       document.body.style.overscrollBehavior =
         previousOverscrollBehavior;
-      document.body.style.touchAction =
-        previousTouchAction;
     };
   }, [opened]);
 
-  /* ============================================================
-     OPEN LETTER
-  ============================================================ */
+  /*
+   * ============================================================
+   * OPEN LETTER
+   *
+   * Push exactly ONE modal history entry.
+   * ============================================================
+   */
 
   const openLetter = (letter, index) => {
+    if (!letter) return;
     if (openedRef.current) return;
 
     setActiveCard(index);
     setOpened(letter);
     openedRef.current = letter;
 
-    /*
-     * Add ONE modal history entry.
-     *
-     * Letters Guard
-     *      ↓
-     * Letter Modal
-     */
-
-    const currentState = window.history.state || {};
+    const currentState =
+      window.history.state || {};
 
     window.history.pushState(
       {
@@ -273,50 +311,155 @@ export default function Letters() {
     }
   };
 
-  /* ============================================================
-     CLOSE LETTER
-
-     Normal close:
-     X button
-     Backdrop
-     Escape
-
-     We go back ONE history entry.
-     The popstate listener handles the actual modal closing.
-  ============================================================ */
+  /*
+   * ============================================================
+   * CLOSE LETTER
+   *
+   * Normal closing:
+   *
+   * - X button
+   * - Backdrop
+   * - Escape
+   * - Mobile edge swipe
+   *
+   * If modal history exists:
+   * go Back one entry.
+   *
+   * popstate performs the actual close.
+   * ============================================================
+   */
 
   const closeLetter = () => {
     if (!openedRef.current) return;
 
-    const currentState = window.history.state || {};
-    const memoryState = currentState[HISTORY_KEY];
+    const currentState =
+      window.history.state || {};
 
-    if (memoryState?.modal) {
+    const lettersState =
+      currentState[HISTORY_KEY];
+
+    /*
+     * Modal entry exists.
+     * Back removes it cleanly.
+     */
+
+    if (
+      lettersState?.modal &&
+      !isClosingFromPopRef.current
+    ) {
       window.history.back();
       return;
     }
 
+    /*
+     * Fallback.
+     */
+
     setOpened(null);
     openedRef.current = null;
+    isClosingFromPopRef.current = false;
   };
 
-  /* ============================================================
-     KEYBOARD SUPPORT
-  ============================================================ */
+  /*
+   * ============================================================
+   * KEYBOARD SUPPORT
+   * ============================================================
+   */
 
   useEffect(() => {
     const handleKeyDown = (event) => {
-      if (event.key === "Escape" && openedRef.current) {
+      if (
+        event.key === "Escape" &&
+        openedRef.current
+      ) {
         closeLetter();
       }
     };
 
-    window.addEventListener("keydown", handleKeyDown);
+    window.addEventListener(
+      "keydown",
+      handleKeyDown
+    );
 
     return () => {
       window.removeEventListener(
         "keydown",
         handleKeyDown
+      );
+    };
+  }, []);
+
+  /*
+   * ============================================================
+   * MOBILE EDGE SWIPE
+   *
+   * Provides an additional natural close gesture while a letter
+   * is open. Browser/system Back is still handled by popstate.
+   * ============================================================
+   */
+
+  useEffect(() => {
+    let startX = 0;
+    let startY = 0;
+
+    const handleTouchStart = (event) => {
+      if (!openedRef.current) return;
+
+      const touch = event.touches[0];
+
+      startX = touch.clientX;
+      startY = touch.clientY;
+    };
+
+    const handleTouchEnd = (event) => {
+      if (!openedRef.current) return;
+
+      const touch =
+        event.changedTouches[0];
+
+      const deltaX =
+        touch.clientX - startX;
+
+      const deltaY =
+        touch.clientY - startY;
+
+      const startedNearLeftEdge =
+        startX <= 45;
+
+      const isHorizontal =
+        Math.abs(deltaX) >
+        Math.abs(deltaY);
+
+      if (
+        startedNearLeftEdge &&
+        isHorizontal &&
+        deltaX > 90
+      ) {
+        closeLetter();
+      }
+    };
+
+    window.addEventListener(
+      "touchstart",
+      handleTouchStart,
+      { passive: true }
+    );
+
+    window.addEventListener(
+      "touchend",
+      handleTouchEnd,
+      { passive: true }
+    );
+
+    return () => {
+      window.removeEventListener(
+        "touchstart",
+        handleTouchStart
+      );
+
+      window.removeEventListener(
+        "touchend",
+        handleTouchEnd
       );
     };
   }, []);
@@ -459,7 +602,9 @@ export default function Letters() {
         <h1 className="mt-8 font-display text-[4.6rem] leading-[0.76] tracking-[-0.065em] text-white sm:text-8xl md:text-[9.5rem]">
           Words
           <br />
-          <span className="text-white/20">for you.</span>
+          <span className="text-white/20">
+            for you.
+          </span>
         </h1>
 
         <p className="mx-auto mt-9 max-w-md px-3 font-serif text-[15px] leading-[1.9] text-white/35 sm:text-lg">
@@ -494,7 +639,8 @@ export default function Letters() {
 
         <div className="grid gap-4 md:grid-cols-3 md:gap-5">
           {letters.map((letter, index) => {
-            const isActive = activeCard === index;
+            const isActive =
+              activeCard === index;
 
             return (
               <article
@@ -571,7 +717,12 @@ export default function Letters() {
 
                     <button
                       type="button"
-                      onClick={() => openLetter(letter, index)}
+                      onClick={() =>
+                        openLetter(
+                          letter,
+                          index
+                        )
+                      }
                       className="flex w-full items-center justify-between rounded-xl border border-white/[0.08] bg-white/[0.025] px-4 py-3.5 text-left transition-all duration-300 hover:border-white/[0.2] hover:bg-white/[0.06] active:scale-[0.98]"
                     >
                       <span className="flex items-center gap-2.5">
@@ -665,7 +816,10 @@ export default function Letters() {
             aria-label="Close letter"
             className="fixed right-4 top-4 z-[120] flex h-11 w-11 items-center justify-center rounded-full border border-white/[0.12] bg-black/70 text-white/45 backdrop-blur-xl transition-all duration-300 hover:border-white/30 hover:bg-white hover:text-black active:scale-90 sm:right-7 sm:top-7"
           >
-            <X size={15} strokeWidth={1.2} />
+            <X
+              size={15}
+              strokeWidth={1.2}
+            />
           </button>
 
           <div className="fixed left-4 top-5 z-[120] sm:left-7 sm:top-7">
@@ -674,12 +828,15 @@ export default function Letters() {
             </p>
 
             <p className="mt-1 font-mono text-[6px] tracking-[0.25em] text-white/10">
-              LETTER 0{opened.id} / 0{letters.length}
+              LETTER 0{opened.id} / 0
+              {letters.length}
             </p>
           </div>
 
           <article
-            onClick={(event) => event.stopPropagation()}
+            onClick={(event) =>
+              event.stopPropagation()
+            }
             className="relative mx-auto my-14 max-w-3xl overflow-hidden rounded-[2px] bg-[#eee7d9] text-[#171512] shadow-[0_30px_100px_rgba(0,0,0,.8)] sm:my-20 sm:rounded-[3px]"
           >
             <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-transparent via-black/20 to-transparent" />
@@ -706,7 +863,8 @@ export default function Letters() {
                   </div>
 
                   <p className="mt-2 font-mono text-[5px] uppercase tracking-[0.35em] text-black/15">
-                    MEMORY UNIVERSE // LETTER 0{opened.id}
+                    MEMORY UNIVERSE // LETTER 0
+                    {opened.id}
                   </p>
                 </div>
 

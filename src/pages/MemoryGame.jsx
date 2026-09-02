@@ -27,8 +27,6 @@ function formatTime(seconds) {
 }
 
 export default function MemoryGame() {
-
-
   const source = birthdayData.memories.slice(0, 6);
 
   const createCards = () =>
@@ -60,6 +58,14 @@ export default function MemoryGame() {
   const [bestCombo, setBestCombo] = useState(0);
   const [mistakes, setMistakes] = useState(0);
   const [celebrating, setCelebrating] = useState(null);
+
+  /*
+  ============================================================
+  OPTIMIZED COMPLETION MODAL STATE
+  ============================================================
+  */
+
+  const [showCompletion, setShowCompletion] = useState(false);
 
   const timerRef = useRef(null);
 
@@ -97,8 +103,43 @@ export default function MemoryGame() {
 
     return () => {
       clearInterval(timerRef.current);
+      timerRef.current = null;
     };
   }, [started, complete]);
+
+  /*
+  ============================================================
+  COMPLETION MODAL OPTIMIZATION
+
+  Wait for the final card state to render first.
+
+  This prevents the browser from mounting the heavy modal
+  at the exact same moment the final match animation occurs.
+  ============================================================
+  */
+
+  useEffect(() => {
+    if (!complete) {
+      setShowCompletion(false);
+      return;
+    }
+
+    let timeoutId = null;
+
+    const frameId = requestAnimationFrame(() => {
+      timeoutId = window.setTimeout(() => {
+        setShowCompletion(true);
+      }, 250);
+    });
+
+    return () => {
+      cancelAnimationFrame(frameId);
+
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+    };
+  }, [complete]);
 
   /*
   ============================================================
@@ -128,10 +169,16 @@ export default function MemoryGame() {
       setCelebrating(first.pair);
 
       const timer = setTimeout(() => {
-        setMatched((current) => [
-          ...current,
-          first.pair,
-        ]);
+        setMatched((current) => {
+          if (current.includes(first.pair)) {
+            return current;
+          }
+
+          return [
+            ...current,
+            first.pair,
+          ];
+        });
 
         setFlipped([]);
         setIsChecking(false);
@@ -189,6 +236,7 @@ export default function MemoryGame() {
   const resetGame = () => {
     clearInterval(timerRef.current);
 
+    setShowCompletion(false);
     setCards(createCards());
     setFlipped([]);
     setMatched([]);
@@ -206,7 +254,6 @@ export default function MemoryGame() {
       behavior: "smooth",
     });
   };
-
 
   return (
     <main className="relative min-h-screen overflow-hidden bg-[#010102] px-4 pb-40 pt-24 text-white sm:px-6 md:px-10 md:pt-28">
@@ -229,6 +276,7 @@ export default function MemoryGame() {
             bg-violet-500/[0.045]
             blur-[170px]
             animate-[nebula_12s_ease-in-out_infinite]
+            [will-change:transform]
           "
         />
 
@@ -243,6 +291,7 @@ export default function MemoryGame() {
             bg-cyan-400/[0.025]
             blur-[150px]
             animate-[float_15s_ease-in-out_infinite]
+            [will-change:transform]
           "
         />
 
@@ -257,10 +306,11 @@ export default function MemoryGame() {
             bg-amber-300/[0.025]
             blur-[160px]
             animate-[float_18s_ease-in-out_infinite_reverse]
+            [will-change:transform]
           "
         />
 
-        {Array.from({ length: 90 }).map(
+        {Array.from({ length: 70 }).map(
           (_, index) => (
             <span
               key={index}
@@ -317,6 +367,7 @@ export default function MemoryGame() {
             [background-size:100%_6px]
           "
         />
+
       </div>
 
       {/* ======================================================
@@ -369,9 +420,7 @@ export default function MemoryGame() {
 
         </div>
 
-        {/* ====================================================
-            HERO
-        ==================================================== */}
+        {/* HERO */}
 
         <header className="text-center">
 
@@ -434,9 +483,7 @@ export default function MemoryGame() {
 
         </header>
 
-        {/* ====================================================
-            HUD
-        ==================================================== */}
+        {/* HUD */}
 
         <section className="mt-14">
 
@@ -515,9 +562,7 @@ export default function MemoryGame() {
 
         </section>
 
-        {/* ====================================================
-            GAME
-        ==================================================== */}
+        {/* GAME */}
 
         <section className="relative mt-8 sm:mt-10">
 
@@ -528,7 +573,6 @@ export default function MemoryGame() {
           <div className="relative grid grid-cols-3 gap-2.5 sm:gap-4 md:grid-cols-4">
 
             {cards.map((card, index) => {
-
               const isFlipped =
                 flipped.some(
                   (item) => item.id === card.id
@@ -566,6 +610,7 @@ export default function MemoryGame() {
                       transition-transform
                       duration-700
                       ease-[cubic-bezier(.16,1,.3,1)]
+                      [will-change:transform]
                       ${
                         isFlipped
                           ? "[transform:rotateY(180deg)]"
@@ -623,10 +668,6 @@ export default function MemoryGame() {
                         className="absolute right-3 top-3 text-white/10 transition-colors group-hover:text-white/30 sm:right-4 sm:top-4"
                       />
 
-                      <span className="absolute bottom-3 right-3 hidden font-mono text-[5px] uppercase tracking-[0.2em] text-white/10 transition-colors group-hover:text-white/40 sm:block">
-                        ACCESS
-                      </span>
-
                     </div>
 
                     {/* FRONT */}
@@ -643,7 +684,7 @@ export default function MemoryGame() {
                         [transform:rotateY(180deg)]
                         ${
                           isMatched
-                            ? "border-white/40 shadow-[0_0_45px_rgba(255,255,255,.16)]"
+                            ? "border-white/40 shadow-[0_0_35px_rgba(255,255,255,.12)]"
                             : "border-white/[0.12]"
                         }
                         ${
@@ -677,29 +718,13 @@ export default function MemoryGame() {
 
                       <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_30%,rgba(0,0,0,.45)_100%)]" />
 
-                      <div
-                        className="
-                          pointer-events-none
-                          absolute
-                          left-0
-                          right-0
-                          top-0
-                          h-px
-                          bg-gradient-to-r
-                          from-transparent
-                          via-white/50
-                          to-transparent
-                          animate-[scan_3s_linear_infinite]
-                        "
-                      />
-
                       {isMatched && (
                         <>
                           <div className="absolute inset-0 bg-white/[0.045]" />
 
                           <div className="absolute inset-3 rounded-xl border border-white/20" />
 
-                          <div className="absolute right-3 top-3 flex h-7 w-7 items-center justify-center rounded-full border border-white/30 bg-black/30 backdrop-blur-md">
+                          <div className="absolute right-3 top-3 flex h-7 w-7 items-center justify-center rounded-full border border-white/30 bg-black/30">
 
                             <Sparkles
                               size={11}
@@ -734,9 +759,7 @@ export default function MemoryGame() {
 
         </section>
 
-        {/* ====================================================
-            INSTRUCTION
-        ==================================================== */}
+        {/* INSTRUCTION */}
 
         {!complete && (
           <div className="mx-auto mt-10 max-w-xl">
@@ -775,10 +798,10 @@ export default function MemoryGame() {
       </div>
 
       {/* ======================================================
-          ✦ CINEMATIC COMPLETION EXPERIENCE
+          CINEMATIC COMPLETION EXPERIENCE
       ====================================================== */}
 
-      {complete && (
+      {showCompletion && (
         <div
           className="
             fixed
@@ -788,34 +811,31 @@ export default function MemoryGame() {
             items-center
             justify-center
             overflow-hidden
-            bg-black/80
+            bg-black/90
             p-4
-            backdrop-blur-2xl
-            animate-[finaleIn_.9s_cubic-bezier(.16,1,.3,1)]
+            backdrop-blur-md
+            animate-[finaleIn_.55s_cubic-bezier(.16,1,.3,1)]
           "
         >
 
-          {/* ==================================================
-              COSMIC BACKGROUND
-          ================================================== */}
+          {/* COSMIC BACKGROUND */}
 
           <div className="pointer-events-none absolute inset-0">
-
-            {/* giant glow */}
 
             <div
               className="
                 absolute
                 left-1/2
                 top-1/2
-                h-[700px]
-                w-[700px]
+                h-[500px]
+                w-[500px]
                 -translate-x-1/2
                 -translate-y-1/2
                 rounded-full
-                bg-white/[0.035]
-                blur-[120px]
+                bg-white/[0.03]
+                blur-[80px]
                 animate-[finaleGlow_5s_ease-in-out_infinite]
+                [will-change:transform]
               "
             />
 
@@ -824,14 +844,15 @@ export default function MemoryGame() {
                 absolute
                 left-1/2
                 top-1/2
-                h-[450px]
-                w-[450px]
+                h-[400px]
+                w-[400px]
                 -translate-x-1/2
                 -translate-y-1/2
                 rounded-full
                 border
                 border-white/[0.035]
                 animate-[finaleOrbit_30s_linear_infinite]
+                [will-change:transform]
               "
             />
 
@@ -840,8 +861,8 @@ export default function MemoryGame() {
                 absolute
                 left-1/2
                 top-1/2
-                h-[600px]
-                w-[600px]
+                h-[520px]
+                w-[520px]
                 -translate-x-1/2
                 -translate-y-1/2
                 rounded-full
@@ -849,12 +870,13 @@ export default function MemoryGame() {
                 border-dashed
                 border-white/[0.025]
                 animate-[finaleOrbit_45s_linear_infinite_reverse]
+                [will-change:transform]
               "
             />
 
-            {/* stars */}
+            {/* OPTIMIZED STAR COUNT */}
 
-            {Array.from({ length: 55 }).map(
+            {Array.from({ length: 28 }).map(
               (_, index) => (
                 <span
                   key={index}
@@ -862,7 +884,7 @@ export default function MemoryGame() {
                     absolute
                     rounded-full
                     bg-white
-                    animate-[finaleStar_2s_ease-in-out_infinite_alternate]
+                    animate-[finaleStar_2.5s_ease-in-out_infinite_alternate]
                   "
                   style={{
                     left: `${(index * 37) % 100}%`,
@@ -886,8 +908,6 @@ export default function MemoryGame() {
               )
             )}
 
-            {/* cinematic lines */}
-
             <div className="absolute left-0 right-0 top-1/2 h-px bg-gradient-to-r from-transparent via-white/[0.08] to-transparent" />
 
             <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-black to-transparent" />
@@ -896,9 +916,7 @@ export default function MemoryGame() {
 
           </div>
 
-          {/* ==================================================
-              MODAL
-          ================================================== */}
+          {/* MODAL */}
 
           <div
             className="
@@ -910,21 +928,18 @@ export default function MemoryGame() {
               rounded-[2rem]
               border
               border-white/[0.12]
-              bg-[#050506]/90
+              bg-[#050506]/95
               p-7
               text-center
-              shadow-[0_0_120px_rgba(255,255,255,.08),0_50px_150px_rgba(0,0,0,.9)]
-              backdrop-blur-3xl
+              shadow-[0_0_70px_rgba(255,255,255,.06),0_30px_90px_rgba(0,0,0,.8)]
+              backdrop-blur-xl
               sm:p-12
-              animate-[finaleCard_.9s_cubic-bezier(.16,1,.3,1)]
+              animate-[finaleCard_.65s_cubic-bezier(.16,1,.3,1)]
+              [will-change:transform,opacity]
             "
           >
 
-            {/* top scanning beam */}
-
             <div className="absolute left-0 right-0 top-0 h-px bg-gradient-to-r from-transparent via-white/70 to-transparent animate-[finaleScan_2.5s_linear_infinite]" />
-
-            {/* corner decorations */}
 
             <span className="absolute left-5 top-5 h-10 w-10 border-l border-t border-white/15" />
 
@@ -934,13 +949,9 @@ export default function MemoryGame() {
 
             <span className="absolute bottom-5 right-5 h-10 w-10 border-b border-r border-white/15" />
 
-            {/* ==================================================
-                CORE
-            ================================================== */}
+            {/* CORE */}
 
             <div className="relative mx-auto flex h-32 w-32 items-center justify-center">
-
-              {/* outer rings */}
 
               <div className="absolute inset-0 rounded-full border border-white/[0.08] animate-[spin_18s_linear_infinite]" />
 
@@ -948,17 +959,13 @@ export default function MemoryGame() {
 
               <div className="absolute -inset-8 rounded-full border border-white/[0.025]" />
 
-              {/* orbital dots */}
-
               <span className="absolute left-1/2 top-0 h-1.5 w-1.5 -translate-x-1/2 rounded-full bg-white shadow-[0_0_15px_white]" />
 
               <span className="absolute bottom-2 right-5 h-1 w-1 rounded-full bg-white/70 shadow-[0_0_10px_white]" />
 
               <span className="absolute bottom-5 left-4 h-1 w-1 rounded-full bg-white/50" />
 
-              {/* center */}
-
-              <div className="relative flex h-20 w-20 items-center justify-center rounded-full border border-white/20 bg-white/[0.025] shadow-[0_0_80px_rgba(255,255,255,.12)]">
+              <div className="relative flex h-20 w-20 items-center justify-center rounded-full border border-white/20 bg-white/[0.025] shadow-[0_0_55px_rgba(255,255,255,.1)]">
 
                 <div className="absolute inset-2 rounded-full border border-dashed border-white/10 animate-[spin_8s_linear_infinite]" />
 
@@ -972,9 +979,7 @@ export default function MemoryGame() {
 
             </div>
 
-            {/* ==================================================
-                STATUS
-            ================================================== */}
+            {/* STATUS */}
 
             <div className="mt-8 flex items-center justify-center gap-3">
 
@@ -994,9 +999,7 @@ export default function MemoryGame() {
 
             </div>
 
-            {/* ==================================================
-                TITLE
-            ================================================== */}
+            {/* TITLE */}
 
             <h2 className="mt-7 font-display text-[4rem] leading-[0.8] tracking-[-0.07em] sm:text-7xl">
 
@@ -1018,15 +1021,14 @@ export default function MemoryGame() {
 
               Six fragments.
               Twelve photographs.
+
               <br />
 
               One universe restored.
 
             </p>
 
-            {/* ==================================================
-                100% RESTORED
-            ================================================== */}
+            {/* 100% RESTORED */}
 
             <div className="mx-auto mt-9 max-w-md">
 
@@ -1044,15 +1046,13 @@ export default function MemoryGame() {
 
               <div className="relative h-[3px] overflow-hidden rounded-full bg-white/[0.06]">
 
-                <div className="absolute inset-0 bg-white/80 shadow-[0_0_25px_white] animate-[restoreBar_1.5s_cubic-bezier(.16,1,.3,1)_forwards]" />
+                <div className="absolute inset-0 bg-white/80 shadow-[0_0_20px_white] animate-[restoreBar_1.2s_cubic-bezier(.16,1,.3,1)_forwards]" />
 
               </div>
 
             </div>
 
-            {/* ==================================================
-                RESULTS
-            ================================================== */}
+            {/* RESULTS */}
 
             <div className="mx-auto mt-8 grid max-w-md grid-cols-3 overflow-hidden rounded-xl border border-white/[0.07] bg-white/[0.02]">
 
@@ -1087,13 +1087,9 @@ export default function MemoryGame() {
 
             </div>
 
-            {/* ==================================================
-                ACTIONS
-            ================================================== */}
+            {/* ACTION */}
 
             <div className="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
-
-              {/* REPLAY */}
 
               <button
                 onClick={resetGame}
@@ -1135,7 +1131,7 @@ export default function MemoryGame() {
 
             </div>
 
-            {/* footer */}
+            {/* FOOTER */}
 
             <div className="mt-8 flex items-center justify-center gap-2">
 
@@ -1240,7 +1236,7 @@ export default function MemoryGame() {
 
           40% {
             transform: rotateY(180deg) scale(1.04);
-            filter: brightness(1.5);
+            filter: brightness(1.35);
           }
 
           100% {
@@ -1249,33 +1245,25 @@ export default function MemoryGame() {
           }
         }
 
-        /* =====================================================
-           FINALE ANIMATIONS
-        ===================================================== */
-
         @keyframes finaleIn {
           from {
             opacity: 0;
-            backdrop-filter: blur(0px);
           }
 
           to {
             opacity: 1;
-            backdrop-filter: blur(20px);
           }
         }
 
         @keyframes finaleCard {
           0% {
             opacity: 0;
-            transform: translateY(60px) scale(.88);
-            filter: blur(12px);
+            transform: translateY(40px) scale(.94);
           }
 
           60% {
             opacity: 1;
-            transform: translateY(-5px) scale(1.015);
-            filter: blur(0);
+            transform: translateY(-3px) scale(1.01);
           }
 
           100% {
@@ -1291,8 +1279,8 @@ export default function MemoryGame() {
           }
 
           50% {
-            transform: translate(-50%, -50%) scale(1.2);
-            opacity: .7;
+            transform: translate(-50%, -50%) scale(1.12);
+            opacity: .65;
           }
         }
 
@@ -1308,13 +1296,13 @@ export default function MemoryGame() {
 
         @keyframes finaleStar {
           from {
-            transform: scale(.5);
+            transform: scale(.6);
             opacity: .15;
           }
 
           to {
-            transform: scale(1.8);
-            opacity: .9;
+            transform: scale(1.5);
+            opacity: .8;
           }
         }
 

@@ -11,12 +11,27 @@ import {
 import { useNavigate } from "react-router-dom";
 
 const TARGET_POINTS = 120;
-const MAX_POINTS = 900;
+const MAX_POINTS = 1400;
 
-const MIN_POINT_DISTANCE = 3.2;
-const MOBILE_MIN_POINT_DISTANCE = 5;
+/*
+  Smaller distances = more accurate drawing.
 
-const PROGRESS_UPDATE_INTERVAL = 120;
+  Mobile needs a slightly larger value than desktop because
+  touch events can generate a very high number of points.
+*/
+const MIN_POINT_DISTANCE = 1.2;
+const MOBILE_MIN_POINT_DISTANCE = 1.8;
+
+/*
+  Maximum distance between rendered points.
+
+  When the pointer moves quickly, we interpolate intermediate
+  points so the line does not skip across the canvas.
+*/
+const MAX_SEGMENT_DISTANCE = 7;
+const MOBILE_MAX_SEGMENT_DISTANCE = 9;
+
+const PROGRESS_UPDATE_INTERVAL = 100;
 const NODE_INTERVAL = 28;
 
 const STAR_SENTENCES = [
@@ -88,8 +103,15 @@ export default function Create() {
   // PERFORMANCE
   // =========================================================
 
+  /*
+    Queue instead of keeping only one point.
+
+    This is the biggest accuracy improvement.
+    Fast movements no longer lose pointer positions.
+  */
+  const pointQueueRef = useRef([]);
+
   const pointerFrameRef = useRef(null);
-  const pendingPointRef = useRef(null);
 
   const lastProgressUpdateRef = useRef(0);
   const revealTimeoutRef = useRef(null);
@@ -190,9 +212,6 @@ export default function Create() {
 
   // =========================================================
   // FAST DRAW SEGMENT
-  //
-  // No expensive shadowBlur while actively drawing.
-  // This is the main lag reduction.
   // =========================================================
 
   const drawSegment = useCallback(
@@ -203,8 +222,6 @@ export default function Create() {
 
       ctx.lineCap = "round";
       ctx.lineJoin = "round";
-
-      // Soft underlay only when enhanced redraw is needed.
 
       if (enhanced) {
         ctx.beginPath();
@@ -240,12 +257,10 @@ export default function Create() {
         ctx.shadowBlur = 0;
       }
 
-      // Main drawing line.
-
       ctx.beginPath();
 
-      ctx.strokeStyle = "rgba(255,238,205,.88)";
-      ctx.lineWidth = 1.15;
+      ctx.strokeStyle = "rgba(255,238,205,.9)";
+      ctx.lineWidth = 1.2;
 
       if (beforePrevious) {
         const midX = (previous.x + current.x) / 2;
@@ -310,8 +325,6 @@ export default function Create() {
 
   // =========================================================
   // FULL REDRAW
-  //
-  // Used only for resize/reset/completion.
   // =========================================================
 
   const redrawEverything = useCallback(
@@ -403,10 +416,16 @@ export default function Create() {
     const rect =
       canvas.getBoundingClientRect();
 
+    /*
+      Keep DPR reasonable.
+
+      Very high DPR is one of the biggest causes of
+      mobile canvas lag.
+    */
     const maxDpr =
       isMobileRef.current
-        ? 1.25
-        : 1.75;
+        ? 1.2
+        : 1.6;
 
     const dpr = Math.min(
       window.devicePixelRatio || 1,
@@ -438,7 +457,6 @@ export default function Create() {
       {
         alpha: true,
         desynchronized: true,
-        willReadFrequently: false,
       }
     );
 
@@ -508,17 +526,13 @@ export default function Create() {
         resizeCanvas
       );
 
-      if (
-        pointerFrameRef.current
-      ) {
+      if (pointerFrameRef.current) {
         cancelAnimationFrame(
           pointerFrameRef.current
         );
       }
 
-      if (
-        revealTimeoutRef.current
-      ) {
+      if (revealTimeoutRef.current) {
         window.clearTimeout(
           revealTimeoutRef.current
         );
@@ -591,34 +605,20 @@ export default function Create() {
   );
 
   // =========================================================
-  // PROCESS POINT
+  // ADD ONE POINT
   //
-  // Runs once per animation frame.
+  // Lightweight and used by the queue processor.
   // =========================================================
 
-  const processPendingPoint =
-    useCallback(() => {
-      pointerFrameRef.current = null;
-
+  const addPointToStroke = useCallback(
+    (point) => {
       if (
+        !point ||
         !drawingRef.current ||
         completedRef.current
       ) {
         return;
       }
-
-      const point =
-        pendingPointRef.current;
-
-      pendingPointRef.current =
-        null;
-
-      if (!point) return;
-
-      const stroke =
-        currentStrokeRef.current;
-
-      if (!stroke) return;
 
       if (
         pointCountRef.current >=
@@ -631,17 +631,15 @@ export default function Create() {
         return;
       }
 
+      const stroke =
+        currentStrokeRef.current;
+
+      if (!stroke) return;
+
       const last =
         stroke[stroke.length - 1];
 
       if (!last) return;
-
-      const minDistance =
-        isMobileRef.current
-          ? MOBILE_MIN_POINT_DISTANCE
-          : MIN_POINT_DISTANCE;
-
-      // Faster than Math.hypot.
 
       const dx =
         point.x - last.x;
@@ -652,6 +650,11 @@ export default function Create() {
       const distanceSquared =
         dx * dx +
         dy * dy;
+
+      const minDistance =
+        isMobileRef.current
+          ? MOBILE_MIN_POINT_DISTANCE
+          : MIN_POINT_DISTANCE;
 
       const minDistanceSquared =
         minDistance *
@@ -664,51 +667,158 @@ export default function Create() {
         return;
       }
 
-      stroke.push(point);
+      /*
+        Interpolate large jumps.
 
-      pointCountRef.current += 1;
+        This fixes fast movement skipping.
+      */
+      const distance =
+        Math.sqrt(
+          distanceSquared
+        );
 
-      const beforePrevious =
-        stroke.length >= 3
-          ? stroke[
-              stroke.length - 3
-            ]
-          : null;
+      const maxSegmentDistance =
+        isMobileRef.current
+          ? MOBILE_MAX_SEGMENT_DISTANCE
+          : MAX_SEGMENT_DISTANCE;
+
+      const steps =
+        Math.max(
+          1,
+          Math.ceil(
+            distance /
+              maxSegmentDistance
+          )
+        );
 
       const ctx =
         ctxRef.current;
 
-      if (ctx) {
-        // Fast mode: no glow per pointer frame.
+      for (
+        let step = 1;
+        step <= steps;
+        step++
+      ) {
+        if (
+          pointCountRef.current >=
+          MAX_POINTS
+        ) {
+          break;
+        }
 
-        drawSegment(
-          ctx,
-          last,
-          point,
-          beforePrevious,
-          false
+        const t =
+          step / steps;
+
+        const nextPoint = {
+          x:
+            last.x +
+            dx * t,
+
+          y:
+            last.y +
+            dy * t,
+        };
+
+        const currentLast =
+          stroke[
+            stroke.length - 1
+          ];
+
+        stroke.push(
+          nextPoint
         );
+
+        pointCountRef.current += 1;
 
         const index =
           stroke.length - 1;
 
-        if (
-          index % NODE_INTERVAL === 0
-        ) {
-          drawNode(
+        const beforePrevious =
+          index >= 2
+            ? stroke[index - 2]
+            : null;
+
+        if (ctx) {
+          drawSegment(
             ctx,
-            point,
-            1.8,
+            currentLast,
+            nextPoint,
+            beforePrevious,
             false
           );
+
+          if (
+            index %
+              NODE_INTERVAL ===
+            0
+          ) {
+            drawNode(
+              ctx,
+              nextPoint,
+              1.8,
+              false
+            );
+          }
         }
       }
 
       updateProgress();
-    }, [
+    },
+    [
       drawSegment,
       drawNode,
       updateProgress,
+    ]
+  );
+
+  // =========================================================
+  // PROCESS QUEUE
+  //
+  // Processes all collected pointer positions once per frame.
+  // =========================================================
+
+  const processPointQueue =
+    useCallback(() => {
+      pointerFrameRef.current =
+        null;
+
+      if (
+        !drawingRef.current ||
+        completedRef.current
+      ) {
+        pointQueueRef.current =
+          [];
+
+        return;
+      }
+
+      const queue =
+        pointQueueRef.current;
+
+      pointQueueRef.current =
+        [];
+
+      /*
+        Process every collected point.
+
+        This is much more accurate than
+        processing only the newest point.
+      */
+      for (const point of queue) {
+        addPointToStroke(point);
+      }
+
+      if (
+        pointQueueRef.current.length >
+        0
+      ) {
+        pointerFrameRef.current =
+          requestAnimationFrame(
+            processPointQueue
+          );
+      }
+    }, [
+      addPointToStroke,
     ]);
 
   // =========================================================
@@ -731,7 +841,8 @@ export default function Create() {
 
         if (!point) return;
 
-        drawingRef.current = true;
+        drawingRef.current =
+          true;
 
         const newStroke = [
           point,
@@ -746,8 +857,8 @@ export default function Create() {
 
         pointCountRef.current += 1;
 
-        pendingPointRef.current =
-          null;
+        pointQueueRef.current =
+          [];
 
         setStarted(true);
         setHint(false);
@@ -783,7 +894,7 @@ export default function Create() {
   // =========================================================
   // POINTER MOVE
   //
-  // Stores only the newest point.
+  // Collect ALL useful points.
   // =========================================================
 
   const handlePointerMove =
@@ -798,34 +909,43 @@ export default function Create() {
 
         event.preventDefault();
 
-        // Use coalesced events if supported.
-        // The latest event is the most useful
-        // for this optimized drawing pipeline.
+        /*
+          Use coalesced events when available.
 
-        const events =
-          typeof event.nativeEvent
+          Instead of taking only the last event,
+          we keep every movement point.
+        */
+        const nativeEvent =
+          event.nativeEvent;
+
+        const coalescedEvents =
+          typeof nativeEvent
             ?.getCoalescedEvents ===
           "function"
-            ? event.nativeEvent.getCoalescedEvents()
+            ? nativeEvent.getCoalescedEvents()
             : null;
 
-        const sourceEvent =
-          events &&
-          events.length > 0
-            ? events[
-                events.length - 1
-              ]
-            : event;
-
-        const point =
-          getPointerPosition(
-            sourceEvent
+        if (
+          coalescedEvents &&
+          coalescedEvents.length > 0
+        ) {
+          for (
+            const coalescedEvent of
+            coalescedEvents
+          ) {
+            pointQueueRef.current.push(
+              getPointerPosition(
+                coalescedEvent
+              )
+            );
+          }
+        } else {
+          pointQueueRef.current.push(
+            getPointerPosition(
+              event
+            )
           );
-
-        if (!point) return;
-
-        pendingPointRef.current =
-          point;
+        }
 
         if (
           pointerFrameRef.current
@@ -835,14 +955,46 @@ export default function Create() {
 
         pointerFrameRef.current =
           requestAnimationFrame(
-            processPendingPoint
+            processPointQueue
           );
       },
       [
         getPointerPosition,
-        processPendingPoint,
+        processPointQueue,
       ]
     );
+
+  // =========================================================
+  // FLUSH QUEUE
+  // =========================================================
+
+  const flushPointQueue =
+    useCallback(() => {
+      if (
+        pointerFrameRef.current
+      ) {
+        cancelAnimationFrame(
+          pointerFrameRef.current
+        );
+
+        pointerFrameRef.current =
+          null;
+      }
+
+      const queue =
+        pointQueueRef.current;
+
+      pointQueueRef.current =
+        [];
+
+      for (
+        const point of queue
+      ) {
+        addPointToStroke(point);
+      }
+    }, [
+      addPointToStroke,
+    ]);
 
   // =========================================================
   // POINTER UP
@@ -851,28 +1003,36 @@ export default function Create() {
   const handlePointerUp =
     useCallback(
       (event) => {
+        /*
+          Add the final pointer position.
+
+          This fixes the common issue where
+          the final part of the line disappears.
+        */
         if (
-          pointerFrameRef.current
+          drawingRef.current &&
+          !completedRef.current
         ) {
-          cancelAnimationFrame(
-            pointerFrameRef.current
-          );
+          const finalPoint =
+            getPointerPosition(event);
 
-          pointerFrameRef.current =
-            null;
-
-          // Process final point before ending.
-
-          processPendingPoint();
+          if (finalPoint) {
+            pointQueueRef.current.push(
+              finalPoint
+            );
+          }
         }
 
-        drawingRef.current = false;
+        flushPointQueue();
+
+        drawingRef.current =
+          false;
 
         currentStrokeRef.current =
           null;
 
-        pendingPointRef.current =
-          null;
+        pointQueueRef.current =
+          [];
 
         updateProgress(true);
 
@@ -885,7 +1045,8 @@ export default function Create() {
         }
       },
       [
-        processPendingPoint,
+        flushPointQueue,
+        getPointerPosition,
         updateProgress,
       ]
     );
@@ -923,15 +1084,14 @@ export default function Create() {
       currentStrokeRef.current =
         null;
 
-      pendingPointRef.current =
-        null;
+      pointQueueRef.current =
+        [];
 
       updateProgress(true);
 
-      // One enhanced redraw after completion.
-      // This restores the premium glow without
-      // making active drawing lag.
-
+      /*
+        Only now do the expensive glow redraw.
+      */
       redrawEverything(true);
 
       const canvas =
@@ -983,8 +1143,8 @@ export default function Create() {
           setShowReveal(true);
         }, 950);
     }, [
-      updateProgress,
       redrawEverything,
+      updateProgress,
     ]);
 
   // =========================================================
@@ -1016,8 +1176,8 @@ export default function Create() {
       currentStrokeRef.current =
         null;
 
-      pendingPointRef.current =
-        null;
+      pointQueueRef.current =
+        [];
 
       pointCountRef.current =
         0;
@@ -1069,9 +1229,7 @@ export default function Create() {
         sm:pt-12
       "
     >
-      {/* =====================================================
-          COSMIC BACKGROUND
-      ===================================================== */}
+      {/* COSMIC BACKGROUND */}
 
       <div className="pointer-events-none fixed inset-0 z-0 overflow-hidden">
         <div className="absolute inset-0 bg-[#010101]" />
@@ -1134,7 +1292,8 @@ export default function Create() {
                 height: `${star.size}px`,
                 opacity:
                   0.12 +
-                  (star.id % 8) / 18,
+                  (star.id % 8) /
+                    18,
                 animationDelay: `${star.delay}s`,
                 "--duration": `${star.duration}s`,
               }}
@@ -1151,9 +1310,7 @@ export default function Create() {
         />
       </div>
 
-      {/* =====================================================
-          HEADER
-      ===================================================== */}
+      {/* HEADER */}
 
       <header className="relative z-10 mx-auto max-w-5xl">
         <div className="flex items-center justify-between">
@@ -1234,9 +1391,7 @@ export default function Create() {
         </div>
       </header>
 
-      {/* =====================================================
-          INTRO
-      ===================================================== */}
+      {/* INTRO */}
 
       <section className="relative z-10 mx-auto mt-14 max-w-4xl text-center sm:mt-20">
         <div className="mb-5 flex items-center justify-center gap-3">
@@ -1305,9 +1460,7 @@ export default function Create() {
         </p>
       </section>
 
-      {/* =====================================================
-          PROGRESS
-      ===================================================== */}
+      {/* PROGRESS */}
 
       <section className="relative z-10 mx-auto mt-9 max-w-md sm:mt-12">
         <div className="mb-2 flex items-center justify-between">
@@ -1338,7 +1491,10 @@ export default function Create() {
               }
             `}
           >
-            {String(progress).padStart(3, "0")}
+            {String(progress).padStart(
+              3,
+              "0"
+            )}
             %
           </span>
         </div>
@@ -1374,9 +1530,7 @@ export default function Create() {
         </div>
       </section>
 
-      {/* =====================================================
-          DRAWING CANVAS
-      ===================================================== */}
+      {/* DRAWING CANVAS */}
 
       <section className="relative z-10 mx-auto mt-7 max-w-5xl sm:mt-10">
         <div
@@ -1422,10 +1576,25 @@ export default function Create() {
 
           <canvas
             ref={canvasRef}
-            onPointerDown={handlePointerDown}
-            onPointerMove={handlePointerMove}
-            onPointerUp={handlePointerUp}
-            onPointerCancel={handlePointerUp}
+            onPointerDown={
+              handlePointerDown
+            }
+            onPointerMove={
+              handlePointerMove
+            }
+            onPointerUp={
+              handlePointerUp
+            }
+            onPointerCancel={
+              handlePointerUp
+            }
+            onPointerLeave={(event) => {
+              if (
+                drawingRef.current
+              ) {
+                handlePointerUp(event);
+              }
+            }}
             className="
               relative
               block
@@ -1439,112 +1608,114 @@ export default function Create() {
             aria-label="Draw your constellation"
           />
 
-          {!started && !completed && (
-            <div
-              className="
-                pointer-events-none
-                absolute
-                left-1/2
-                top-1/2
-                flex
-                -translate-x-1/2
-                -translate-y-1/2
-                flex-col
-                items-center
-                text-center
-              "
-            >
+          {!started &&
+            !completed && (
               <div
                 className="
-                  mb-5
+                  pointer-events-none
+                  absolute
+                  left-1/2
+                  top-1/2
                   flex
-                  h-16
-                  w-16
+                  -translate-x-1/2
+                  -translate-y-1/2
+                  flex-col
                   items-center
-                  justify-center
+                  text-center
+                "
+              >
+                <div
+                  className="
+                    mb-5
+                    flex
+                    h-16
+                    w-16
+                    items-center
+                    justify-center
+                    rounded-full
+                    border
+                    border-white/[0.1]
+                    bg-white/[0.025]
+                    animate-[guidePulse_2.5s_ease-in-out_infinite]
+                  "
+                >
+                  <WandSparkles
+                    size={18}
+                    strokeWidth={1}
+                    className="text-white/45"
+                  />
+                </div>
+
+                <p
+                  className="
+                    font-mono
+                    text-[8px]
+                    uppercase
+                    tracking-[0.38em]
+                    text-white/45
+                  "
+                >
+                  Touch the universe
+                </p>
+
+                <p
+                  className="
+                    mt-2
+                    max-w-[230px]
+                    font-serif
+                    text-[11px]
+                    italic
+                    leading-relaxed
+                    text-white/20
+                  "
+                >
+                  Draw freely. Lift your finger
+                  whenever you want.
+                </p>
+              </div>
+            )}
+
+          {started &&
+            !completed && (
+              <div
+                className="
+                  pointer-events-none
+                  absolute
+                  bottom-5
+                  left-1/2
+                  flex
+                  -translate-x-1/2
+                  items-center
+                  gap-2
+                  whitespace-nowrap
                   rounded-full
                   border
-                  border-white/[0.1]
-                  bg-white/[0.025]
-                  animate-[guidePulse_2.5s_ease-in-out_infinite]
+                  border-white/[0.08]
+                  bg-black/45
+                  px-4
+                  py-2
+                  backdrop-blur-md
                 "
               >
-                <WandSparkles
-                  size={18}
+                <MousePointer2
+                  size={9}
                   strokeWidth={1}
-                  className="text-white/45"
+                  className="text-amber-100/40"
                 />
+
+                <p
+                  className="
+                    font-mono
+                    text-[6px]
+                    uppercase
+                    tracking-[0.35em]
+                    text-white/40
+                  "
+                >
+                  Lift & draw somewhere new
+                </p>
               </div>
-
-              <p
-                className="
-                  font-mono
-                  text-[8px]
-                  uppercase
-                  tracking-[0.38em]
-                  text-white/45
-                "
-              >
-                Touch the universe
-              </p>
-
-              <p
-                className="
-                  mt-2
-                  max-w-[230px]
-                  font-serif
-                  text-[11px]
-                  italic
-                  leading-relaxed
-                  text-white/20
-                "
-              >
-                Draw freely. Lift your finger
-                whenever you want.
-              </p>
-            </div>
-          )}
-
-          {started && !completed && (
-            <div
-              className="
-                pointer-events-none
-                absolute
-                bottom-5
-                left-1/2
-                flex
-                -translate-x-1/2
-                items-center
-                gap-2
-                whitespace-nowrap
-                rounded-full
-                border
-                border-white/[0.08]
-                bg-black/45
-                px-4
-                py-2
-                backdrop-blur-md
-              "
-            >
-              <MousePointer2
-                size={9}
-                strokeWidth={1}
-                className="text-amber-100/40"
-              />
-
-              <p
-                className="
-                  font-mono
-                  text-[6px]
-                  uppercase
-                  tracking-[0.35em]
-                  text-white/40
-                "
-              >
-                Lift & draw somewhere new
-              </p>
-            </div>
-          )}
+            )}
 
           {completed && (
             <div
@@ -1572,9 +1743,7 @@ export default function Create() {
         </div>
       </section>
 
-      {/* =====================================================
-          INSTRUCTIONS
-      ===================================================== */}
+      {/* INSTRUCTIONS */}
 
       <section className="relative z-10 mx-auto mt-7 max-w-md text-center">
         {!completed ? (
@@ -1653,120 +1822,123 @@ export default function Create() {
         )}
       </section>
 
-      {/* =====================================================
-          CONTROLS
-      ===================================================== */}
+      {/* CONTROLS */}
 
-      {!completed && started && (
-        <div
-          className="
-            relative
-            z-10
-            mx-auto
-            mt-7
-            flex
-            flex-col
-            items-center
-            gap-4
-          "
-        >
-          <button
-            type="button"
-            onClick={submitConstellation}
-            disabled={progress < 100}
-            className={`
-              group
-              relative
-              flex
-              items-center
-              gap-3
-              overflow-hidden
-              rounded-full
-              border
-              px-7
-              py-4
-              font-mono
-              text-[7px]
-              uppercase
-              tracking-[0.35em]
-              transition-all
-              duration-300
-              ${
-                progress >= 100
-                  ? "border-amber-100/30 bg-amber-100/[0.08] text-amber-100 hover:bg-amber-100/[0.14]"
-                  : "cursor-not-allowed border-white/[0.07] bg-white/[0.02] text-white/20"
-              }
-              active:scale-95
-            `}
-          >
-            <span
-              className="
-                absolute
-                inset-0
-                -translate-x-full
-                bg-white
-                transition-transform
-                duration-500
-                group-hover:translate-x-0
-              "
-            />
-
-            <Send
-              size={11}
-              strokeWidth={1.2}
-              className="
-                relative
-                z-10
-                transition-transform
-                duration-300
-                group-hover:translate-x-0.5
-              "
-            />
-
-            <span
-              className="
-                relative
-                z-10
-                transition-colors
-                group-hover:text-black
-              "
-            >
-              {progress >= 100
-                ? "Submit constellation"
-                : "Keep drawing"}
-            </span>
-          </button>
-
-          <button
-            type="button"
-            onClick={resetActivity}
+      {!completed &&
+        started && (
+          <div
             className="
+              relative
+              z-10
+              mx-auto
+              mt-7
               flex
+              flex-col
               items-center
-              gap-2
-              font-mono
-              text-[6px]
-              uppercase
-              tracking-[0.35em]
-              text-white/20
-              transition-colors
-              duration-300
-              hover:text-white/50
+              gap-4
             "
           >
-            <RotateCcw
-              size={10}
-              strokeWidth={1}
-            />
+            <button
+              type="button"
+              onClick={
+                submitConstellation
+              }
+              disabled={
+                progress < 100
+              }
+              className={`
+                group
+                relative
+                flex
+                items-center
+                gap-3
+                overflow-hidden
+                rounded-full
+                border
+                px-7
+                py-4
+                font-mono
+                text-[7px]
+                uppercase
+                tracking-[0.35em]
+                transition-all
+                duration-300
+                ${
+                  progress >= 100
+                    ? "border-amber-100/30 bg-amber-100/[0.08] text-amber-100 hover:bg-amber-100/[0.14]"
+                    : "cursor-not-allowed border-white/[0.07] bg-white/[0.02] text-white/20"
+                }
+                active:scale-95
+              `}
+            >
+              <span
+                className="
+                  absolute
+                  inset-0
+                  -translate-x-full
+                  bg-white
+                  transition-transform
+                  duration-500
+                  group-hover:translate-x-0
+                "
+              />
 
-            Start over
-          </button>
-        </div>
-      )}
+              <Send
+                size={11}
+                strokeWidth={1.2}
+                className="
+                  relative
+                  z-10
+                  transition-transform
+                  duration-300
+                  group-hover:translate-x-0.5
+                "
+              />
 
-      {/* =====================================================
-          REVEAL MODAL
-      ===================================================== */}
+              <span
+                className="
+                  relative
+                  z-10
+                  transition-colors
+                  group-hover:text-black
+                "
+              >
+                {progress >= 100
+                  ? "Submit constellation"
+                  : "Keep drawing"}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={
+                resetActivity
+              }
+              className="
+                flex
+                items-center
+                gap-2
+                font-mono
+                text-[6px]
+                uppercase
+                tracking-[0.35em]
+                text-white/20
+                transition-colors
+                duration-300
+                hover:text-white/50
+              "
+            >
+              <RotateCcw
+                size={10}
+                strokeWidth={1}
+              />
+
+              Start over
+            </button>
+          </div>
+        )}
+
+      {/* REVEAL MODAL */}
 
       {showReveal && (
         <div
@@ -1800,50 +1972,6 @@ export default function Create() {
               blur-[120px]
             "
           />
-
-          <div
-            className="
-              pointer-events-none
-              absolute
-              left-1/2
-              top-1/2
-              -translate-x-1/2
-              -translate-y-1/2
-            "
-          >
-            <div
-              className="
-                h-24
-                w-24
-                rounded-full
-                border
-                border-white/20
-                animate-[portalRing_2s_cubic-bezier(.16,1,.3,1)_forwards]
-              "
-            />
-
-            <div
-              className="
-                absolute
-                inset-[-60px]
-                rounded-full
-                border
-                border-white/[0.08]
-                animate-[portalRing_2.3s_cubic-bezier(.16,1,.3,1)_.15s_forwards]
-              "
-            />
-
-            <div
-              className="
-                absolute
-                inset-[-120px]
-                rounded-full
-                border
-                border-white/[0.04]
-                animate-[portalRing_2.6s_cubic-bezier(.16,1,.3,1)_.3s_forwards]
-              "
-            />
-          </div>
 
           <div
             className="
@@ -1902,7 +2030,9 @@ export default function Create() {
               >
                 {drawingImage ? (
                   <img
-                    src={drawingImage}
+                    src={
+                      drawingImage
+                    }
                     alt="Your constellation"
                     className="
                       relative
@@ -2080,41 +2210,12 @@ export default function Create() {
               </p>
             </div>
 
-            <div
-              className="
-                mt-6
-                flex
-                items-center
-                justify-center
-                gap-2
-              "
-            >
-              <span
-                className="
-                  h-1.5
-                  w-1.5
-                  rounded-full
-                  bg-amber-100
-                "
-              />
-
-              <span
-                className="
-                  font-mono
-                  text-[5px]
-                  uppercase
-                  tracking-[0.35em]
-                  text-white/20
-                "
-              >
-                STAR RECORDED
-              </span>
-            </div>
-
             <button
               type="button"
               onClick={() =>
-                navigate("/universe")
+                navigate(
+                  "/universe"
+                )
               }
               className="
                 group
@@ -2180,7 +2281,9 @@ export default function Create() {
 
             <button
               type="button"
-              onClick={resetActivity}
+              onClick={
+                resetActivity
+              }
               className="
                 relative
                 mt-5
@@ -2252,22 +2355,6 @@ export default function Create() {
 
           to {
             opacity: 1;
-          }
-        }
-
-        @keyframes portalRing {
-          0% {
-            transform: scale(.1);
-            opacity: 0;
-          }
-
-          30% {
-            opacity: .8;
-          }
-
-          100% {
-            transform: scale(3);
-            opacity: 0;
           }
         }
 
