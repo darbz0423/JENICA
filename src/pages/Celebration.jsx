@@ -50,38 +50,38 @@ export default function Celebration() {
   };
 
   // ==========================================================
-  // STARS
+  // STARS — REDUCED FOR PERFORMANCE
   // ==========================================================
 
   const stars = useMemo(() => {
-    const total = isMobile ? 18 : 42;
+    const total = isMobile ? 10 : 24;
 
     return Array.from({ length: total }, (_, index) => ({
       id: index,
       left: 3 + random(index * 11 + 2) * 94,
       top: 4 + random(index * 17 + 7) * 90,
-      size: 1 + random(index * 31 + 3) * 2.2,
+      size: 1 + random(index * 31 + 3) * 1.8,
       delay: random(index * 13 + 9) * 4,
-      duration: 3 + random(index * 23 + 4) * 5,
-      opacity: 0.2 + random(index * 19 + 8) * 0.6,
+      duration: 4 + random(index * 23 + 4) * 5,
+      opacity: 0.2 + random(index * 19 + 8) * 0.5,
     }));
   }, [isMobile]);
 
   // ==========================================================
-  // CONFETTI
+  // CONFETTI — REDUCED FOR PERFORMANCE
   // ==========================================================
 
   const confetti = useMemo(() => {
-    const total = isMobile ? 32 : 80;
+    const total = isMobile ? 16 : 40;
 
     return Array.from({ length: total }, (_, index) => ({
       id: index,
       left: random(index * 5 + 2) * 100,
-      delay: random(index * 7 + 4) * 1.6,
-      duration: 3.8 + random(index * 11 + 8) * 2.8,
-      size: 3 + random(index * 17 + 5) * 4,
+      delay: random(index * 7 + 4) * 0.8,
+      duration: 2.8 + random(index * 11 + 8) * 1.5,
+      size: 3 + random(index * 17 + 5) * 3,
       rotation: random(index * 23 + 7) * 360,
-      drift: -90 + random(index * 29 + 3) * 180,
+      drift: -50 + random(index * 29 + 3) * 100,
       type: index % 4,
     }));
   }, [isMobile]);
@@ -129,19 +129,13 @@ export default function Celebration() {
   return (
     <main className="celebration-page relative min-h-[100svh] overflow-hidden bg-[#020202] text-white">
       {/* =====================================================
-          ATMOSPHERE
+          BACKGROUND
       ====================================================== */}
 
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
-        {/* BASE */}
-
         <div className="absolute inset-0 bg-[#020202]" />
 
-        {/* DEEP SPACE */}
-
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_45%,#1a1a1a_0%,#090909_35%,#020202_78%)]" />
-
-        {/* AURORA */}
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_45%,#151515_0%,#080808_42%,#020202_82%)]" />
 
         <div
           className={`aurora-layer ${
@@ -149,15 +143,11 @@ export default function Celebration() {
           }`}
         />
 
-        {/* ENERGY HORIZON */}
-
         <div
           className={`energy-horizon ${
             celebrationStarted ? "energy-active" : ""
           }`}
         />
-
-        {/* CENTRAL LIGHT */}
 
         <div
           className={`central-light ${
@@ -165,28 +155,18 @@ export default function Celebration() {
           }`}
         />
 
-        {/* SIDE GLOWS */}
-
         <div className="ambient-glow ambient-left" />
         <div className="ambient-glow ambient-right" />
-
-        {/* CINEMATIC GRADIENTS */}
 
         <div className="absolute inset-x-0 top-0 h-40 bg-gradient-to-b from-black via-black/60 to-transparent" />
 
         <div className="absolute inset-x-0 bottom-0 h-56 bg-gradient-to-t from-black via-black/70 to-transparent" />
 
-        {/* VIGNETTE */}
-
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_18%,rgba(0,0,0,.25)_58%,rgba(0,0,0,.88)_100%)]" />
-
-        {/* GRAIN */}
-
-        <div className="grain absolute inset-0 opacity-[0.025]" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_25%,rgba(0,0,0,.28)_65%,rgba(0,0,0,.88)_100%)]" />
       </div>
 
       {/* =====================================================
-          STAR FIELD
+          STARS
       ====================================================== */}
 
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
@@ -213,22 +193,22 @@ export default function Celebration() {
 
       <div
         className={`orbital-system pointer-events-none absolute left-1/2 top-1/2
-        h-[320px] w-[320px] -translate-x-1/2 -translate-y-1/2
-        sm:h-[520px] sm:w-[520px]
-        md:h-[700px] md:w-[700px]
+        h-[300px] w-[300px] -translate-x-1/2 -translate-y-1/2
+        sm:h-[500px] sm:w-[500px]
+        md:h-[650px] md:w-[650px]
         ${
           celebrationStarted
             ? "orbital-system-hidden"
             : "orbital-system-visible"
         }`}
       >
-        <div className="absolute inset-0 rounded-full border border-white/[0.045]" />
+        <div className="absolute inset-0 rounded-full border border-white/[0.04]" />
 
-        <div className="orbit-one absolute inset-[9%] rounded-full border border-dashed border-white/[0.055]" />
+        <div className="orbit-one absolute inset-[10%] rounded-full border border-dashed border-white/[0.045]" />
 
-        <div className="orbit-two absolute inset-[22%] rounded-full border border-white/[0.04]" />
+        <div className="orbit-two absolute inset-[23%] rounded-full border border-white/[0.035]" />
 
-        <div className="absolute inset-[37%] rounded-full border border-white/[0.04]" />
+        <div className="absolute inset-[37%] rounded-full border border-white/[0.03]" />
 
         <span className="orbit-dot orbit-dot-top" />
         <span className="orbit-dot orbit-dot-right" />
@@ -237,7 +217,7 @@ export default function Celebration() {
       </div>
 
       {/* =====================================================
-          TOP HUD
+          HEADER
       ====================================================== */}
 
       <header className="absolute left-0 right-0 top-0 z-40 flex items-center justify-between px-5 py-5 sm:px-8 sm:py-7">
@@ -248,8 +228,6 @@ export default function Celebration() {
               strokeWidth={1}
               className="text-white/50"
             />
-
-            <span className="absolute inset-0 animate-ping rounded-full border border-white/10" />
           </div>
 
           <div>
@@ -268,32 +246,29 @@ export default function Celebration() {
             08.17.2026
           </span>
 
-          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-white/50 shadow-[0_0_14px_rgba(255,255,255,.7)]" />
+          <span className="h-1.5 w-1.5 rounded-full bg-white/50" />
         </div>
       </header>
 
       {/* =====================================================
-          CELEBRATION EXPLOSION
+          CELEBRATION EFFECTS
       ====================================================== */}
 
       {celebrationStarted && (
         <div className="pointer-events-none absolute inset-0 z-10 overflow-hidden">
-          {/* RINGS */}
-
           <div className="celebration-ring ring-a" />
           <div className="celebration-ring ring-b" />
-          <div className="celebration-ring ring-c" />
 
-          {/* CORE */}
+          {!isMobile && <div className="celebration-ring ring-c" />}
 
           <div className="celebration-core" />
 
-          {/* ENERGY SHOCKWAVE */}
-
-          <div className="shockwave shockwave-a" />
-          <div className="shockwave shockwave-b" />
-
-          {/* PARTICLES */}
+          {!isMobile && (
+            <>
+              <div className="shockwave shockwave-a" />
+              <div className="shockwave shockwave-b" />
+            </>
+          )}
 
           <span className="burst-particle p1" />
           <span className="burst-particle p2" />
@@ -301,10 +276,6 @@ export default function Celebration() {
           <span className="burst-particle p4" />
           <span className="burst-particle p5" />
           <span className="burst-particle p6" />
-          <span className="burst-particle p7" />
-          <span className="burst-particle p8" />
-
-          {/* CONFETTI */}
 
           <div className="absolute inset-0">
             {confetti.map((piece) => (
@@ -314,7 +285,7 @@ export default function Celebration() {
                 style={{
                   left: `${piece.left}%`,
                   width: `${piece.size}px`,
-                  height: `${piece.size * 1.6}px`,
+                  height: `${piece.size * 1.5}px`,
                   animationDelay: `${piece.delay}s`,
                   animationDuration: `${piece.duration}s`,
                   "--drift": `${piece.drift}px`,
@@ -324,17 +295,18 @@ export default function Celebration() {
             ))}
           </div>
 
-          {/* FLOATING SPARKLES */}
-
-          <Stars className="floating-sparkle sparkle-1" />
-          <Stars className="floating-sparkle sparkle-2" />
-          <Stars className="floating-sparkle sparkle-3" />
-          <Stars className="floating-sparkle sparkle-4" />
+          {!isMobile && (
+            <>
+              <Stars className="floating-sparkle sparkle-1" />
+              <Stars className="floating-sparkle sparkle-2" />
+              <Stars className="floating-sparkle sparkle-3" />
+            </>
+          )}
         </div>
       )}
 
       {/* =====================================================
-          MAIN
+          MAIN CONTENT
       ====================================================== */}
 
       <section className="relative z-20 flex min-h-[100svh] items-center justify-center px-5 pb-24 pt-24">
@@ -346,7 +318,7 @@ export default function Celebration() {
           {!started && (
             <div className="animate-intro">
               <div className="relative mx-auto flex h-20 w-20 items-center justify-center">
-                <div className="absolute inset-0 animate-[spin_18s_linear_infinite] rounded-full border border-white/[0.07]" />
+                <div className="absolute inset-0 rounded-full border border-white/[0.07]" />
 
                 <div className="absolute inset-2 rounded-full border border-dashed border-white/[0.08]" />
 
@@ -360,7 +332,7 @@ export default function Celebration() {
 
                 <Sparkles
                   size={9}
-                  className="absolute right-0 top-1 animate-pulse text-white/60"
+                  className="absolute right-0 top-1 text-white/60"
                 />
               </div>
 
@@ -387,10 +359,8 @@ export default function Celebration() {
               <button
                 type="button"
                 onClick={handleStart}
-                className="group relative mx-auto mt-9 flex min-h-14 items-center justify-center overflow-hidden rounded-full border border-white/[0.14] bg-white/[0.035] px-7 transition-all duration-500 hover:border-white/30 hover:bg-white/[0.07] active:scale-[0.96] sm:px-9"
+                className="group relative mx-auto mt-9 flex min-h-14 items-center justify-center overflow-hidden rounded-full border border-white/[0.14] bg-white/[0.035] px-7 transition-all duration-300 hover:border-white/30 hover:bg-white/[0.07] active:scale-[0.96] sm:px-9"
               >
-                <span className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/[0.1] to-transparent transition-transform duration-700 group-hover:translate-x-full" />
-
                 <span className="relative flex items-center gap-3 font-mono text-[7px] uppercase tracking-[0.45em] text-white/65">
                   ENTER THE MOMENT
 
@@ -432,9 +402,11 @@ export default function Celebration() {
 
                 <div className="absolute inset-[35%] rounded-full border border-white/[0.035]" />
 
-                <div className="countdown-orbit absolute inset-[11%]">
-                  <span className="absolute left-1/2 top-[-3px] h-1.5 w-1.5 -translate-x-1/2 rounded-full bg-white shadow-[0_0_15px_rgba(255,255,255,.8)]" />
-                </div>
+                {!isMobile && (
+                  <div className="countdown-orbit absolute inset-[11%]">
+                    <span className="absolute left-1/2 top-[-3px] h-1.5 w-1.5 -translate-x-1/2 rounded-full bg-white shadow-[0_0_12px_rgba(255,255,255,.6)]" />
+                  </div>
+                )}
 
                 <div className="absolute inset-0 flex items-center justify-center">
                   <span
@@ -445,11 +417,13 @@ export default function Celebration() {
                   </span>
                 </div>
 
-                <Orbit
-                  size={13}
-                  strokeWidth={1}
-                  className="absolute left-1/2 top-[-7px] -translate-x-1/2 text-white/30"
-                />
+                {!isMobile && (
+                  <Orbit
+                    size={13}
+                    strokeWidth={1}
+                    className="absolute left-1/2 top-[-7px] -translate-x-1/2 text-white/30"
+                  />
+                )}
               </div>
 
               <p className="mt-3 font-serif text-sm italic text-white/25">
@@ -469,13 +443,11 @@ export default function Celebration() {
           {celebrationStarted && (
             <div className="animate-final">
               <div className="relative mx-auto flex h-20 w-20 items-center justify-center">
-                <div className="absolute inset-0 animate-pulse rounded-full bg-white/[0.035]" />
+                <div className="absolute inset-0 rounded-full bg-white/[0.035]" />
 
                 <div className="absolute inset-2 rounded-full border border-white/[0.1]" />
 
-                <div className="absolute inset-0 rounded-full border border-white/[0.04] animate-[spin_12s_linear_infinite]" />
-
-                <div className="relative flex h-11 w-11 items-center justify-center rounded-full bg-white text-black shadow-[0_0_60px_rgba(255,255,255,.22)] sm:h-14 sm:w-14">
+                <div className="relative flex h-11 w-11 items-center justify-center rounded-full bg-white text-black sm:h-14 sm:w-14">
                   <Sparkles size={19} strokeWidth={1.2} />
                 </div>
               </div>
@@ -533,10 +505,8 @@ export default function Celebration() {
               <button
                 type="button"
                 onClick={handleFinale}
-                className="group relative mx-auto mt-10 flex min-h-14 items-center justify-center gap-3 overflow-hidden rounded-full border border-white/[0.15] bg-white/[0.035] px-8 transition-all duration-500 hover:border-white/40 hover:bg-white hover:text-black active:scale-[0.96] sm:px-10"
+                className="group relative mx-auto mt-10 flex min-h-14 items-center justify-center gap-3 overflow-hidden rounded-full border border-white/[0.15] bg-white/[0.035] px-8 transition-all duration-300 hover:border-white/40 hover:bg-white hover:text-black active:scale-[0.96] sm:px-10"
               >
-                <span className="absolute inset-0 -translate-x-full bg-white transition-transform duration-500 group-hover:translate-x-0" />
-
                 <span className="relative flex items-center gap-3 font-mono text-[7px] uppercase tracking-[0.45em] text-white/70 group-hover:text-black">
                   ENTER THE FINALE
 
@@ -548,13 +518,13 @@ export default function Celebration() {
               </button>
 
               <div className="mt-10 flex items-center justify-center gap-3">
-                <span className="h-1 w-1 animate-pulse rounded-full bg-white shadow-[0_0_10px_white]" />
+                <span className="h-1 w-1 rounded-full bg-white" />
 
                 <span className="font-mono text-[5px] tracking-[0.5em] text-white/15">
                   MEMORY 001 // COMPLETE
                 </span>
 
-                <span className="h-1 w-1 animate-pulse rounded-full bg-white shadow-[0_0_10px_white]" />
+                <span className="h-1 w-1 rounded-full bg-white" />
               </div>
             </div>
           )}
@@ -576,27 +546,13 @@ export default function Celebration() {
       </footer>
 
       {/* =====================================================
-          CSS
+          OPTIMIZED CSS
       ====================================================== */}
 
       <style>{`
-        /* =====================================================
-           PERFORMANCE
-        ====================================================== */
-
         .celebration-page {
           isolation: isolate;
-          contain: layout paint;
-        }
-
-        .cosmic-star,
-        .confetti,
-        .burst-particle,
-        .celebration-ring,
-        .shockwave,
-        .floating-sparkle,
-        .orbital-system {
-          will-change: transform, opacity;
+          background: #020202;
         }
 
         /* =====================================================
@@ -605,23 +561,23 @@ export default function Celebration() {
 
         .aurora-layer {
           position: absolute;
-          inset: -30%;
+          inset: -20%;
           opacity: 0;
-          transform: scale(.8);
+          transform: scale(.9);
           background:
             radial-gradient(
               circle at 50% 40%,
-              rgba(255,255,255,.08),
-              transparent 35%
+              rgba(255,255,255,.06),
+              transparent 45%
             );
           transition:
-            opacity 1800ms ease,
-            transform 2400ms cubic-bezier(.16,1,.3,1);
+            opacity 1200ms ease,
+            transform 1600ms cubic-bezier(.16,1,.3,1);
         }
 
         .aurora-active {
-          opacity: 1;
-          transform: scale(1.4);
+          opacity: .8;
+          transform: scale(1.25);
         }
 
         /* =====================================================
@@ -632,39 +588,36 @@ export default function Celebration() {
           position: absolute;
           left: 50%;
           top: 58%;
-          width: 40vw;
+          width: 45vw;
           height: 1px;
+
+          opacity: 0;
 
           transform:
             translateX(-50%)
-            scaleX(.1);
-
-          opacity: 0;
+            scaleX(.2);
 
           background:
             linear-gradient(
               90deg,
               transparent,
-              rgba(255,255,255,.55),
+              rgba(255,255,255,.4),
               white,
-              rgba(255,255,255,.55),
+              rgba(255,255,255,.4),
               transparent
             );
 
-          box-shadow:
-            0 0 30px rgba(255,255,255,.25);
-
           transition:
-            transform 1800ms cubic-bezier(.16,1,.3,1),
-            opacity 800ms ease;
+            transform 1200ms ease,
+            opacity 600ms ease;
         }
 
         .energy-active {
-          opacity: .7;
+          opacity: .65;
 
           transform:
             translateX(-50%)
-            scaleX(4);
+            scaleX(3);
         }
 
         /* =====================================================
@@ -673,40 +626,39 @@ export default function Celebration() {
 
         .central-light {
           position: absolute;
-
           left: 50%;
           top: 50%;
 
-          width: 240px;
-          height: 240px;
+          width: 220px;
+          height: 220px;
 
-          border-radius: 999px;
+          border-radius: 50%;
+
+          opacity: .4;
 
           transform:
             translate(-50%, -50%)
             scale(1);
 
-          opacity: .55;
-
           background:
             radial-gradient(
               circle,
-              rgba(255,255,255,.15),
-              rgba(255,255,255,.04) 38%,
+              rgba(255,255,255,.12),
+              rgba(255,255,255,.025) 45%,
               transparent 72%
             );
 
           transition:
-            transform 2200ms cubic-bezier(.16,1,.3,1),
-            opacity 1500ms ease;
+            transform 1600ms cubic-bezier(.16,1,.3,1),
+            opacity 1000ms ease;
         }
 
         .central-light-active {
-          opacity: .95;
+          opacity: .8;
 
           transform:
             translate(-50%, -50%)
-            scale(4.5);
+            scale(3.2);
         }
 
         /* =====================================================
@@ -716,12 +668,12 @@ export default function Celebration() {
         .ambient-glow {
           position: absolute;
 
-          width: 350px;
-          height: 350px;
+          width: 280px;
+          height: 280px;
 
-          border-radius: 999px;
+          border-radius: 50%;
 
-          opacity: .12;
+          opacity: .06;
 
           background:
             radial-gradient(
@@ -732,23 +684,23 @@ export default function Celebration() {
         }
 
         .ambient-left {
-          left: -180px;
-          top: 18%;
+          left: -150px;
+          top: 20%;
         }
 
         .ambient-right {
-          right: -180px;
+          right: -150px;
           bottom: 15%;
         }
 
         /* =====================================================
-           ORBITAL SYSTEM
+           ORBIT SYSTEM
         ====================================================== */
 
         .orbital-system {
           transition:
-            opacity 1400ms ease,
-            transform 1800ms cubic-bezier(.16,1,.3,1);
+            opacity 900ms ease,
+            transform 1200ms cubic-bezier(.16,1,.3,1);
         }
 
         .orbital-system-visible {
@@ -760,7 +712,7 @@ export default function Celebration() {
 
           transform:
             translate(-50%, -50%)
-            scale(1.6);
+            scale(1.25);
         }
 
         /* =====================================================
@@ -770,18 +722,18 @@ export default function Celebration() {
         @keyframes intro {
           from {
             opacity: 0;
-            transform: translate3d(0,28px,0) scale(.97);
+            transform: translate3d(0,20px,0);
           }
 
           to {
             opacity: 1;
-            transform: translate3d(0,0,0) scale(1);
+            transform: translate3d(0,0,0);
           }
         }
 
         .animate-intro {
           animation:
-            intro 1000ms cubic-bezier(.16,1,.3,1) both;
+            intro 700ms cubic-bezier(.16,1,.3,1) both;
         }
 
         /* =====================================================
@@ -789,12 +741,12 @@ export default function Celebration() {
         ====================================================== */
 
         @keyframes countdownIn {
-          0% {
+          from {
             opacity: 0;
-            transform: scale(1.25);
+            transform: scale(1.12);
           }
 
-          100% {
+          to {
             opacity: 1;
             transform: scale(1);
           }
@@ -802,7 +754,7 @@ export default function Celebration() {
 
         .countdown-number {
           animation:
-            countdownIn 550ms cubic-bezier(.16,1,.3,1);
+            countdownIn 400ms cubic-bezier(.16,1,.3,1);
         }
 
         @keyframes countdownOrbit {
@@ -813,7 +765,7 @@ export default function Celebration() {
 
         .countdown-orbit {
           animation:
-            countdownOrbit 5s linear infinite;
+            countdownOrbit 8s linear infinite;
         }
 
         /* =====================================================
@@ -821,42 +773,29 @@ export default function Celebration() {
         ====================================================== */
 
         @keyframes finalReveal {
-          0% {
+          from {
             opacity: 0;
-            transform: translate3d(0,40px,0) scale(.96);
+            transform: translate3d(0,25px,0);
           }
 
-          100% {
+          to {
             opacity: 1;
-            transform: translate3d(0,0,0) scale(1);
+            transform: translate3d(0,0,0);
           }
         }
 
         .animate-final {
           animation:
-            finalReveal 1300ms cubic-bezier(.16,1,.3,1) both;
+            finalReveal 900ms cubic-bezier(.16,1,.3,1) both;
         }
 
         /* =====================================================
            TITLE
         ====================================================== */
 
-        @keyframes titleGlow {
-          0%,
-          100% {
-            text-shadow:
-              0 0 0 rgba(255,255,255,0);
-          }
-
-          50% {
-            text-shadow:
-              0 0 35px rgba(255,255,255,.11);
-          }
-        }
-
         .birthday-title {
-          animation:
-            titleGlow 4.5s ease-in-out infinite;
+          text-shadow:
+            0 0 25px rgba(255,255,255,.05);
         }
 
         /* =====================================================
@@ -877,12 +816,12 @@ export default function Celebration() {
 
         .orbit-one {
           animation:
-            orbitOne 36s linear infinite;
+            orbitOne 55s linear infinite;
         }
 
         .orbit-two {
           animation:
-            orbitTwo 52s linear infinite;
+            orbitTwo 70s linear infinite;
         }
 
         /* =====================================================
@@ -892,16 +831,13 @@ export default function Celebration() {
         .orbit-dot {
           position: absolute;
 
-          width: 5px;
-          height: 5px;
+          width: 4px;
+          height: 4px;
 
-          border-radius: 999px;
+          border-radius: 50%;
 
           background:
-            rgba(255,255,255,.6);
-
-          box-shadow:
-            0 0 12px rgba(255,255,255,.35);
+            rgba(255,255,255,.55);
         }
 
         .orbit-dot-top {
@@ -935,7 +871,7 @@ export default function Celebration() {
         .cosmic-star {
           position: absolute;
 
-          border-radius: 999px;
+          border-radius: 50%;
 
           background: white;
 
@@ -946,11 +882,13 @@ export default function Celebration() {
         @keyframes starPulse {
           0%,
           100% {
-            transform: scale(.6);
+            transform: scale(.8);
+            opacity: .5;
           }
 
           50% {
-            transform: scale(1.8);
+            transform: scale(1.35);
+            opacity: 1;
           }
         }
 
@@ -965,35 +903,35 @@ export default function Celebration() {
           left: 50%;
           top: 50%;
 
-          border-radius: 999px;
+          border-radius: 50%;
 
           transform:
             translate(-50%, -50%)
             scale(.1);
 
           border:
-            1px solid rgba(255,255,255,.22);
+            1px solid rgba(255,255,255,.2);
 
           animation:
-            celebrationRing 2200ms cubic-bezier(.16,1,.3,1) forwards;
+            celebrationRing 1600ms ease-out forwards;
         }
 
         .celebration-ring {
-          width: 90px;
-          height: 90px;
+          width: 80px;
+          height: 80px;
         }
 
         .ring-b {
-          animation-delay: .15s;
+          animation-delay: .18s;
         }
 
         .ring-c {
-          animation-delay: .3s;
+          animation-delay: .35s;
         }
 
         @keyframes celebrationRing {
           0% {
-            opacity: .8;
+            opacity: .7;
 
             transform:
               translate(-50%, -50%)
@@ -1005,12 +943,12 @@ export default function Celebration() {
 
             transform:
               translate(-50%, -50%)
-              scale(8);
+              scale(6);
           }
         }
 
         /* =====================================================
-           SHOCKWAVES
+           SHOCKWAVE
         ====================================================== */
 
         .shockwave {
@@ -1018,14 +956,14 @@ export default function Celebration() {
           height: 40px;
 
           border-color:
-            rgba(255,255,255,.4);
+            rgba(255,255,255,.3);
 
           animation-duration:
-            1500ms;
+            1100ms;
         }
 
         .shockwave-b {
-          animation-delay: .35s;
+          animation-delay: .3s;
         }
 
         /* =====================================================
@@ -1038,33 +976,30 @@ export default function Celebration() {
           left: 50%;
           top: 50%;
 
-          width: 120px;
-          height: 120px;
+          width: 90px;
+          height: 90px;
 
-          border-radius: 999px;
+          border-radius: 50%;
 
           background: white;
 
           opacity: 0;
 
-          transform:
-            translate(-50%, -50%)
-            scale(.1);
-
           animation:
-            coreFlash 1200ms ease-out forwards;
+            coreFlash 900ms ease-out forwards;
         }
 
         @keyframes coreFlash {
           0% {
             opacity: 0;
+
             transform:
               translate(-50%, -50%)
-              scale(.1);
+              scale(.2);
           }
 
-          18% {
-            opacity: .22;
+          20% {
+            opacity: .18;
           }
 
           100% {
@@ -1072,12 +1007,12 @@ export default function Celebration() {
 
             transform:
               translate(-50%, -50%)
-              scale(5);
+              scale(3.5);
           }
         }
 
         /* =====================================================
-           BURST PARTICLES
+           PARTICLES
         ====================================================== */
 
         .burst-particle {
@@ -1086,17 +1021,17 @@ export default function Celebration() {
           left: 50%;
           top: 50%;
 
-          width: 4px;
-          height: 4px;
+          width: 3px;
+          height: 3px;
 
-          border-radius: 999px;
+          border-radius: 50%;
 
           background: white;
 
           opacity: 0;
 
           animation:
-            particleBurst 1600ms cubic-bezier(.16,1,.3,1) forwards;
+            particleBurst 1200ms ease-out forwards;
         }
 
         @keyframes particleBurst {
@@ -1110,7 +1045,7 @@ export default function Celebration() {
           }
 
           15% {
-            opacity: .9;
+            opacity: .8;
           }
 
           100% {
@@ -1119,19 +1054,17 @@ export default function Celebration() {
             transform:
               translate(-50%, -50%)
               rotate(var(--angle))
-              translateY(-180px)
-              scale(.2);
+              translateY(-130px)
+              scale(.3);
           }
         }
 
         .p1 { --angle: 0deg; }
-        .p2 { --angle: 45deg; }
-        .p3 { --angle: 90deg; }
-        .p4 { --angle: 135deg; }
-        .p5 { --angle: 180deg; }
-        .p6 { --angle: 225deg; }
-        .p7 { --angle: 270deg; }
-        .p8 { --angle: 315deg; }
+        .p2 { --angle: 60deg; }
+        .p3 { --angle: 120deg; }
+        .p4 { --angle: 180deg; }
+        .p5 { --angle: 240deg; }
+        .p6 { --angle: 300deg; }
 
         /* =====================================================
            CONFETTI
@@ -1140,37 +1073,31 @@ export default function Celebration() {
         .confetti {
           position: absolute;
 
-          top: -20px;
+          top: -15px;
 
           opacity: 0;
 
-          border-radius: 2px;
+          border-radius: 1px;
 
           animation:
             confettiFall linear forwards;
         }
 
         .confetti-0 {
-          background:
-            rgba(255,255,255,.95);
+          background: rgba(255,255,255,.9);
         }
 
         .confetti-1 {
-          background:
-            rgba(255,255,255,.45);
+          background: rgba(255,255,255,.45);
         }
 
         .confetti-2 {
-          background:
-            rgba(255,255,255,.7);
-
-          border-radius:
-            50%;
+          background: rgba(255,255,255,.7);
+          border-radius: 50%;
         }
 
         .confetti-3 {
-          background:
-            rgba(255,255,255,.25);
+          background: rgba(255,255,255,.25);
         }
 
         @keyframes confettiFall {
@@ -1178,12 +1105,12 @@ export default function Celebration() {
             opacity: 0;
 
             transform:
-              translate3d(0,-20px,0)
+              translate3d(0,-10px,0)
               rotate(var(--rotation));
           }
 
-          8% {
-            opacity: .9;
+          10% {
+            opacity: .8;
           }
 
           100% {
@@ -1192,30 +1119,30 @@ export default function Celebration() {
             transform:
               translate3d(
                 var(--drift),
-                110vh,
+                105vh,
                 0
               )
               rotate(
-                calc(var(--rotation) + 720deg)
+                calc(var(--rotation) + 360deg)
               );
           }
         }
 
         /* =====================================================
-           FLOATING SPARKLES
+           SPARKLES
         ====================================================== */
 
         .floating-sparkle {
           position: absolute;
 
-          width: 15px;
-          height: 15px;
+          width: 13px;
+          height: 13px;
 
           color:
-            rgba(255,255,255,.35);
+            rgba(255,255,255,.3);
 
           animation:
-            floatSparkle 4s ease-in-out infinite;
+            floatSparkle 5s ease-in-out infinite;
         }
 
         .sparkle-1 {
@@ -1232,13 +1159,7 @@ export default function Celebration() {
         .sparkle-3 {
           left: 25%;
           bottom: 20%;
-          animation-delay: 1.8s;
-        }
-
-        .sparkle-4 {
-          right: 25%;
-          bottom: 25%;
-          animation-delay: 2.5s;
+          animation-delay: 2s;
         }
 
         @keyframes floatSparkle {
@@ -1248,27 +1169,16 @@ export default function Celebration() {
 
             transform:
               translate3d(0,0,0)
-              rotate(0deg)
-              scale(.7);
+              scale(.8);
           }
 
           50% {
-            opacity: .7;
+            opacity: .55;
 
             transform:
-              translate3d(0,-16px,0)
-              rotate(90deg)
-              scale(1.1);
+              translate3d(0,-10px,0)
+              scale(1);
           }
-        }
-
-        /* =====================================================
-           GRAIN
-        ====================================================== */
-
-        .grain {
-          background-image:
-            url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.5'/%3E%3C/svg%3E");
         }
 
         /* =====================================================
@@ -1278,50 +1188,44 @@ export default function Celebration() {
         @media (max-width: 640px) {
 
           .ambient-glow {
-            opacity: .06;
-          }
-
-          .aurora-layer {
-            opacity: .45;
+            display: none;
           }
 
           .central-light {
-            width: 180px;
-            height: 180px;
+            width: 170px;
+            height: 170px;
+          }
+
+          .central-light-active {
+            transform:
+              translate(-50%, -50%)
+              scale(2.5);
+          }
+
+          .aurora-layer {
+            inset: -10%;
           }
 
           .energy-horizon {
-            width: 60vw;
+            width: 55vw;
           }
 
-          .orbit-one {
-            animation-duration: 48s;
-          }
-
+          .orbit-one,
           .orbit-two {
-            animation-duration: 64s;
+            animation: none;
           }
 
-          .floating-sparkle {
-            width: 11px;
-            height: 11px;
-          }
-
-          .celebration-core {
-            width: 90px;
-            height: 90px;
+          .cosmic-star {
+            animation-duration: 6s !important;
           }
 
           .birthday-title {
-            animation-duration: 6s;
+            text-shadow: none;
           }
 
-          .grain {
-            opacity: .015;
-          }
-
-          .shockwave {
-            display: none;
+          .celebration-ring {
+            width: 65px;
+            height: 65px;
           }
         }
 

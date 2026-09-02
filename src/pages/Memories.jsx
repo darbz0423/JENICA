@@ -8,20 +8,51 @@ import {
 } from "lucide-react";
 import { birthdayData } from "../data/birthdayData";
 
+const HISTORY_KEY = "__memoryUniverseMemories";
+const PAGE_STATE = "page";
+const VIEWER_STATE = "viewer";
+
 export default function Memories() {
   const [selected, setSelected] = useState(null);
   const [hovered, setHovered] = useState(null);
 
   /*
    * ============================================================
-   * PROTECTED NAVIGATION REFS
+   * REFS
    * ============================================================
    */
 
   const selectedRef = useRef(null);
-  const isClosingFromPopState = useRef(false);
-  const hasProtectedHistoryState = useRef(false);
-  const isRestoringHistory = useRef(false);
+
+  /*
+   * Prevents duplicate viewer history entries.
+   */
+  const viewerHistoryActiveRef = useRef(false);
+
+  /*
+   * Used when the viewer is being closed through popstate.
+   */
+  const closingFromHistoryRef = useRef(false);
+
+  /*
+   * Used when we intentionally call history.back().
+   */
+  const programmaticBackRef = useRef(false);
+
+  /*
+   * Prevents duplicate page restoration.
+   */
+  const restoringPageRef = useRef(false);
+
+  /*
+   * Prevents multiple rapid open actions.
+   */
+  const openingRef = useRef(false);
+
+  /*
+   * Used to keep the route protection active.
+   */
+  const mountedRef = useRef(false);
 
   const memories = birthdayData.memories || [];
 
@@ -37,56 +68,89 @@ export default function Memories() {
 
   /*
    * ============================================================
-   * CREATE PROTECTED MAIN PAGE HISTORY STATE
+   * HISTORY HELPERS
+   * ============================================================
+   */
+
+  const getPageState = () => ({
+    ...(window.history.state || {}),
+    [HISTORY_KEY]: true,
+    type: PAGE_STATE,
+    viewerOpen: false,
+  });
+
+  const getViewerState = (memory) => ({
+    ...(window.history.state || {}),
+    [HISTORY_KEY]: true,
+    type: VIEWER_STATE,
+    viewerOpen: true,
+    memoryId: memory?.id ?? null,
+  });
+
+  /*
+   * ============================================================
+   * CREATE / NORMALIZE PROTECTED PAGE STATE
    *
-   * This creates one controlled state for the Memories page.
-   * It prevents accidental Back navigation from immediately
-   * leaving the current route.
+   * The current Memories route always has a stable protected
+   * history state.
    * ============================================================
    */
 
   useEffect(() => {
+    mountedRef.current = true;
+
     const currentState = window.history.state || {};
 
-    if (!currentState.__memoryUniverseMemoriesPage) {
+    if (
+      !currentState[HISTORY_KEY] ||
+      currentState.type !== PAGE_STATE ||
+      currentState.viewerOpen
+    ) {
       window.history.replaceState(
         {
           ...currentState,
-          __memoryUniverseMemoriesPage: true,
-          __memoryUniverseViewerOpen: false,
+          [HISTORY_KEY]: true,
+          type: PAGE_STATE,
+          viewerOpen: false,
         },
         "",
         window.location.href
       );
     }
 
-    hasProtectedHistoryState.current = true;
-
     return () => {
-      hasProtectedHistoryState.current = false;
+      mountedRef.current = false;
     };
   }, []);
 
   /*
    * ============================================================
-   * LOCK BODY SCROLL WHILE VIEWER IS OPEN
+   * BODY SCROLL LOCK
    * ============================================================
    */
 
   useEffect(() => {
     if (!selected) return;
 
-    const previousOverflow = document.body.style.overflow;
-    const previousOverscrollBehavior =
+    const previousBodyOverflow = document.body.style.overflow;
+    const previousBodyOverscroll =
       document.body.style.overscrollBehavior;
+
+    const previousHtmlOverscroll =
+      document.documentElement.style.overscrollBehavior;
 
     document.body.style.overflow = "hidden";
     document.body.style.overscrollBehavior = "none";
 
+    document.documentElement.style.overscrollBehavior = "none";
+
     return () => {
-      document.body.style.overflow = previousOverflow;
+      document.body.style.overflow = previousBodyOverflow;
       document.body.style.overscrollBehavior =
-        previousOverscrollBehavior;
+        previousBodyOverscroll;
+
+      document.documentElement.style.overscrollBehavior =
+        previousHtmlOverscroll;
     };
   }, [selected]);
 
@@ -94,150 +158,225 @@ export default function Memories() {
    * ============================================================
    * OPEN MEMORY
    *
-   * A history state is pushed only when opening the viewer.
-   * This allows Back/swipe-back to close the viewer instead
-   * of leaving the Memories page.
+   * Only one viewer history state is allowed.
    * ============================================================
    */
 
   const openMemory = (memory) => {
     if (!memory) return;
 
+    /*
+     * If another memory is already open, simply replace the
+     * visible content without creating another history entry.
+     */
+
+    if (selectedRef.current) {
+      setSelected(memory);
+
+      window.history.replaceState(
+        getViewerState(memory),
+        "",
+        window.location.href
+      );
+
+      return;
+    }
+
+    /*
+     * Prevent accidental rapid double-click history pushes.
+     */
+
+    if (openingRef.current) return;
+
+    openingRef.current = true;
+
     setSelected(memory);
 
+    /*
+     * Push exactly one viewer state.
+     */
+
     window.history.pushState(
-      {
-        ...(window.history.state || {}),
-        __memoryUniverseMemoriesPage: true,
-        __memoryUniverseViewerOpen: true,
-        __memoryUniverseMemoryId: memory.id,
-      },
+      getViewerState(memory),
       "",
       window.location.href
     );
+
+    viewerHistoryActiveRef.current = true;
+
+    window.setTimeout(() => {
+      openingRef.current = false;
+    }, 50);
   };
 
   /*
    * ============================================================
    * CLOSE MEMORY
    *
-   * Normal close button should return to the protected page state
-   * without creating duplicate history entries.
+   * Priority:
+   *
+   * 1. Close UI immediately.
+   * 2. If viewer history exists, return to the page state.
+   * 3. Do not push duplicate history states.
    * ============================================================
    */
 
   const closeMemory = () => {
     if (!selectedRef.current) return;
 
-    const currentState = window.history.state || {};
-
     setSelected(null);
 
+    /*
+     * If popstate already closed the viewer, do not call back again.
+     */
+
+    if (closingFromHistoryRef.current) {
+      closingFromHistoryRef.current = false;
+      viewerHistoryActiveRef.current = false;
+
+      return;
+    }
+
+    const currentState = window.history.state || {};
+
+    /*
+     * Only go back if we are currently on our viewer state.
+     */
+
     if (
-      currentState.__memoryUniverseViewerOpen &&
-      !isClosingFromPopState.current
+      currentState[HISTORY_KEY] &&
+      currentState.type === VIEWER_STATE &&
+      currentState.viewerOpen &&
+      viewerHistoryActiveRef.current
     ) {
-      isRestoringHistory.current = true;
+      programmaticBackRef.current = true;
+
       window.history.back();
 
       window.setTimeout(() => {
-        isRestoringHistory.current = false;
-      }, 100);
+        programmaticBackRef.current = false;
+      }, 150);
     }
 
-    isClosingFromPopState.current = false;
+    viewerHistoryActiveRef.current = false;
   };
 
   /*
    * ============================================================
-   * BACK / SWIPE-BACK / BROWSER HISTORY PROTECTION
+   * POPSTATE PROTECTION
    *
    * Priority:
    *
-   * 1. If a memory viewer is open:
-   *    Back closes it.
+   * 1. Viewer open:
+   *    Browser Back / swipe-back closes viewer.
    *
-   * 2. If the viewer is already closed:
-   *    Back is consumed and the user stays on Memories.
+   * 2. Main page:
+   *    Back navigation is consumed.
    *
-   * Works with:
-   * - Browser Back
-   * - Android Back gesture
-   * - Android hardware/system Back
-   * - iPhone browser swipe-back
-   * - Browser history navigation
+   * This protects the current Memories route.
    * ============================================================
    */
 
   useEffect(() => {
     const handlePopState = (event) => {
+      if (!mountedRef.current) return;
+
+      const nextState = event.state || {};
       const currentViewer = selectedRef.current;
 
       /*
        * ========================================================
-       * VIEWER IS OPEN
+       * CASE 1 — VIEWER IS OPEN
        *
-       * Browser Back/swipe-back closes the viewer only.
-       * User stays on Memories.
+       * Any Back action closes the viewer first.
        * ========================================================
        */
 
       if (currentViewer) {
-        isClosingFromPopState.current = true;
+        closingFromHistoryRef.current = true;
 
         setSelected(null);
+
+        viewerHistoryActiveRef.current = false;
+
+        /*
+         * We are now expected to be on the page history state.
+         */
 
         return;
       }
 
       /*
        * ========================================================
-       * MAIN PAGE PROTECTION
+       * CASE 2 — PROGRAMMATIC CLOSE
        *
-       * No viewer is open.
-       * Restore the protected Memories page history state.
+       * The close button called history.back().
+       * The resulting page state is correct, so do nothing.
        * ========================================================
        */
 
-      if (isRestoringHistory.current) {
-        return;
-      }
-
-      const state = event.state || {};
-
-      /*
-       * If navigation reached a state outside this protected page,
-       * immediately restore the Memories page state.
-       */
-
-      if (!state.__memoryUniverseMemoriesPage) {
-        window.history.pushState(
-          {
-            ...(window.history.state || {}),
-            __memoryUniverseMemoriesPage: true,
-            __memoryUniverseViewerOpen: false,
-          },
-          "",
-          window.location.href
-        );
+      if (programmaticBackRef.current) {
+        viewerHistoryActiveRef.current = false;
 
         return;
       }
 
       /*
-       * If we returned to the protected Memories state,
-       * ensure the viewer remains closed.
+       * ========================================================
+       * CASE 3 — RETURNED TO OUR PROTECTED PAGE
+       *
+       * Ensure the viewer stays closed.
+       * ========================================================
        */
 
-      if (!state.__memoryUniverseViewerOpen) {
+      if (
+        nextState[HISTORY_KEY] &&
+        nextState.type === PAGE_STATE &&
+        !nextState.viewerOpen
+      ) {
         setSelected(null);
+
+        viewerHistoryActiveRef.current = false;
+
+        return;
       }
+
+      /*
+       * ========================================================
+       * CASE 4 — USER TRIED TO LEAVE MEMORIES
+       *
+       * Consume the navigation and restore the protected page.
+       *
+       * We push only one replacement state and avoid loops.
+       * ========================================================
+       */
+
+      if (restoringPageRef.current) return;
+
+      restoringPageRef.current = true;
+
+      setSelected(null);
+
+      window.history.pushState(
+        getPageState(),
+        "",
+        window.location.href
+      );
+
+      viewerHistoryActiveRef.current = false;
+
+      window.setTimeout(() => {
+        restoringPageRef.current = false;
+      }, 150);
     };
 
     window.addEventListener("popstate", handlePopState);
 
     return () => {
-      window.removeEventListener("popstate", handlePopState);
+      window.removeEventListener(
+        "popstate",
+        handlePopState
+      );
     };
   }, []);
 
@@ -257,55 +396,58 @@ export default function Memories() {
     window.addEventListener("keydown", handleKeyDown);
 
     return () => {
-      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener(
+        "keydown",
+        handleKeyDown
+      );
     };
   }, []);
 
   /*
    * ============================================================
-   * TOUCH / MOBILE EDGE SWIPE PROTECTION
+   * MOBILE EDGE SWIPE
    *
-   * Prevents accidental horizontal browser navigation gestures
-   * from interfering while the memory viewer is active.
-   * The actual browser Back action is still handled by popstate.
+   * This is only an additional close interaction.
+   * Browser history gestures are still handled through popstate.
    * ============================================================
    */
 
   useEffect(() => {
-    let touchStartX = 0;
-    let touchStartY = 0;
+    let startX = 0;
+    let startY = 0;
 
     const handleTouchStart = (event) => {
       if (!selectedRef.current) return;
 
-      const touch = event.touches[0];
+      const touch = event.touches?.[0];
 
-      touchStartX = touch.clientX;
-      touchStartY = touch.clientY;
+      if (!touch) return;
+
+      startX = touch.clientX;
+      startY = touch.clientY;
     };
 
     const handleTouchEnd = (event) => {
       if (!selectedRef.current) return;
 
-      const touch = event.changedTouches[0];
+      const touch = event.changedTouches?.[0];
 
-      const deltaX = touch.clientX - touchStartX;
-      const deltaY = touch.clientY - touchStartY;
+      if (!touch) return;
 
-      /*
-       * Right swipe from the left side of the screen.
-       * Acts as an additional mobile close interaction.
-       */
+      const deltaX = touch.clientX - startX;
+      const deltaY = touch.clientY - startY;
 
-      const startedNearLeftEdge = touchStartX <= 45;
-      const isHorizontalSwipe =
+      const startedNearLeftEdge = startX <= 45;
+
+      const horizontal =
         Math.abs(deltaX) > Math.abs(deltaY);
 
-      if (
+      const validSwipe =
         startedNearLeftEdge &&
-        isHorizontalSwipe &&
-        deltaX > 90
-      ) {
+        horizontal &&
+        deltaX > 100;
+
+      if (validSwipe) {
         closeMemory();
       }
     };
@@ -342,8 +484,6 @@ export default function Memories() {
       ========================================================= */}
 
       <div className="pointer-events-none fixed inset-0 -z-30 overflow-hidden bg-[#020202]">
-        {/* Main atmosphere */}
-
         <div
           className="
             absolute
@@ -358,8 +498,6 @@ export default function Memories() {
           "
         />
 
-        {/* Warm glow */}
-
         <div
           className="
             absolute
@@ -372,8 +510,6 @@ export default function Memories() {
             blur-[150px]
           "
         />
-
-        {/* Violet glow */}
 
         <div
           className="
@@ -388,8 +524,6 @@ export default function Memories() {
           "
         />
 
-        {/* Subtle star field */}
-
         <div
           className="
             absolute
@@ -400,8 +534,6 @@ export default function Memories() {
           "
         />
 
-        {/* Fine grid */}
-
         <div
           className="
             absolute
@@ -411,8 +543,6 @@ export default function Memories() {
             [background-size:100px_100px]
           "
         />
-
-        {/* Vignette */}
 
         <div
           className="
@@ -520,15 +650,12 @@ export default function Memories() {
             "
           >
             Click one.
-            <br className="sm:hidden" />
-            {" "}Don't just look at it.
+            <br className="sm:hidden" /> Don't just look at it.
             <span className="text-white/60">
               {" "}Enter it.
             </span>
           </p>
         </div>
-
-        {/* Archive status */}
 
         <div className="mt-10 flex items-center gap-4">
           <div className="flex items-center gap-2">
@@ -567,8 +694,6 @@ export default function Memories() {
       ========================================================= */}
 
       <section className="relative mx-auto mt-20 max-w-6xl md:mt-28">
-        {/* Orbital rings */}
-
         <div
           className="
             pointer-events-none
@@ -647,8 +772,6 @@ export default function Memories() {
                     }
                   `}
                 >
-                  {/* Image */}
-
                   <div className="relative aspect-[4/5] overflow-hidden">
                     <img
                       src={memory.image}
@@ -670,8 +793,6 @@ export default function Memories() {
                       "
                     />
 
-                    {/* Cinematic image tint */}
-
                     <div
                       className="
                         absolute
@@ -682,8 +803,6 @@ export default function Memories() {
                         to-black/90
                       "
                     />
-
-                    {/* Image shine */}
 
                     <div
                       className="
@@ -703,8 +822,6 @@ export default function Memories() {
                         group-hover:left-[130%]
                       "
                     />
-
-                    {/* Top metadata */}
 
                     <div
                       className="
@@ -760,65 +877,6 @@ export default function Memories() {
                         {String(index + 1).padStart(2, "0")}
                       </span>
                     </div>
-
-                    {/* Center focus */}
-
-                    <div
-                      className="
-                        absolute
-                        left-1/2
-                        top-1/2
-                        flex
-                        -translate-x-1/2
-                        -translate-y-1/2
-                        items-center
-                        justify-center
-                      "
-                    >
-                      <span
-                        className="
-                          absolute
-                          h-20
-                          w-20
-                          rounded-full
-                          border
-                          border-white/0
-                          transition-all
-                          duration-700
-                          group-hover:h-28
-                          group-hover:w-28
-                          group-hover:border-white/20
-                        "
-                      />
-
-                      <span
-                        className="
-                          flex
-                          h-10
-                          w-10
-                          items-center
-                          justify-center
-                          rounded-full
-                          border
-                          border-white/0
-                          bg-white/0
-                          text-white/0
-                          backdrop-blur-md
-                          transition-all
-                          duration-500
-                          group-hover:border-white/20
-                          group-hover:bg-black/30
-                          group-hover:text-white
-                        "
-                      >
-                        <ArrowUpRight
-                          size={15}
-                          strokeWidth={1}
-                        />
-                      </span>
-                    </div>
-
-                    {/* Bottom content */}
 
                     <div className="absolute bottom-0 left-0 right-0 p-7">
                       <div className="flex items-end justify-between gap-5">
@@ -883,8 +941,6 @@ export default function Memories() {
                       </div>
                     </div>
                   </div>
-
-                  {/* Card footer */}
 
                   <div
                     className="
@@ -972,12 +1028,11 @@ export default function Memories() {
             bg-[#010101]/95
             p-4
             backdrop-blur-2xl
+            overscroll-contain
             sm:p-6
           "
           onClick={closeMemory}
         >
-          {/* Background glow */}
-
           <div
             className="
               pointer-events-none
@@ -993,8 +1048,6 @@ export default function Memories() {
               blur-[150px]
             "
           />
-
-          {/* Close */}
 
           <button
             type="button"
@@ -1033,8 +1086,6 @@ export default function Memories() {
             <X size={16} strokeWidth={1} />
           </button>
 
-          {/* Viewer */}
-
           <div
             onClick={(event) => event.stopPropagation()}
             className="
@@ -1053,8 +1104,6 @@ export default function Memories() {
               md:grid-cols-[1.15fr_.85fr]
             "
           >
-            {/* Image */}
-
             <div className="relative min-h-[55vh] overflow-hidden md:min-h-[75vh]">
               <img
                 src={selected.image}
@@ -1103,8 +1152,6 @@ export default function Memories() {
               </div>
             </div>
 
-            {/* Information */}
-
             <div
               className="
                 relative
@@ -1117,21 +1164,6 @@ export default function Memories() {
                 lg:p-20
               "
             >
-              <div
-                className="
-                  pointer-events-none
-                  absolute
-                  right-0
-                  top-1/2
-                  h-80
-                  w-40
-                  -translate-y-1/2
-                  rounded-full
-                  bg-white/[0.025]
-                  blur-[100px]
-                "
-              />
-
               <div className="relative">
                 <div className="flex items-center gap-3">
                   <span className="h-px w-8 bg-white/20" />
@@ -1238,8 +1270,6 @@ export default function Memories() {
                   </div>
                 </div>
 
-                {/* Mobile swipe hint */}
-
                 <div className="mt-10 flex items-center gap-3 md:hidden">
                   <span className="h-px flex-1 bg-white/[0.08]" />
 
@@ -1262,10 +1292,6 @@ export default function Memories() {
           </div>
         </div>
       )}
-
-      {/* =========================================================
-          ANIMATIONS
-      ========================================================= */}
 
       <style>{`
         @keyframes spin {

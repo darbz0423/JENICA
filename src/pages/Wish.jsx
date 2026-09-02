@@ -1,4 +1,5 @@
 import {
+  useCallback,
   useEffect,
   useMemo,
   useRef,
@@ -24,16 +25,11 @@ const getIsMobile = () => {
     return false;
   }
 
-  return window.matchMedia(
-    "(max-width: 767px)"
-  ).matches;
+  return window.matchMedia("(max-width: 767px)").matches;
 };
 
-const STAR_COUNT =
-  typeof window !== "undefined" &&
-  window.matchMedia("(max-width: 767px)").matches
-    ? 32
-    : 72;
+const MOBILE_STAR_COUNT = 20;
+const DESKTOP_STAR_COUNT = 48;
 
 const CHARGE_DURATION = 2400;
 
@@ -41,9 +37,13 @@ const CHARGE_DURATION = 2400;
    STAR GENERATOR
 ============================================================ */
 
-const createStars = () =>
-  Array.from(
-    { length: STAR_COUNT },
+const createStars = (isMobile) => {
+  const count = isMobile
+    ? MOBILE_STAR_COUNT
+    : DESKTOP_STAR_COUNT;
+
+  return Array.from(
+    { length: count },
     (_, i) => ({
       id: i,
 
@@ -53,21 +53,20 @@ const createStars = () =>
 
       size:
         i % 19 === 0
-          ? 2.8
+          ? 2.2
           : i % 7 === 0
-          ? 1.8
-          : i % 3 === 0
-          ? 1.3
+          ? 1.5
           : 0.8,
 
       delay:
-        (i % 16) * 0.18,
+        (i % 12) * 0.2,
 
       duration:
-        3.5 +
-        (i % 7) * 0.7,
+        4 +
+        (i % 5) * 0.8,
     })
   );
+};
 
 /* ============================================================
    COMPONENT
@@ -88,8 +87,10 @@ export default function Wish() {
   const [showModal, setShowModal] =
     useState(false);
 
-  const [stars] =
-    useState(createStars);
+  const stars = useMemo(
+    () => createStars(isMobile),
+    [isMobile]
+  );
 
   const chargeFrameRef =
     useRef(null);
@@ -109,6 +110,12 @@ export default function Wish() {
   const completedRef =
     useRef(false);
 
+  const releaseStartedRef =
+    useRef(false);
+
+  const phaseRef =
+    useRef("idle");
+
   const isHolding =
     phase === "charging";
 
@@ -126,8 +133,8 @@ export default function Wish() {
     useMemo(() => {
       const count =
         isMobile
-          ? 16
-          : 28;
+          ? 10
+          : 18;
 
       return Array.from(
         { length: count },
@@ -138,10 +145,10 @@ export default function Wish() {
 
           const distance =
             isMobile
-              ? 90 +
-                (i % 5) * 32
-              : 130 +
-                (i % 7) * 55;
+              ? 80 +
+                (i % 4) * 24
+              : 110 +
+                (i % 5) * 38;
 
           return {
             id: i,
@@ -155,201 +162,251 @@ export default function Wish() {
               distance,
 
             delay:
-              i * 0.025,
+              i * 0.035,
           };
         }
       );
     }, [isMobile]);
 
   /* ============================================================
-     CLEANUP
+     PHASE SYNC
   ============================================================ */
 
   useEffect(() => {
-    return () => {
-      cancelAnimationFrame(
+    phaseRef.current =
+      phase;
+  }, [phase]);
+
+  /* ============================================================
+     CLEANUP
+  ============================================================ */
+
+  const clearTimers =
+    useCallback(() => {
+      if (
         chargeFrameRef.current
-      );
+      ) {
+        cancelAnimationFrame(
+          chargeFrameRef.current
+        );
 
-      clearTimeout(
+        chargeFrameRef.current =
+          null;
+      }
+
+      if (
         modalTimerRef.current
-      );
-    };
-  }, []);
-
-  const clearTimers = () => {
-    cancelAnimationFrame(
-      chargeFrameRef.current
-    );
-
-    clearTimeout(
-      modalTimerRef.current
-    );
-
-    chargeFrameRef.current =
-      null;
-
-    modalTimerRef.current =
-      null;
-  };
-
-  /* ============================================================
-     WISH CHARGING
-  ============================================================ */
-
-  const startWish = () => {
-    if (
-      complete ||
-      releasing ||
-      pointerDownRef.current
-    ) {
-      return;
-    }
-
-    pointerDownRef.current =
-      true;
-
-    completedRef.current =
-      false;
-
-    cancelAnimationFrame(
-      chargeFrameRef.current
-    );
-
-    chargeStartRef.current =
-      performance.now();
-
-    lastEnergyRef.current =
-      -1;
-
-    setEnergy(0);
-
-    setPhase("charging");
-
-    const updateCharge = () => {
-      if (
-        !pointerDownRef.current
       ) {
-        return;
-      }
-
-      const elapsed =
-        performance.now() -
-        chargeStartRef.current;
-
-      const progress =
-        Math.min(
-          100,
-          Math.floor(
-            (elapsed /
-              CHARGE_DURATION) *
-              100
-          )
+        clearTimeout(
+          modalTimerRef.current
         );
 
-      if (
-        progress !==
-          lastEnergyRef.current &&
-        (
-          progress % 2 === 0 ||
-          progress >= 100
-        )
-      ) {
-        lastEnergyRef.current =
-          progress;
-
-        setEnergy(progress);
+        modalTimerRef.current =
+          null;
       }
+    }, []);
 
-      if (
-        progress >= 100
-      ) {
-        pointerDownRef.current =
-          false;
-
-        if (
-          !completedRef.current
-        ) {
-          completedRef.current =
-            true;
-
-          releaseWish();
-        }
-
-        return;
-      }
-
-      chargeFrameRef.current =
-        requestAnimationFrame(
-          updateCharge
-        );
+  useEffect(() => {
+    return () => {
+      clearTimers();
     };
-
-    chargeFrameRef.current =
-      requestAnimationFrame(
-        updateCharge
-      );
-  };
-
-  /* ============================================================
-     CANCEL WISH
-  ============================================================ */
-
-  const cancelWish = () => {
-    pointerDownRef.current =
-      false;
-
-    if (!isHolding) {
-      return;
-    }
-
-    cancelAnimationFrame(
-      chargeFrameRef.current
-    );
-
-    chargeFrameRef.current =
-      null;
-
-    setPhase("idle");
-
-    setEnergy(0);
-  };
+  }, [clearTimers]);
 
   /* ============================================================
      RELEASE WISH
   ============================================================ */
 
-  const releaseWish = () => {
-    cancelAnimationFrame(
-      chargeFrameRef.current
-    );
+  const releaseWish =
+    useCallback(() => {
+      if (
+        releaseStartedRef.current
+      ) {
+        return;
+      }
 
-    clearTimeout(
-      modalTimerRef.current
-    );
+      releaseStartedRef.current =
+        true;
 
-    pointerDownRef.current =
-      false;
+      if (
+        chargeFrameRef.current
+      ) {
+        cancelAnimationFrame(
+          chargeFrameRef.current
+        );
 
-    setEnergy(100);
+        chargeFrameRef.current =
+          null;
+      }
 
-    setPhase("releasing");
+      pointerDownRef.current =
+        false;
 
-    modalTimerRef.current =
-      setTimeout(() => {
-        setShowModal(true);
-      }, 2300);
-  };
+      setEnergy(100);
+
+      setPhase(
+        "releasing"
+      );
+
+      modalTimerRef.current =
+        setTimeout(() => {
+          setShowModal(true);
+        }, 2100);
+    }, []);
 
   /* ============================================================
-     CHARGE PROGRESS
+     WISH CHARGING
   ============================================================ */
 
-  const progressDegrees =
-    Math.min(
-      100,
+  const startWish =
+    useCallback(() => {
+      if (
+        showModal ||
+        releaseStartedRef.current ||
+        pointerDownRef.current
+      ) {
+        return;
+      }
+
+      pointerDownRef.current =
+        true;
+
+      completedRef.current =
+        false;
+
+      lastEnergyRef.current =
+        -1;
+
+      chargeStartRef.current =
+        performance.now();
+
+      setEnergy(0);
+
+      setPhase(
+        "charging"
+      );
+
+      const updateCharge =
+        (time) => {
+          if (
+            !pointerDownRef.current
+          ) {
+            return;
+          }
+
+          const elapsed =
+            time -
+            chargeStartRef.current;
+
+          const progress =
+            Math.min(
+              100,
+              Math.floor(
+                (
+                  elapsed /
+                  CHARGE_DURATION
+                ) * 100
+              )
+            );
+
+          /*
+           * IMPORTANT:
+           * Reduce React renders.
+           * Updating every frame causes lag.
+           */
+
+          if (
+            progress !==
+              lastEnergyRef.current &&
+            (
+              progress % 4 === 0 ||
+              progress >= 100
+            )
+          ) {
+            lastEnergyRef.current =
+              progress;
+
+            setEnergy(
+              progress
+            );
+          }
+
+          if (
+            progress >= 100
+          ) {
+            pointerDownRef.current =
+              false;
+
+            completedRef.current =
+              true;
+
+            releaseWish();
+
+            return;
+          }
+
+          chargeFrameRef.current =
+            requestAnimationFrame(
+              updateCharge
+            );
+        };
+
+      chargeFrameRef.current =
+        requestAnimationFrame(
+          updateCharge
+        );
+    }, [
+      releaseWish,
+      showModal,
+    ]);
+
+  /* ============================================================
+     CANCEL WISH
+  ============================================================ */
+
+  const cancelWish =
+    useCallback(() => {
+      pointerDownRef.current =
+        false;
+
+      if (
+        phaseRef.current !==
+        "charging"
+      ) {
+        return;
+      }
+
+      if (
+        chargeFrameRef.current
+      ) {
+        cancelAnimationFrame(
+          chargeFrameRef.current
+        );
+
+        chargeFrameRef.current =
+          null;
+      }
+
+      setPhase(
+        "idle"
+      );
+
+      setEnergy(0);
+
+      lastEnergyRef.current =
+        -1;
+    }, []);
+
+  /* ============================================================
+     PROGRESS
+  ============================================================ */
+
+  const progressOffset =
+    364.4 -
+    (
+      364.4 *
       energy
-    ) * 3.6;
+    ) /
+      100;
 
   /* ============================================================
      RENDER
@@ -362,19 +419,20 @@ export default function Wish() {
         min-h-[100svh]
         w-full
         overflow-hidden
+
         bg-[#010101]
+
         px-4
         pb-10
         pt-9
+
         text-white
 
         selection:bg-white
         selection:text-black
 
-        transform-gpu
-
         transition-transform
-        duration-[1800ms]
+        duration-[1200ms]
         ease-[cubic-bezier(.16,1,.3,1)]
 
         sm:px-5
@@ -383,7 +441,7 @@ export default function Wish() {
 
         ${
           releasing
-            ? "scale-[1.018]"
+            ? "scale-[1.01]"
             : ""
         }
       `}
@@ -401,20 +459,16 @@ export default function Wish() {
           z-0
           overflow-hidden
 
-          transform-gpu
-
           transition-opacity
-          duration-1000
+          duration-700
 
           ${
             showModal
-              ? "opacity-10"
+              ? "opacity-[0.08]"
               : "opacity-100"
           }
         `}
       >
-
-        {/* Base */}
 
         <div className="absolute inset-0 bg-[#010101]" />
 
@@ -424,37 +478,36 @@ export default function Wish() {
 
         <div
           className={`
-            transform-gpu
             absolute
             left-1/2
             top-[43%]
 
-            h-[320px]
-            w-[320px]
+            h-[240px]
+            w-[240px]
 
             -translate-x-1/2
             -translate-y-1/2
 
             rounded-full
 
-            bg-[radial-gradient(circle,rgba(255,225,170,.08)_0%,rgba(255,210,140,.025)_35%,transparent_70%)]
+            bg-[radial-gradient(circle,rgba(255,225,170,.07)_0%,rgba(255,210,140,.02)_38%,transparent_70%)]
 
-            blur-[25px]
+            blur-[18px]
 
-            sm:h-[420px]
-            sm:w-[420px]
-            sm:blur-[45px]
+            sm:h-[340px]
+            sm:w-[340px]
+            sm:blur-[35px]
 
             transition-transform
-            duration-[1800ms]
+            duration-[1200ms]
             ease-[cubic-bezier(.16,1,.3,1)]
 
             ${
               isHolding
-                ? "scale-[1.7]"
+                ? "scale-[1.45] will-change-transform"
                 : releasing
-                ? "scale-[5]"
-                : "scale-100"
+                ? "scale-[3.5] will-change-transform"
+                : ""
             }
           `}
         />
@@ -463,111 +516,98 @@ export default function Wish() {
             GOLD ATMOSPHERE
         ================================================= */}
 
-        <div
-          className={`
-            transform-gpu
-            absolute
-            left-1/2
-            top-[45%]
+        {!isMobile && (
+          <div
+            className={`
+              absolute
+              left-1/2
+              top-[45%]
 
-            h-[220px]
-            w-[220px]
+              h-[220px]
+              w-[220px]
 
-            -translate-x-1/2
-            -translate-y-1/2
+              -translate-x-1/2
+              -translate-y-1/2
 
-            rounded-full
+              rounded-full
 
-            bg-amber-100/[0.025]
+              bg-amber-100/[0.018]
 
-            blur-[35px]
+              blur-[55px]
 
-            sm:h-[280px]
-            sm:w-[280px]
-            sm:blur-[80px]
+              transition-transform
+              duration-700
 
-            transition-transform
-            duration-1000
-
-            ${
-              isHolding
-                ? "scale-[1.8]"
-                : releasing
-                ? "scale-[4]"
-                : ""
-            }
-          `}
-        />
+              ${
+                isHolding
+                  ? "scale-[1.5]"
+                  : releasing
+                  ? "scale-[2.8]"
+                  : ""
+              }
+            `}
+          />
+        )}
 
         {/* =================================================
-            BLUE HAZE
+            DESKTOP ATMOSPHERE ONLY
         ================================================= */}
 
-        <div
-          className={`
-            transform-gpu
-            absolute
-            -left-32
-            top-[20%]
+        {!isMobile && (
+          <>
+            <div
+              className={`
+                absolute
+                -left-32
+                top-[20%]
 
-            h-[320px]
-            w-[320px]
+                h-[300px]
+                w-[300px]
 
-            rounded-full
+                rounded-full
 
-            bg-blue-300/[0.018]
+                bg-blue-300/[0.012]
 
-            blur-[45px]
+                blur-[70px]
 
-            sm:h-[380px]
-            sm:w-[380px]
-            sm:blur-[100px]
+                transition-transform
+                duration-[1200ms]
 
-            transition-transform
-            duration-[1800ms]
+                ${
+                  releasing
+                    ? "scale-[2]"
+                    : ""
+                }
+              `}
+            />
 
-            ${
-              releasing
-                ? "scale-[3]"
-                : ""
-            }
-          `}
-        />
+            <div
+              className={`
+                absolute
+                -right-40
+                bottom-[8%]
 
-        {/* =================================================
-            PURPLE HAZE
-        ================================================= */}
+                h-[320px]
+                w-[320px]
 
-        <div
-          className={`
-            transform-gpu
-            absolute
-            -right-40
-            bottom-[8%]
+                rounded-full
 
-            h-[360px]
-            w-[360px]
+                bg-purple-300/[0.01]
 
-            rounded-full
+                blur-[80px]
 
-            bg-purple-300/[0.014]
+                transition-transform
+                duration-[1200ms]
 
-            blur-[50px]
-
-            sm:h-[420px]
-            sm:w-[420px]
-            sm:blur-[110px]
-
-            transition-transform
-            duration-[1800ms]
-
-            ${
-              releasing
-                ? "scale-[3]"
-                : ""
-            }
-          `}
-        />
+                ${
+                  releasing
+                    ? "scale-[2]"
+                    : ""
+                }
+              `}
+            />
+          </>
+        )}
 
         {/* =================================================
             STARS
@@ -583,14 +623,14 @@ export default function Wish() {
                   absolute
                   rounded-full
                   bg-white
-                  transform-gpu
 
                   ${
                     releasing
-                      ? "animate-[wishStar_2s_cubic-bezier(.16,1,.3,1)_forwards]"
-                      : isMobile
-                      ? ""
-                      : "animate-[wishTwinkle_var(--duration)_ease-in-out_infinite]"
+                      ? "animate-[wishStar_1.5s_cubic-bezier(.16,1,.3,1)_forwards]"
+                      : !isMobile &&
+                        star.id % 3 === 0
+                      ? "animate-[wishTwinkle_var(--duration)_ease-in-out_infinite]"
+                      : ""
                   }
                 `}
                 style={{
@@ -607,9 +647,9 @@ export default function Wish() {
                     `${star.size}px`,
 
                   opacity:
-                    0.12 +
-                    (star.id % 8) /
-                      15,
+                    0.15 +
+                    (star.id % 6) /
+                      14,
 
                   animationDelay:
                     `${star.delay}s`,
@@ -620,13 +660,13 @@ export default function Wish() {
                   "--sx":
                     `${
                       (star.x - 50) *
-                      3
+                      2.2
                     }vw`,
 
                   "--sy":
                     `${
                       (star.y - 50) *
-                      3
+                      2.2
                     }vh`,
                 }}
               />
@@ -635,54 +675,46 @@ export default function Wish() {
 
         </div>
 
-        {/* Shooting stars */}
+        {/* Desktop shooting stars */}
 
         {!isMobile && (
-          <>
-            <div className="absolute left-[18%] top-[24%] h-px w-16 rotate-[35deg] bg-gradient-to-r from-transparent via-white/30 to-transparent animate-[shootingStar_7s_ease-in-out_infinite]" />
-
-            <div className="absolute right-[14%] top-[37%] h-px w-20 rotate-[-35deg] bg-gradient-to-r from-transparent via-white/20 to-transparent animate-[shootingStar_9s_ease-in-out_2s_infinite]" />
-          </>
+          <div className="absolute left-[18%] top-[24%] h-px w-14 rotate-[35deg] bg-gradient-to-r from-transparent via-white/25 to-transparent animate-[shootingStar_9s_ease-in-out_infinite]" />
         )}
 
         {/* Horizon */}
 
-        <div
-          className={`
-            absolute
-            bottom-[-360px]
-            left-1/2
+        {!isMobile && (
+          <div
+            className={`
+              absolute
+              bottom-[-360px]
+              left-1/2
 
-            h-[650px]
-            w-[1200px]
+              h-[650px]
+              w-[1000px]
 
-            -translate-x-1/2
+              -translate-x-1/2
 
-            rounded-[50%]
+              rounded-[50%]
 
-            border
-            border-white/[0.035]
+              border
+              border-white/[0.025]
 
-            transform-gpu
+              transition-transform
+              duration-[1400ms]
 
-            transition-transform
-            duration-[1800ms]
-
-            ${
-              releasing
-                ? "scale-[2.5]"
-                : ""
-            }
-          `}
-        />
+              ${
+                releasing
+                  ? "scale-[1.8]"
+                  : ""
+              }
+            `}
+          />
+        )}
 
         {/* Vignette */}
 
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_20%,rgba(0,0,0,.28)_60%,rgba(0,0,0,.95)_100%)]" />
-
-        {/* Film grain - desktop only */}
-
-        <div className="absolute inset-0 hidden opacity-[0.035] sm:block [background-image:url('data:image/svg+xml,%3Csvg viewBox=%220 0 180 180%22 xmlns=%22http://www.w3.org/2000/svg%22%3E%3Cfilter id=%22n%22%3E%3CfeTurbulence type=%22fractalNoise%22 baseFrequency=%22.9%22 numOctaves=%224%22 stitchTiles=%22stitch%22/%3E%3C/filter%3E%3Crect width=%22100%25%22 height=%22100%25%22 filter=%22url(%23n)%22 opacity=%22.5%22/%3E%3C/svg%3E')]" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_20%,rgba(0,0,0,.25)_60%,rgba(0,0,0,.92)_100%)]" />
 
       </div>
 
@@ -722,7 +754,7 @@ export default function Wish() {
           Make
           <br />
 
-          <span className="text-white/[0.2] transition-all duration-1000">
+          <span className="text-white/[0.2]">
             a wish.
           </span>
         </h1>
@@ -747,6 +779,7 @@ export default function Wish() {
           There is one moment left
           in this universe.
           <br />
+
           Keep something beautiful
           in your heart.
         </p>
@@ -754,15 +787,17 @@ export default function Wish() {
       </header>
 
       {/* =====================================================
-          MOON / UNIVERSE CORE
+          UNIVERSE CORE
       ===================================================== */}
 
       <section
         className="
           relative
           z-10
+
           mx-auto
           mt-1
+
           flex
           max-w-4xl
           justify-center
@@ -784,15 +819,13 @@ export default function Wish() {
             sm:h-[480px]
             sm:w-[480px]
 
-            transform-gpu
-
             transition-transform
-            duration-[1600ms]
+            duration-[1200ms]
             ease-[cubic-bezier(.16,1,.3,1)]
 
             ${
               releasing
-                ? "scale-[1.3]"
+                ? "scale-[1.15] will-change-transform"
                 : ""
             }
           `}
@@ -808,20 +841,18 @@ export default function Wish() {
               rounded-full
 
               border
-              border-white/[0.045]
+              border-white/[0.04]
 
-              transform-gpu
+              transition-all
+              duration-700
 
               ${
                 isHolding
-                  ? "scale-[1.07] border-amber-100/20"
+                  ? "scale-[1.04] border-amber-100/15"
                   : releasing
-                  ? "scale-[3] opacity-0"
+                  ? "scale-[2] opacity-0"
                   : ""
               }
-
-              transition-all
-              duration-1000
             `}
           />
 
@@ -836,18 +867,14 @@ export default function Wish() {
 
               border
               border-dashed
-              border-white/[0.05]
-
-              transform-gpu
+              border-white/[0.04]
 
               ${
                 isHolding
-                  ? "animate-[spin_7s_linear_infinite] border-amber-100/25"
-                  : releasing
-                  ? "animate-[spin_1.2s_linear_infinite]"
-                  : isMobile
-                  ? ""
-                  : "animate-[spin_35s_linear_infinite]"
+                  ? "animate-[spin_9s_linear_infinite]"
+                  : !isMobile
+                  ? "animate-[spin_45s_linear_infinite]"
+                  : ""
               }
             `}
           />
@@ -862,80 +889,20 @@ export default function Wish() {
               rounded-full
 
               border
-              border-white/[0.035]
+              border-white/[0.03]
 
-              transform-gpu
+              transition-transform
+              duration-700
 
               ${
                 isHolding
-                  ? "scale-[1.08]"
+                  ? "scale-[1.05]"
                   : releasing
-                  ? "scale-[3]"
+                  ? "scale-[2]"
                   : ""
               }
-
-              transition-transform
-              duration-1000
             `}
           />
-
-          {/* Orbit points */}
-
-          {[0, 1, 2, 3, 4, 5, 6, 7].map(
-            (particle) => (
-              <div
-                key={particle}
-                className="
-                  absolute
-                  left-1/2
-                  top-1/2
-                  transform-gpu
-                "
-                style={{
-                  transform: `
-                    rotate(
-                      ${particle * 45}deg
-                    )
-                    translateY(
-                      -${
-                        118 +
-                        (particle % 3) *
-                          7
-                      }px
-                    )
-                  `,
-                }}
-              >
-
-                <div
-                  className={`
-                    h-1
-                    w-1
-
-                    rounded-full
-
-                    bg-white
-
-                    shadow-[0_0_14px_rgba(255,255,255,.8)]
-
-                    transform-gpu
-
-                    transition-all
-                    duration-700
-
-                    ${
-                      isHolding
-                        ? "scale-[3] bg-amber-100"
-                        : releasing
-                        ? "scale-[8] opacity-0"
-                        : "opacity-50"
-                    }
-                  `}
-                />
-
-              </div>
-            )
-          )}
 
           {/* =================================================
               MOON
@@ -943,8 +910,6 @@ export default function Wish() {
 
           <div
             className={`
-              transform-gpu
-
               absolute
               left-1/2
               top-1/2
@@ -969,14 +934,13 @@ export default function Wish() {
               sm:w-[270px]
 
               transition-transform
-              duration-[1800ms]
-              ease-[cubic-bezier(.16,1,.3,1)]
+              duration-[1400ms]
 
               ${
                 isHolding
-                  ? "scale-[1.08]"
+                  ? "scale-[1.05]"
                   : releasing
-                  ? "scale-[7]"
+                  ? "scale-[5]"
                   : ""
               }
             `}
@@ -987,76 +951,34 @@ export default function Wish() {
             <div
               className={`
                 absolute
-                inset-[-40px]
+                inset-[-28px]
 
                 rounded-full
 
-                bg-[radial-gradient(circle,rgba(255,235,190,.22),rgba(255,210,140,.06),transparent_70%)]
+                bg-[radial-gradient(circle,rgba(255,235,190,.16),rgba(255,210,140,.04),transparent_70%)]
 
-                blur-[20px]
+                blur-[14px]
 
-                sm:inset-[-60px]
-                sm:blur-[35px]
-
-                transform-gpu
+                sm:inset-[-45px]
+                sm:blur-[28px]
 
                 transition-transform
                 duration-700
 
                 ${
                   isHolding
-                    ? "scale-[1.5]"
+                    ? "scale-[1.25]"
                     : releasing
-                    ? "scale-[3]"
+                    ? "scale-[2]"
                     : ""
                 }
               `}
             />
 
-            {/* Orbiting light */}
-
-            {!isMobile && (
-              <div
-                className={`
-                  absolute
-                  inset-[-25px]
-
-                  rounded-full
-
-                  border
-                  border-white/[0.1]
-
-                  sm:inset-[-30px]
-
-                  transform-gpu
-
-                  ${
-                    isHolding
-                      ? "animate-[spin_3s_linear_infinite]"
-                      : releasing
-                      ? "animate-[spin_.7s_linear_infinite]"
-                      : ""
-                  }
-                `}
-              >
-                <span className="absolute left-1/2 top-[-3px] h-1.5 w-1.5 rounded-full bg-white shadow-[0_0_18px_white]" />
-              </div>
-            )}
-
             {/* Energy rings */}
 
             {isHolding && (
-              <>
-                <div className="absolute inset-[-12px] rounded-full border border-amber-100/30 animate-[energyRing_1.4s_ease-out_infinite]" />
-
-                {!isMobile && (
-                  <>
-                    <div className="absolute inset-[-30px] rounded-full border border-white/10 animate-[energyRing_2s_ease-out_.25s_infinite]" />
-
-                    <div className="absolute inset-[-52px] rounded-full border border-amber-100/[0.08] animate-[energyRing_2.7s_ease-out_.5s_infinite]" />
-                  </>
-                )}
-              </>
+              <div className="absolute inset-[-12px] rounded-full border border-amber-100/25 animate-[energyRing_1.6s_ease-out_infinite]" />
             )}
 
             {/* Moon */}
@@ -1074,109 +996,61 @@ export default function Wish() {
                 border
                 border-white/10
 
-                transform-gpu
-
                 bg-[radial-gradient(circle_at_30%_24%,#fffef3_0%,#f0dba6_18%,#aa9160_40%,#554a37_65%,#0e0d0b_100%)]
 
-                shadow-[inset_-40px_-35px_75px_rgba(0,0,0,.8),inset_20px_15px_35px_rgba(255,255,255,.16),0_0_90px_rgba(255,220,150,.16)]
+                shadow-[inset_-30px_-25px_55px_rgba(0,0,0,.8),inset_15px_10px_25px_rgba(255,255,255,.13),0_0_55px_rgba(255,220,150,.12)]
 
                 ${
                   isHolding
-                    ? "animate-[moonPulse_2.2s_ease-in-out_infinite]"
+                    ? "animate-[moonPulse_2.4s_ease-in-out_infinite]"
                     : releasing
-                    ? "animate-[moonBurst_2.2s_cubic-bezier(.16,1,.3,1)_forwards]"
+                    ? "animate-[moonBurst_2s_cubic-bezier(.16,1,.3,1)_forwards]"
                     : ""
                 }
               `}
             >
 
-              <div className="absolute left-[5%] top-[3%] h-[48%] w-[38%] rounded-full bg-white/30 blur-[20px] sm:blur-[24px]" />
+              <div className="absolute left-[5%] top-[3%] h-[48%] w-[38%] rounded-full bg-white/25 blur-[14px]" />
 
               <span className="absolute left-[18%] top-[27%] h-7 w-7 rounded-full bg-black/10 blur-[2px] sm:h-10 sm:w-10" />
 
               <span className="absolute right-[17%] top-[43%] h-10 w-10 rounded-full bg-black/10 blur-[3px] sm:h-16 sm:w-16" />
 
-              <span className="absolute bottom-[18%] left-[33%] h-6 w-6 rounded-full bg-black/10 blur-[2px] sm:h-7 sm:w-7" />
-
-              <span className="absolute bottom-[29%] right-[31%] h-4 w-4 rounded-full bg-black/10" />
-
-              <span className="absolute left-[47%] top-[18%] h-4 w-4 rounded-full bg-black/10 blur-[2px] sm:h-5 sm:w-5" />
-
-              <span className="absolute left-[62%] top-[64%] h-5 w-5 rounded-full bg-black/[0.08] blur-[2px] sm:h-6 sm:w-6" />
+              <span className="absolute bottom-[18%] left-[33%] h-6 w-6 rounded-full bg-black/10 blur-[2px]" />
 
               {isHolding && (
-                <div className="absolute inset-[28%] rounded-full bg-white/25 blur-[20px] animate-[corePulse_1s_ease-in-out_infinite] sm:blur-[26px]" />
+                <div className="absolute inset-[32%] rounded-full bg-white/20 blur-[14px] animate-[corePulse_1.3s_ease-in-out_infinite]" />
               )}
 
               {releasing && (
-                <div className="absolute inset-0 bg-white animate-[moonFlash_1s_ease-out_forwards]" />
+                <div className="absolute inset-0 bg-white animate-[moonFlash_.8s_ease-out_forwards]" />
               )}
 
             </div>
 
-            {/* =================================================
-                RELEASE EXPLOSION
-            ================================================= */}
-
-            {releasing && (
-              <div className="pointer-events-none fixed inset-0 z-[80] overflow-hidden">
-
-                <div className="transform-gpu absolute left-1/2 top-1/2 h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white shadow-[0_0_70px_30px_rgba(255,255,255,.95)] animate-[universeBurst_2s_cubic-bezier(.16,1,.3,1)_forwards] sm:shadow-[0_0_100px_40px_rgba(255,255,255,.95)]" />
-
-                <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,255,255,.95)_0%,rgba(255,225,170,.45)_8%,transparent_55%)] animate-[cosmicFlash_2s_ease-out_forwards]" />
-
-                <div className="absolute left-1/2 top-1/2 h-px w-[140vw] -translate-x-1/2 -translate-y-1/2 bg-gradient-to-r from-transparent via-white to-transparent animate-[lightBeam_1.25s_ease-out_forwards]" />
-
-                {!isMobile && (
-                  <div className="absolute left-1/2 top-1/2 h-[140vh] w-px -translate-x-1/2 -translate-y-1/2 bg-gradient-to-b from-transparent via-white to-transparent animate-[lightBeam_1.25s_ease-out_forwards]" />
-                )}
-
-                {(isMobile
-                  ? [0, 1]
-                  : [0, 1, 2, 3]
-                ).map(
-                  (wave) => (
-                    <div
-                      key={wave}
-                      className="
-                        transform-gpu
-                        absolute
-                        left-1/2
-                        top-1/2
-                        h-10
-                        w-10
-                        -translate-x-1/2
-                        -translate-y-1/2
-                        rounded-full
-                        border
-                        border-white/40
-                      "
-                      style={{
-                        animation: `
-                          shockwave
-                          ${
-                            1.4 +
-                            wave *
-                              0.28
-                          }s
-                          cubic-bezier(.16,1,.3,1)
-                          ${
-                            wave *
-                            0.15
-                          }s
-                          forwards
-                        `,
-                      }}
-                    />
-                  )
-                )}
-
-              </div>
-            )}
-
           </div>
+
         </div>
+
       </section>
+
+      {/* =====================================================
+          SIMPLE RELEASE FLASH
+      ===================================================== */}
+
+      {releasing && (
+        <div className="pointer-events-none fixed inset-0 z-[80]">
+
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,255,255,.85)_0%,rgba(255,225,170,.3)_10%,transparent_55%)] animate-[cosmicFlash_1.8s_ease-out_forwards]" />
+
+          <div className="absolute left-1/2 top-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white shadow-[0_0_55px_20px_rgba(255,255,255,.8)] animate-[universeBurst_1.8s_cubic-bezier(.16,1,.3,1)_forwards]" />
+
+          {!isMobile && (
+            <div className="absolute left-1/2 top-1/2 h-px w-[120vw] -translate-x-1/2 -translate-y-1/2 bg-gradient-to-r from-transparent via-white to-transparent animate-[lightBeam_1s_ease-out_forwards]" />
+          )}
+
+        </div>
+      )}
 
       {/* =====================================================
           WISH ENERGY
@@ -1187,8 +1061,10 @@ export default function Wish() {
           className="
             relative
             z-20
+
             mx-auto
             mt-[-8px]
+
             w-full
             max-w-[330px]
 
@@ -1208,8 +1084,6 @@ export default function Wish() {
                 font-mono
                 text-[7px]
                 tracking-[0.2em]
-
-                transition-colors
 
                 ${
                   isHolding
@@ -1239,10 +1113,10 @@ export default function Wish() {
                 via-amber-100
                 to-white
 
-                shadow-[0_0_15px_rgba(255,225,170,.45)]
+                shadow-[0_0_10px_rgba(255,225,170,.3)]
 
                 transition-[width]
-                duration-75
+                duration-100
                 ease-linear
               "
               style={{
@@ -1251,12 +1125,8 @@ export default function Wish() {
               }}
             />
 
-            {isHolding &&
-              !isMobile && (
-                <div className="absolute inset-y-0 left-0 w-1/3 bg-gradient-to-r from-transparent via-white to-transparent animate-[energySweep_.9s_linear_infinite]" />
-              )}
-
           </div>
+
         </section>
       )}
 
@@ -1270,7 +1140,9 @@ export default function Wish() {
             className="
               relative
               z-20
+
               mt-7
+
               flex
               flex-col
               items-center
@@ -1320,47 +1192,18 @@ export default function Wish() {
                   strokeLinecap="round"
                   strokeDasharray="364.4"
                   strokeDashoffset={
-                    364.4 -
-                    (
-                      364.4 *
-                      progressDegrees
-                    ) /
-                      360
+                    progressOffset
                   }
-                  className="transition-[stroke-dashoffset] duration-75 ease-linear"
-                  style={{
-                    filter:
-                      isHolding
-                        ? "drop-shadow(0 0 8px rgba(255,225,170,.5))"
-                        : "none",
-                  }}
+                  className="transition-[stroke-dashoffset] duration-100 ease-linear"
                 />
 
               </svg>
 
               {/* Glow */}
 
-              <div
-                className={`
-                  pointer-events-none
-
-                  absolute
-                  inset-[-20px]
-
-                  rounded-full
-
-                  transform-gpu
-
-                  transition-all
-                  duration-700
-
-                  ${
-                    isHolding
-                      ? "bg-amber-100/[0.08] blur-[18px] scale-110 sm:blur-[25px]"
-                      : "bg-transparent"
-                  }
-                `}
-              />
+              {isHolding && (
+                <div className="pointer-events-none absolute inset-[-15px] rounded-full bg-amber-100/[0.06] blur-[15px]" />
+              )}
 
               {/* Button */}
 
@@ -1378,13 +1221,11 @@ export default function Wish() {
                 }}
                 onPointerUp={() => {
                   if (
-                    energy >= 96
+                    energy >= 96 ||
+                    completedRef.current
                   ) {
                     pointerDownRef.current =
                       false;
-
-                    completedRef.current =
-                      true;
 
                     releaseWish();
                   } else {
@@ -1425,43 +1266,22 @@ export default function Wish() {
 
                   border
 
-                  transform-gpu
-
                   transition-all
-                  duration-500
+                  duration-300
+
+                  active:scale-95
 
                   sm:h-[82px]
                   sm:w-[82px]
 
                   ${
                     isHolding
-                      ? "scale-110 border-amber-100/60 bg-amber-100/[0.1] shadow-[0_0_55px_rgba(255,220,150,.25)] sm:shadow-[0_0_80px_rgba(255,220,150,.28)]"
-                      : "border-white/[0.14] bg-white/[0.035] shadow-[0_15px_60px_rgba(0,0,0,.5)]"
+                      ? "scale-105 border-amber-100/60 bg-amber-100/[0.1] shadow-[0_0_40px_rgba(255,220,150,.2)]"
+                      : "border-white/[0.14] bg-white/[0.035] shadow-[0_12px_40px_rgba(0,0,0,.4)]"
                   }
                 `}
                 aria-label="Press and hold to make a wish"
               >
-
-                <span
-                  className={`
-                    pointer-events-none
-
-                    absolute
-                    inset-0
-
-                    rounded-full
-
-                    bg-[radial-gradient(circle,rgba(255,255,255,.08),transparent_65%)]
-
-                    transition-opacity
-
-                    ${
-                      isHolding
-                        ? "opacity-100"
-                        : "opacity-0"
-                    }
-                  `}
-                />
 
                 <Star
                   size={19}
@@ -1470,14 +1290,12 @@ export default function Wish() {
                     relative
                     z-10
 
-                    transform-gpu
-
                     transition-all
-                    duration-500
+                    duration-300
 
                     ${
                       isHolding
-                        ? "scale-125 fill-white text-white drop-shadow-[0_0_12px_white]"
+                        ? "scale-125 fill-white text-white"
                         : "text-white/55"
                     }
                   `}
@@ -1494,23 +1312,20 @@ export default function Wish() {
               <p
                 className={`
                   font-mono
-
                   text-[10px]
                   font-medium
-
                   uppercase
-
                   tracking-[0.36em]
 
-                  transition-all
-                  duration-500
+                  transition-colors
+                  duration-300
 
                   sm:text-xs
                   sm:tracking-[0.42em]
 
                   ${
                     isHolding
-                      ? "scale-105 text-amber-100/90"
+                      ? "text-amber-100/90"
                       : "text-white/65"
                   }
                 `}
@@ -1529,9 +1344,6 @@ export default function Wish() {
                   italic
                   tracking-wide
 
-                  transition-opacity
-                  duration-500
-
                   sm:text-xs
 
                   ${
@@ -1549,15 +1361,11 @@ export default function Wish() {
             </div>
 
             {!isHolding && (
-              <div className="mt-4 flex flex-col items-center gap-1 text-white/20 sm:mt-5">
-
-                <ChevronDown
-                  size={12}
-                  strokeWidth={1}
-                  className="animate-bounce"
-                />
-
-              </div>
+              <ChevronDown
+                size={12}
+                strokeWidth={1}
+                className="mt-4 animate-bounce text-white/20 sm:mt-5"
+              />
             )}
 
           </section>
@@ -1570,72 +1378,44 @@ export default function Wish() {
       {showModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center overflow-hidden p-4 sm:p-5">
 
-          <div className="absolute inset-0 bg-black/95 animate-[voidAppear_.9s_ease-out_forwards]" />
-
-          {/* Portal */}
-
-          <div className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 transform-gpu">
-
-            <div className="h-20 w-20 rounded-full border border-white/25 animate-[portalBirth_1.5s_cubic-bezier(.16,1,.3,1)_forwards] sm:h-24 sm:w-24" />
-
-            {!isMobile && (
-              <>
-                <div className="absolute inset-[-60px] rounded-full border border-white/10 animate-[portalBirth_1.9s_cubic-bezier(.16,1,.3,1)_.1s_forwards] sm:inset-[-70px]" />
-
-                <div className="absolute inset-[-130px] rounded-full border border-white/[0.05] animate-[portalBirth_2.3s_cubic-bezier(.16,1,.3,1)_.2s_forwards] sm:inset-[-150px]" />
-
-                <div className="absolute inset-[-200px] rounded-full border border-white/[0.025] animate-[portalBirth_2.7s_cubic-bezier(.16,1,.3,1)_.3s_forwards] sm:inset-[-230px]" />
-              </>
-            )}
-
-          </div>
-
-          {/* Aura */}
-
-          <div className="pointer-events-none absolute left-1/2 top-1/2 h-[280px] w-[280px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-amber-100/[0.055] blur-[55px] sm:h-[450px] sm:w-[450px] sm:blur-[110px]" />
+          <div className="absolute inset-0 bg-black/95 animate-[voidAppear_.7s_ease-out_forwards]" />
 
           {/* Particles */}
 
-          {modalParticles.map(
-            (particle) => (
-              <span
-                key={particle.id}
-                className="
-                  pointer-events-none
+          {!isMobile &&
+            modalParticles.map(
+              (particle) => (
+                <span
+                  key={particle.id}
+                  className="
+                    pointer-events-none
+                    absolute
+                    left-1/2
+                    top-1/2
 
-                  absolute
-                  left-1/2
-                  top-1/2
+                    h-1
+                    w-1
 
-                  h-1
-                  w-1
+                    rounded-full
+                    bg-white
 
-                  rounded-full
-                  bg-white
+                    animate-[modalParticle_1.5s_cubic-bezier(.16,1,.3,1)_forwards]
+                  "
+                  style={{
+                    "--px":
+                      `${particle.x}px`,
 
-                  shadow-[0_0_8px_white]
+                    "--py":
+                      `${particle.y}px`,
 
-                  transform-gpu
+                    animationDelay:
+                      `${particle.delay}s`,
+                  }}
+                />
+              )
+            )}
 
-                  animate-[modalParticle_1.8s_cubic-bezier(.16,1,.3,1)_forwards]
-                "
-                style={{
-                  "--px":
-                    `${particle.x}px`,
-
-                  "--py":
-                    `${particle.y}px`,
-
-                  animationDelay:
-                    `${particle.delay}s`,
-                }}
-              />
-            )
-          )}
-
-          {/* =================================================
-              CARD
-          ================================================= */}
+          {/* CARD */}
 
           <div
             className="
@@ -1645,7 +1425,6 @@ export default function Wish() {
               max-w-[calc(100vw-32px)]
 
               overflow-hidden
-
               rounded-[26px]
 
               border
@@ -1657,26 +1436,21 @@ export default function Wish() {
 
               text-center
 
-              transform-gpu
+              shadow-[0_25px_70px_rgba(0,0,0,.9)]
 
-              shadow-[0_30px_90px_rgba(0,0,0,.95)]
-
-              animate-[portalModal_1.1s_cubic-bezier(.16,1,.3,1)_forwards]
+              animate-[portalModal_.8s_cubic-bezier(.16,1,.3,1)_forwards]
 
               sm:max-w-xl
               sm:rounded-[36px]
               sm:p-12
-              sm:shadow-[0_40px_140px_rgba(0,0,0,.95)]
             "
           >
 
-            <div className="pointer-events-none absolute inset-x-0 top-0 h-32 bg-gradient-to-b from-white/[0.08] to-transparent sm:h-36" />
-
-            <div className="pointer-events-none absolute inset-3 rounded-[21px] border border-white/[0.035] sm:rounded-[25px]" />
+            <div className="pointer-events-none absolute inset-x-0 top-0 h-28 bg-gradient-to-b from-white/[0.07] to-transparent" />
 
             <div className="relative mb-7 flex items-center justify-center gap-3 sm:mb-8">
 
-              <span className="h-px w-8 bg-gradient-to-r from-transparent to-white/20 sm:w-10" />
+              <span className="h-px w-8 bg-gradient-to-r from-transparent to-white/20" />
 
               <Sparkles
                 size={14}
@@ -1684,28 +1458,24 @@ export default function Wish() {
                 className="text-white/70"
               />
 
-              <span className="h-px w-8 bg-gradient-to-l from-transparent to-white/20 sm:w-10" />
+              <span className="h-px w-8 bg-gradient-to-l from-transparent to-white/20" />
 
             </div>
 
-            <p className="relative font-mono text-[6px] uppercase tracking-[0.5em] text-white/30 sm:text-[7px] sm:tracking-[0.6em]">
+            <p className="relative font-mono text-[6px] uppercase tracking-[0.5em] text-white/30">
               WISH ACCEPTED
             </p>
 
             <h2
               className="
                 relative
-
                 mt-5
 
                 font-display
-
                 text-[2.65rem]
 
                 font-light
-
                 leading-[0.9]
-
                 tracking-[-0.06em]
 
                 sm:mt-6
@@ -1720,38 +1490,17 @@ export default function Wish() {
               </span>
             </h2>
 
-            <div className="mx-auto mt-7 h-px max-w-xs overflow-hidden bg-white/[0.06] sm:mt-8">
-
-              <div
-                className={`
-                  h-full
-                  w-1/3
-                  bg-white/80
-
-                  ${
-                    !isMobile
-                      ? "animate-[dividerTravel_2s_ease-in-out_infinite]"
-                      : ""
-                  }
-                `}
-              />
-
-            </div>
+            <div className="mx-auto mt-7 h-px max-w-xs bg-white/[0.06] sm:mt-8" />
 
             <p
               className="
                 mx-auto
-
                 mt-7
-
                 max-w-sm
 
                 font-serif
-
                 text-[14px]
-
                 italic
-
                 leading-[1.85]
 
                 text-white/45
@@ -1764,11 +1513,12 @@ export default function Wish() {
               hope for find their way
               toward you.
               <br />
+
               Even the ones you never
               say aloud.
             </p>
 
-            <p className="mt-6 font-mono text-[5px] uppercase tracking-[0.4em] text-white/20 sm:mt-7 sm:text-[6px] sm:tracking-[0.45em]">
+            <p className="mt-6 font-mono text-[5px] uppercase tracking-[0.4em] text-white/20 sm:mt-7 sm:text-[6px]">
               {birthdayData.name.toUpperCase()}
               {" "}
               // THE UNIVERSE REMEMBERS
@@ -1786,16 +1536,13 @@ export default function Wish() {
                 relative
 
                 mx-auto
-
                 mt-8
 
                 flex
-
                 items-center
                 gap-3
 
                 overflow-hidden
-
                 rounded-full
 
                 border
@@ -1807,16 +1554,11 @@ export default function Wish() {
                 py-3.5
 
                 font-mono
-
                 text-[6px]
-
                 uppercase
-
                 tracking-[0.3em]
 
                 text-white/55
-
-                transform-gpu
 
                 transition-all
                 duration-300
@@ -1829,8 +1571,6 @@ export default function Wish() {
                 sm:mt-9
                 sm:px-7
                 sm:py-4
-                sm:text-[7px]
-                sm:tracking-[0.35em]
               "
             >
 
@@ -1856,11 +1596,12 @@ export default function Wish() {
             </button>
 
           </div>
+
         </div>
       )}
 
       {/* =====================================================
-          ANIMATIONS
+          OPTIMIZED ANIMATIONS
       ===================================================== */}
 
       <style>{`
@@ -1877,33 +1618,33 @@ export default function Wish() {
         @keyframes wishTwinkle {
           0%,
           100% {
-            opacity: .12;
-            transform: scale(.7);
+            opacity: .15;
+            transform: scale(.8);
           }
 
           50% {
-            opacity: .75;
-            transform: scale(1.35);
+            opacity: .7;
+            transform: scale(1.2);
           }
         }
 
         @keyframes wishStar {
-          0% {
+          from {
             transform:
               translate3d(0,0,0)
               scale(1);
 
-            opacity: .8;
+            opacity: .7;
           }
 
-          100% {
+          to {
             transform:
               translate3d(
                 var(--sx),
                 var(--sy),
                 0
               )
-              scale(.05);
+              scale(.1);
 
             opacity: 0;
           }
@@ -1911,32 +1652,22 @@ export default function Wish() {
 
         @keyframes shootingStar {
           0%,
-          70%,
+          75%,
           100% {
             opacity: 0;
-
             transform:
-              translate3d(
-                -40px,
-                -20px,
-                0
-              )
+              translate3d(-30px,-15px,0)
               rotate(35deg);
           }
 
-          75% {
-            opacity: .6;
+          80% {
+            opacity: .5;
           }
 
-          82% {
+          88% {
             opacity: 0;
-
             transform:
-              translate3d(
-                100px,
-                50px,
-                0
-              )
+              translate3d(80px,40px,0)
               rotate(35deg);
           }
         }
@@ -1950,7 +1681,7 @@ export default function Wish() {
 
           50% {
             transform:
-              scale(1.035);
+              scale(1.025);
           }
         }
 
@@ -1962,38 +1693,19 @@ export default function Wish() {
             opacity: 1;
           }
 
-          15% {
+          40% {
             transform:
-              scale(1.08);
-
-            opacity: 1;
+              scale(.7);
           }
 
-          35% {
+          65% {
             transform:
-              scale(.8);
-          }
-
-          52% {
-            transform:
-              scale(.12);
-          }
-
-          68% {
-            transform:
-              scale(.02);
-          }
-
-          78% {
-            transform:
-              scale(3);
-
-            opacity: .9;
+              scale(.05);
           }
 
           100% {
             transform:
-              scale(14);
+              scale(10);
 
             opacity: 0;
           }
@@ -2002,18 +1714,18 @@ export default function Wish() {
         @keyframes energyRing {
           0% {
             transform:
-              scale(.7);
+              scale(.75);
 
             opacity: 0;
           }
 
-          25% {
-            opacity: .85;
+          30% {
+            opacity: .7;
           }
 
           100% {
             transform:
-              scale(1.4);
+              scale(1.35);
 
             opacity: 0;
           }
@@ -2023,16 +1735,16 @@ export default function Wish() {
           0%,
           100% {
             transform:
-              scale(.65);
+              scale(.7);
 
             opacity: .15;
           }
 
           50% {
             transform:
-              scale(1.4);
+              scale(1.25);
 
-            opacity: .75;
+            opacity: .55;
           }
         }
 
@@ -2041,12 +1753,8 @@ export default function Wish() {
             opacity: 0;
           }
 
-          15% {
+          20% {
             opacity: 1;
-          }
-
-          50% {
-            opacity: .75;
           }
 
           100% {
@@ -2063,26 +1771,14 @@ export default function Wish() {
             opacity: 0;
           }
 
-          18% {
-            transform:
-              translate(-50%,-50%)
-              scale(3);
-
+          25% {
             opacity: 1;
-          }
-
-          45% {
-            transform:
-              translate(-50%,-50%)
-              scale(20);
-
-            opacity: .95;
           }
 
           100% {
             transform:
               translate(-50%,-50%)
-              scale(160);
+              scale(100);
 
             opacity: 0;
           }
@@ -2091,27 +1787,14 @@ export default function Wish() {
         @keyframes cosmicFlash {
           0% {
             opacity: 0;
-
-            transform:
-              scale(.2);
           }
 
-          18% {
-            opacity: .9;
-          }
-
-          45% {
-            opacity: .35;
-
-            transform:
-              scale(1.3);
+          20% {
+            opacity: .8;
           }
 
           100% {
             opacity: 0;
-
-            transform:
-              scale(1.9);
           }
         }
 
@@ -2119,41 +1802,19 @@ export default function Wish() {
           0% {
             transform:
               translate(-50%,-50%)
-              scale(0);
+              scaleX(0);
 
             opacity: 0;
           }
 
-          25% {
-            opacity: .9;
+          30% {
+            opacity: .8;
           }
 
           100% {
             transform:
               translate(-50%,-50%)
-              scale(1);
-
-            opacity: 0;
-          }
-        }
-
-        @keyframes shockwave {
-          0% {
-            transform:
-              translate(-50%,-50%)
-              scale(.2);
-
-            opacity: 0;
-          }
-
-          15% {
-            opacity: .9;
-          }
-
-          100% {
-            transform:
-              translate(-50%,-50%)
-              scale(20);
+              scaleX(1);
 
             opacity: 0;
           }
@@ -2169,28 +1830,6 @@ export default function Wish() {
           }
         }
 
-        @keyframes portalBirth {
-          0% {
-            transform:
-              scale(.05)
-              rotate(0deg);
-
-            opacity: 0;
-          }
-
-          35% {
-            opacity: .85;
-          }
-
-          100% {
-            transform:
-              scale(3)
-              rotate(180deg);
-
-            opacity: 0;
-          }
-        }
-
         @keyframes modalParticle {
           0% {
             transform:
@@ -2201,20 +1840,14 @@ export default function Wish() {
           }
 
           25% {
-            opacity: .9;
+            opacity: .7;
           }
 
           100% {
             transform:
               translate(
-                calc(
-                  -50% +
-                  var(--px)
-                ),
-                calc(
-                  -50% +
-                  var(--py)
-                )
+                calc(-50% + var(--px)),
+                calc(-50% + var(--py))
               )
               scale(0);
 
@@ -2223,83 +1856,29 @@ export default function Wish() {
         }
 
         @keyframes portalModal {
-          0% {
+          from {
             opacity: 0;
 
             transform:
-              translate3d(
-                0,
-                50px,
-                0
-              )
-              scale(.9);
-
-            filter:
-              blur(10px);
-          }
-
-          70% {
-            opacity: 1;
-
-            transform:
-              translate3d(
-                0,
-                -5px,
-                0
-              )
-              scale(1.015);
-
-            filter:
-              blur(0);
-          }
-
-          100% {
-            opacity: 1;
-
-            transform:
-              translate3d(
-                0,
-                0,
-                0
-              )
-              scale(1);
-
-            filter:
-              blur(0);
-          }
-        }
-
-        @keyframes energySweep {
-          from {
-            transform:
-              translateX(-140%);
+              translate3d(0,35px,0)
+              scale(.94);
           }
 
           to {
+            opacity: 1;
+
             transform:
-              translateX(420%);
+              translate3d(0,0,0)
+              scale(1);
           }
         }
 
-        @keyframes dividerTravel {
-          0% {
-            transform:
-              translateX(-150%);
-          }
-
-          50%,
-          100% {
-            transform:
-              translateX(350%);
-          }
-        }
-
-        @media (
-          max-width: 767px
-        ) {
-          .transform-gpu {
-            will-change:
-              transform;
+        @media (max-width: 767px) {
+          *,
+          *::before,
+          *::after {
+            -webkit-tap-highlight-color:
+              transparent;
           }
         }
 

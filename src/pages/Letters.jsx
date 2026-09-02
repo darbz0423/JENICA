@@ -10,135 +10,161 @@ import {
 } from "lucide-react";
 import { birthdayData } from "../data/birthdayData";
 
+const HISTORY_KEY = "__memoryUniverseLetters";
+
 export default function Letters() {
   const [opened, setOpened] = useState(null);
   const [activeCard, setActiveCard] = useState(0);
 
-  /*
-   * ============================================================
-   * PROTECTED NAVIGATION REFERENCES
-   * ============================================================
-   *
-   * These refs prevent duplicate history states and allow the
-   * page to distinguish between:
-   *
-   * - Opening a letter normally
-   * - Closing a letter using Back / swipe-back
-   * - Closing using the X button
-   * - Protected main Letters page Back behavior
-   *
-   * ============================================================
-   */
-
   const openedRef = useRef(null);
-
-  const isClosingFromHistoryRef = useRef(false);
-
-  const hasBaseProtectionRef = useRef(false);
-
-  const isRestoringBaseRef = useRef(false);
+  const isUnmountingRef = useRef(false);
+  const isHandlingPopRef = useRef(false);
+  const ignoreNextPopRef = useRef(false);
 
   const letters = birthdayData.letters || [];
 
-  /*
-   * ============================================================
-   * KEEP OPENED REF SYNCHRONIZED
-   * ============================================================
-   */
+  /* ============================================================
+     KEEP OPENED REF SYNCHRONIZED
+  ============================================================ */
 
   useEffect(() => {
     openedRef.current = opened;
   }, [opened]);
 
-  /*
-   * ============================================================
-   * PROTECTED BASE HISTORY STATE
-   * ============================================================
-   *
-   * The Letters page itself is protected.
-   *
-   * Browser Back / Android Back / swipe-back should not
-   * unexpectedly navigate away from the Letters page.
-   *
-   * ============================================================
-   */
+  /* ============================================================
+     PROTECTED HISTORY SYSTEM
+
+     Structure:
+
+     Previous page
+        ↓
+     Letters Base
+        ↓
+     Letters Guard
+
+     Opening a modal:
+
+     Letters Base
+        ↓
+     Letters Guard
+        ↓
+     Letter Modal
+
+     BACK PRIORITY:
+
+     Modal open
+        → close modal
+
+     Main Letters page
+        → restore guard and stay
+
+     ============================================================ */
 
   useEffect(() => {
-    const currentState = window.history.state;
+    isUnmountingRef.current = false;
 
-    if (!currentState?.memoryUniverseLettersBase) {
+    const currentState = window.history.state || {};
+
+    /*
+     * Mark the current history entry as the Letters base.
+     *
+     * replaceState does NOT create a new history entry.
+     */
+
+    if (!currentState?.[HISTORY_KEY]?.base) {
       window.history.replaceState(
         {
-          ...(currentState || {}),
-          memoryUniverseLettersBase: true,
+          ...currentState,
+          [HISTORY_KEY]: {
+            base: true,
+            guard: false,
+            modal: false,
+          },
         },
         "",
         window.location.href
       );
     }
 
-    hasBaseProtectionRef.current = true;
-
     /*
-     * Add one controlled protection entry.
+     * Create exactly ONE guard entry.
      *
-     * This allows Back navigation to be intercepted while
-     * keeping the current Letters route visible.
+     * This is what catches Back/swipe-back while
+     * the user is on the main Letters page.
      */
 
-    window.history.pushState(
-      {
-        ...(window.history.state || {}),
-        memoryUniverseLettersBase: true,
-        memoryUniverseLettersGuard: true,
-      },
-      "",
-      window.location.href
-    );
+    const stateAfterBase = window.history.state || {};
 
-    const handlePopState = (event) => {
-      const state = event.state;
+    if (!stateAfterBase?.[HISTORY_KEY]?.guard) {
+      window.history.pushState(
+        {
+          ...stateAfterBase,
+          [HISTORY_KEY]: {
+            base: true,
+            guard: true,
+            modal: false,
+          },
+        },
+        "",
+        window.location.href
+      );
+    }
+
+    const handlePopState = () => {
+      if (isUnmountingRef.current) return;
+
+      if (ignoreNextPopRef.current) {
+        ignoreNextPopRef.current = false;
+        return;
+      }
+
+      const currentHistoryState = window.history.state || {};
+      const memoryState = currentHistoryState[HISTORY_KEY];
 
       /*
        * ========================================================
        * PRIORITY 1
-       * OPEN LETTER
+       * CLOSE OPEN LETTER
        *
-       * Back must close the letter first.
+       * Swipe Back / Browser Back should close
+       * the modal before doing anything else.
        * ========================================================
        */
 
       if (openedRef.current) {
-        isClosingFromHistoryRef.current = true;
+        isHandlingPopRef.current = true;
 
         setOpened(null);
-
-        /*
-         * We are now back on the Letters page.
-         * Restore protection without changing routes.
-         */
+        openedRef.current = null;
 
         window.setTimeout(() => {
-          if (isRestoringBaseRef.current) return;
+          if (isUnmountingRef.current) return;
 
-          isRestoringBaseRef.current = true;
+          const state = window.history.state || {};
+          const pageState = state[HISTORY_KEY];
 
-          const currentHistoryState = window.history.state || {};
+          /*
+           * We are now on the Letters page.
+           *
+           * Restore ONE guard entry only if necessary.
+           */
 
-          if (!currentHistoryState.memoryUniverseLettersGuard) {
+          if (!pageState?.guard) {
             window.history.pushState(
               {
-                ...currentHistoryState,
-                memoryUniverseLettersBase: true,
-                memoryUniverseLettersGuard: true,
+                ...state,
+                [HISTORY_KEY]: {
+                  base: true,
+                  guard: true,
+                  modal: false,
+                },
               },
               "",
               window.location.href
             );
           }
 
-          isRestoringBaseRef.current = false;
-          isClosingFromHistoryRef.current = false;
+          isHandlingPopRef.current = false;
         }, 0);
 
         return;
@@ -149,43 +175,41 @@ export default function Letters() {
        * PRIORITY 2
        * MAIN LETTERS PAGE PROTECTION
        *
-       * No letter is open.
+       * If Back reaches the base Letters entry,
+       * push ONE guard entry again.
        *
-       * Back must NOT leave the current Letters page.
+       * This prevents leaving the website/page.
        * ========================================================
        */
 
-      if (!isRestoringBaseRef.current) {
-        isRestoringBaseRef.current = true;
-
+      if (!memoryState?.guard && !isHandlingPopRef.current) {
         window.history.pushState(
           {
-            ...(state || {}),
-            memoryUniverseLettersBase: true,
-            memoryUniverseLettersGuard: true,
+            ...currentHistoryState,
+            [HISTORY_KEY]: {
+              base: true,
+              guard: true,
+              modal: false,
+            },
           },
           "",
           window.location.href
         );
-
-        window.setTimeout(() => {
-          isRestoringBaseRef.current = false;
-        }, 0);
       }
     };
 
     window.addEventListener("popstate", handlePopState);
 
     return () => {
+      isUnmountingRef.current = true;
+
       window.removeEventListener("popstate", handlePopState);
     };
   }, []);
 
-  /*
-   * ============================================================
-   * LOCK BODY SCROLL
-   * ============================================================
-   */
+  /* ============================================================
+     LOCK BODY SCROLL
+  ============================================================ */
 
   useEffect(() => {
     if (!opened) return;
@@ -193,22 +217,92 @@ export default function Letters() {
     const previousOverflow = document.body.style.overflow;
     const previousOverscrollBehavior =
       document.body.style.overscrollBehavior;
+    const previousTouchAction =
+      document.body.style.touchAction;
 
     document.body.style.overflow = "hidden";
     document.body.style.overscrollBehavior = "none";
+    document.body.style.touchAction = "none";
 
     return () => {
       document.body.style.overflow = previousOverflow;
       document.body.style.overscrollBehavior =
         previousOverscrollBehavior;
+      document.body.style.touchAction =
+        previousTouchAction;
     };
   }, [opened]);
 
-  /*
-   * ============================================================
-   * KEYBOARD SUPPORT
-   * ============================================================
-   */
+  /* ============================================================
+     OPEN LETTER
+  ============================================================ */
+
+  const openLetter = (letter, index) => {
+    if (openedRef.current) return;
+
+    setActiveCard(index);
+    setOpened(letter);
+    openedRef.current = letter;
+
+    /*
+     * Add ONE modal history entry.
+     *
+     * Letters Guard
+     *      ↓
+     * Letter Modal
+     */
+
+    const currentState = window.history.state || {};
+
+    window.history.pushState(
+      {
+        ...currentState,
+        [HISTORY_KEY]: {
+          base: true,
+          guard: true,
+          modal: true,
+          letterId: letter.id,
+        },
+      },
+      "",
+      window.location.href
+    );
+
+    if (navigator.vibrate) {
+      navigator.vibrate(10);
+    }
+  };
+
+  /* ============================================================
+     CLOSE LETTER
+
+     Normal close:
+     X button
+     Backdrop
+     Escape
+
+     We go back ONE history entry.
+     The popstate listener handles the actual modal closing.
+  ============================================================ */
+
+  const closeLetter = () => {
+    if (!openedRef.current) return;
+
+    const currentState = window.history.state || {};
+    const memoryState = currentState[HISTORY_KEY];
+
+    if (memoryState?.modal) {
+      window.history.back();
+      return;
+    }
+
+    setOpened(null);
+    openedRef.current = null;
+  };
+
+  /* ============================================================
+     KEYBOARD SUPPORT
+  ============================================================ */
 
   useEffect(() => {
     const handleKeyDown = (event) => {
@@ -220,77 +314,12 @@ export default function Letters() {
     window.addEventListener("keydown", handleKeyDown);
 
     return () => {
-      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener(
+        "keydown",
+        handleKeyDown
+      );
     };
   }, []);
-
-  /*
-   * ============================================================
-   * OPEN LETTER
-   * ============================================================
-   */
-
-  const openLetter = (letter, index) => {
-    setActiveCard(index);
-    setOpened(letter);
-
-    /*
-     * Create exactly one history state for the modal.
-     *
-     * This makes:
-     *
-     * Open letter
-     * ↓
-     * Swipe Back
-     * ↓
-     * Close letter
-     * ↓
-     * Stay on Letters page
-     */
-
-    window.history.pushState(
-      {
-        ...(window.history.state || {}),
-        memoryUniverseLettersBase: true,
-        memoryUniverseLettersModal: true,
-        letterId: letter.id,
-      },
-      "",
-      window.location.href
-    );
-  };
-
-  /*
-   * ============================================================
-   * CLOSE LETTER
-   * ============================================================
-   */
-
-  const closeLetter = () => {
-    if (!openedRef.current) return;
-
-    /*
-     * If closing normally using:
-     *
-     * - X button
-     * - Backdrop
-     * - ESC
-     *
-     * remove the modal history entry using history.back().
-     *
-     * The popstate listener will close the modal.
-     */
-
-    if (
-      window.history.state?.memoryUniverseLettersModal &&
-      !isClosingFromHistoryRef.current
-    ) {
-      window.history.back();
-      return;
-    }
-
-    setOpened(null);
-  };
 
   return (
     <main className="relative min-h-screen overflow-hidden bg-[#030303] px-4 pb-32 pt-24 text-white sm:px-6 sm:pt-28 md:px-10 md:pb-40 md:pt-32">
@@ -299,11 +328,7 @@ export default function Letters() {
       ========================================================= */}
 
       <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
-        {/* Base */}
-
         <div className="absolute inset-0 bg-[#030303]" />
-
-        {/* Soft central atmosphere */}
 
         <div
           className="
@@ -319,8 +344,6 @@ export default function Letters() {
           "
         />
 
-        {/* Warm glow */}
-
         <div
           className="
             absolute
@@ -333,8 +356,6 @@ export default function Letters() {
             blur-[90px]
           "
         />
-
-        {/* Violet glow */}
 
         <div
           className="
@@ -349,8 +370,6 @@ export default function Letters() {
           "
         />
 
-        {/* Fine vignette */}
-
         <div
           className="
             absolute
@@ -358,8 +377,6 @@ export default function Letters() {
             bg-[radial-gradient(circle_at_50%_35%,transparent_20%,rgba(0,0,0,.7)_100%)]
           "
         />
-
-        {/* Subtle film texture */}
 
         <div
           className="
@@ -373,24 +390,12 @@ export default function Letters() {
       </div>
 
       {/* =========================================================
-          TOP NAV / ARCHIVE LABEL
+          TOP NAV
       ========================================================= */}
 
       <div className="mx-auto flex max-w-7xl items-center justify-between">
         <div className="flex items-center gap-3">
-          <div
-            className="
-              flex
-              h-9
-              w-9
-              items-center
-              justify-center
-              rounded-full
-              border
-              border-white/[0.09]
-              bg-white/[0.025]
-            "
-          >
+          <div className="flex h-9 w-9 items-center justify-center rounded-full border border-white/[0.09] bg-white/[0.025]">
             <Mail
               size={13}
               strokeWidth={1}
@@ -429,26 +434,9 @@ export default function Letters() {
       <header className="relative mx-auto max-w-5xl pt-16 text-center sm:pt-20 md:pt-24">
         <div className="mx-auto mb-8 flex h-14 w-14 items-center justify-center">
           <div className="relative flex h-10 w-10 items-center justify-center">
-            <span
-              className="
-                absolute
-                inset-0
-                rotate-45
-                border
-                border-white/[0.12]
-              "
-            />
+            <span className="absolute inset-0 rotate-45 border border-white/[0.12]" />
 
-            <span
-              className="
-                absolute
-                -inset-2
-                rounded-full
-                border
-                border-dashed
-                border-white/[0.06]
-              "
-            />
+            <span className="absolute -inset-2 rounded-full border border-dashed border-white/[0.06]" />
 
             <Feather
               size={15}
@@ -468,37 +456,13 @@ export default function Letters() {
           <span className="h-px w-8 bg-gradient-to-l from-transparent to-white/20 sm:w-14" />
         </div>
 
-        <h1
-          className="
-            mt-8
-            font-display
-            text-[4.6rem]
-            leading-[0.76]
-            tracking-[-0.065em]
-            text-white
-            sm:text-8xl
-            md:text-[9.5rem]
-          "
-        >
+        <h1 className="mt-8 font-display text-[4.6rem] leading-[0.76] tracking-[-0.065em] text-white sm:text-8xl md:text-[9.5rem]">
           Words
           <br />
-
           <span className="text-white/20">for you.</span>
         </h1>
 
-        <p
-          className="
-            mx-auto
-            mt-9
-            max-w-md
-            px-3
-            font-serif
-            text-[15px]
-            leading-[1.9]
-            text-white/35
-            sm:text-lg
-          "
-        >
+        <p className="mx-auto mt-9 max-w-md px-3 font-serif text-[15px] leading-[1.9] text-white/35 sm:text-lg">
           Three little pieces of my heart,
           <br />
           written for the person who means so much to me.
@@ -551,58 +515,13 @@ export default function Letters() {
                   }
                 `}
               >
-                <div
-                  className="
-                    pointer-events-none
-                    absolute
-                    left-6
-                    right-6
-                    top-0
-                    h-px
-                    bg-gradient-to-r
-                    from-transparent
-                    via-white/30
-                    to-transparent
-                    opacity-50
-                    transition-opacity
-                    duration-500
-                    group-hover:opacity-100
-                  "
-                />
+                <div className="pointer-events-none absolute left-6 right-6 top-0 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent opacity-50 transition-opacity duration-500 group-hover:opacity-100" />
 
-                <div
-                  className="
-                    pointer-events-none
-                    absolute
-                    right-[-80px]
-                    top-[-80px]
-                    h-40
-                    w-40
-                    rounded-full
-                    bg-white/[0.025]
-                    blur-[45px]
-                  "
-                />
+                <div className="pointer-events-none absolute right-[-80px] top-[-80px] h-40 w-40 rounded-full bg-white/[0.025] blur-[45px]" />
 
                 <div className="relative flex min-h-[430px] flex-col p-6 sm:p-7">
                   <div className="flex items-start justify-between">
-                    <div
-                      className="
-                        flex
-                        h-11
-                        w-11
-                        items-center
-                        justify-center
-                        rounded-[14px]
-                        border
-                        border-white/[0.09]
-                        bg-white/[0.025]
-                        transition-all
-                        duration-500
-                        group-hover:border-white/[0.18]
-                        group-hover:bg-white/[0.06]
-                      "
-                    >
+                    <div className="flex h-11 w-11 items-center justify-center rounded-[14px] border border-white/[0.09] bg-white/[0.025] transition-all duration-500 group-hover:border-white/[0.18] group-hover:bg-white/[0.06]">
                       <Mail
                         size={15}
                         strokeWidth={1}
@@ -629,38 +548,11 @@ export default function Letters() {
                     </span>
                   </div>
 
-                  <h2
-                    className="
-                      mt-5
-                      max-w-[270px]
-                      font-serif
-                      text-[2rem]
-                      leading-[0.98]
-                      tracking-[-0.025em]
-                      text-white/85
-                      transition-colors
-                      duration-500
-                      group-hover:text-white
-                      sm:text-[2.2rem]
-                    "
-                  >
+                  <h2 className="mt-5 max-w-[270px] font-serif text-[2rem] leading-[0.98] tracking-[-0.025em] text-white/85 transition-colors duration-500 group-hover:text-white sm:text-[2.2rem]">
                     {letter.title}
                   </h2>
 
-                  <p
-                    className="
-                      mt-5
-                      max-w-[260px]
-                      font-serif
-                      text-sm
-                      italic
-                      leading-[1.7]
-                      text-white/25
-                      transition-colors
-                      duration-500
-                      group-hover:text-white/45
-                    "
-                  >
+                  <p className="mt-5 max-w-[260px] font-serif text-sm italic leading-[1.7] text-white/25 transition-colors duration-500 group-hover:text-white/45">
                     {letter.subtitle}
                   </p>
 
@@ -680,24 +572,7 @@ export default function Letters() {
                     <button
                       type="button"
                       onClick={() => openLetter(letter, index)}
-                      className="
-                        flex
-                        w-full
-                        items-center
-                        justify-between
-                        rounded-xl
-                        border
-                        border-white/[0.08]
-                        bg-white/[0.025]
-                        px-4
-                        py-3.5
-                        text-left
-                        transition-all
-                        duration-300
-                        hover:border-white/[0.2]
-                        hover:bg-white/[0.06]
-                        active:scale-[0.98]
-                      "
+                      className="flex w-full items-center justify-between rounded-xl border border-white/[0.08] bg-white/[0.025] px-4 py-3.5 text-left transition-all duration-300 hover:border-white/[0.2] hover:bg-white/[0.06] active:scale-[0.98]"
                     >
                       <span className="flex items-center gap-2.5">
                         <Lock
@@ -714,13 +589,7 @@ export default function Letters() {
                       <ArrowUpRight
                         size={13}
                         strokeWidth={1}
-                        className="
-                          text-white/25
-                          transition-transform
-                          duration-300
-                          group-hover:translate-x-0.5
-                          group-hover:-translate-y-0.5
-                        "
+                        className="text-white/25 transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
                       />
                     </button>
                   </div>
@@ -781,17 +650,7 @@ export default function Letters() {
 
       {opened && (
         <div
-          className="
-            fixed
-            inset-0
-            z-[100]
-            overflow-y-auto
-            bg-[#010101]/95
-            px-3
-            py-5
-            sm:px-5
-            sm:py-8
-          "
+          className="fixed inset-0 z-[100] overflow-y-auto bg-[#010101]/95 px-3 py-5 sm:px-5 sm:py-8"
           onClick={closeLetter}
         >
           <div className="pointer-events-none fixed inset-0">
@@ -804,36 +663,9 @@ export default function Letters() {
             type="button"
             onClick={closeLetter}
             aria-label="Close letter"
-            className="
-              fixed
-              right-4
-              top-4
-              z-[120]
-              flex
-              h-11
-              w-11
-              items-center
-              justify-center
-              rounded-full
-              border
-              border-white/[0.12]
-              bg-black/70
-              text-white/45
-              backdrop-blur-xl
-              transition-all
-              duration-300
-              hover:border-white/30
-              hover:bg-white
-              hover:text-black
-              active:scale-90
-              sm:right-7
-              sm:top-7
-            "
+            className="fixed right-4 top-4 z-[120] flex h-11 w-11 items-center justify-center rounded-full border border-white/[0.12] bg-black/70 text-white/45 backdrop-blur-xl transition-all duration-300 hover:border-white/30 hover:bg-white hover:text-black active:scale-90 sm:right-7 sm:top-7"
           >
-            <X
-              size={15}
-              strokeWidth={1.2}
-            />
+            <X size={15} strokeWidth={1.2} />
           </button>
 
           <div className="fixed left-4 top-5 z-[120] sm:left-7 sm:top-7">
@@ -848,55 +680,17 @@ export default function Letters() {
 
           <article
             onClick={(event) => event.stopPropagation()}
-            className="
-              relative
-              mx-auto
-              my-14
-              max-w-3xl
-              overflow-hidden
-              rounded-[2px]
-              bg-[#eee7d9]
-              text-[#171512]
-              shadow-[0_30px_100px_rgba(0,0,0,.8)]
-              sm:my-20
-              sm:rounded-[3px]
-            "
+            className="relative mx-auto my-14 max-w-3xl overflow-hidden rounded-[2px] bg-[#eee7d9] text-[#171512] shadow-[0_30px_100px_rgba(0,0,0,.8)] sm:my-20 sm:rounded-[3px]"
           >
             <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-transparent via-black/20 to-transparent" />
 
             <div className="absolute inset-x-0 bottom-0 h-1 bg-gradient-to-r from-transparent via-black/10 to-transparent" />
 
-            <div
-              className="
-                pointer-events-none
-                absolute
-                inset-0
-                opacity-[0.045]
-                [background-image:radial-gradient(#000_0.5px,transparent_0.5px)]
-                [background-size:6px_6px]
-              "
-            />
+            <div className="pointer-events-none absolute inset-0 opacity-[0.045] [background-image:radial-gradient(#000_0.5px,transparent_0.5px)] [background-size:6px_6px]" />
 
-            <div
-              className="
-                pointer-events-none
-                absolute
-                inset-0
-                bg-[radial-gradient(circle_at_50%_15%,rgba(255,255,255,.55),transparent_45%)]
-              "
-            />
+            <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_15%,rgba(255,255,255,.55),transparent_45%)]" />
 
-            <div
-              className="
-                relative
-                px-6
-                py-12
-                sm:px-12
-                sm:py-16
-                md:px-20
-                md:py-20
-              "
-            >
+            <div className="relative px-6 py-12 sm:px-12 sm:py-16 md:px-20 md:py-20">
               <div className="flex items-start justify-between gap-6">
                 <div>
                   <div className="flex items-center gap-2">
@@ -935,33 +729,11 @@ export default function Letters() {
                 </span>
               </div>
 
-              <h2
-                className="
-                  mt-8
-                  max-w-2xl
-                  font-serif
-                  text-[2.7rem]
-                  leading-[0.92]
-                  tracking-[-0.035em]
-                  sm:text-5xl
-                  md:text-6xl
-                "
-              >
+              <h2 className="mt-8 max-w-2xl font-serif text-[2.7rem] leading-[0.92] tracking-[-0.035em] sm:text-5xl md:text-6xl">
                 {opened.title}
               </h2>
 
-              <p
-                className="
-                  mt-5
-                  max-w-xl
-                  font-serif
-                  text-base
-                  italic
-                  leading-[1.7]
-                  text-black/40
-                  sm:text-lg
-                "
-              >
+              <p className="mt-5 max-w-xl font-serif text-base italic leading-[1.7] text-black/40 sm:text-lg">
                 {opened.subtitle}
               </p>
 
@@ -981,19 +753,7 @@ export default function Letters() {
                 <span className="h-px flex-1 bg-black/10" />
               </div>
 
-              <div
-                className="
-                  whitespace-pre-line
-                  font-serif
-                  text-[17px]
-                  leading-[2]
-                  tracking-[0.005em]
-                  text-black/65
-                  sm:text-[19px]
-                  sm:leading-[2.05]
-                  md:text-xl
-                "
-              >
+              <div className="whitespace-pre-line font-serif text-[17px] leading-[2] tracking-[0.005em] text-black/65 sm:text-[19px] sm:leading-[2.05] md:text-xl">
                 {opened.text}
               </div>
 
@@ -1020,30 +780,8 @@ export default function Letters() {
               </div>
 
               <div className="mt-14 flex justify-end">
-                <div
-                  className="
-                    relative
-                    flex
-                    h-16
-                    w-16
-                    rotate-[-8deg]
-                    items-center
-                    justify-center
-                    rounded-full
-                    border
-                    border-black/10
-                  "
-                >
-                  <span
-                    className="
-                      absolute
-                      inset-2
-                      rounded-full
-                      border
-                      border-dashed
-                      border-black/10
-                    "
-                  />
+                <div className="relative flex h-16 w-16 rotate-[-8deg] items-center justify-center rounded-full border border-black/10">
+                  <span className="absolute inset-2 rounded-full border border-dashed border-black/10" />
 
                   <span className="font-serif text-xl italic tracking-[-0.05em] text-black/25">
                     KD

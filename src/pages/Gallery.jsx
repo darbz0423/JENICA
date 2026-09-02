@@ -26,15 +26,40 @@ export default function Gallery() {
     x: 50,
     y: 35,
   });
-  const [viewerDirection, setViewerDirection] = useState(0);
-  const [isViewerReady, setIsViewerReady] = useState(false);
-  const [swipeOffset, setSwipeOffset] = useState(0);
-  const [isSwiping, setIsSwiping] = useState(false);
+
+  const [viewerDirection, setViewerDirection] =
+    useState(0);
+
+  const [isViewerReady, setIsViewerReady] =
+    useState(false);
+
+  const [swipeOffset, setSwipeOffset] =
+    useState(0);
+
+  const [isSwiping, setIsSwiping] =
+    useState(false);
 
   const selectedRef = useRef(null);
-  const viewerHistoryActiveRef = useRef(false);
-  const historyLockRef = useRef(false);
-  const mountedRef = useRef(true);
+
+  const mountedRef = useRef(false);
+
+  /*
+   * Prevent duplicate history restoration.
+   */
+  const restoringHistoryRef = useRef(false);
+
+  /*
+   * Tracks whether the temporary viewer
+   * history entry currently exists.
+   */
+  const viewerHistoryActiveRef =
+    useRef(false);
+
+  /*
+   * Used when manually closing the viewer.
+   */
+  const closingViewerRef =
+    useRef(false);
 
   const touchStartRef = useRef({
     x: 0,
@@ -89,41 +114,83 @@ export default function Gallery() {
 
   /*
    * ============================================================
-   * PROTECTED GALLERY HISTORY
+   * CREATE / MAINTAIN PROTECTED GALLERY BASE STATE
    *
-   * This page becomes a protected main page.
+   * The Gallery itself always has a protected
+   * browser history state.
    *
-   * Back priority:
-   *
-   * 1. Viewer open -> close viewer
-   * 2. Viewer closed -> remain on Gallery
-   *
+   * This does NOT repeatedly push history entries.
+   * It replaces the current route state safely.
    * ============================================================
    */
 
   useEffect(() => {
-    const currentState = window.history.state;
+    const currentState = window.history.state || {};
 
-    if (!currentState?.galleryProtected) {
+    if (
+      !currentState.galleryProtected ||
+      currentState.galleryViewer
+    ) {
       window.history.replaceState(
         {
-          ...(currentState || {}),
+          ...currentState,
           galleryProtected: true,
           galleryBase: true,
+          galleryViewer: false,
         },
         "",
         window.location.href
       );
     }
+
+    viewerHistoryActiveRef.current = false;
   }, []);
+
+  /*
+   * ============================================================
+   * RESTORE PROTECTED GALLERY STATE
+   *
+   * Used when the user presses Back while
+   * already on the Gallery page.
+   *
+   * Push exactly one replacement protection state.
+   * ============================================================
+   */
+
+  const restoreGalleryProtection =
+    useCallback(() => {
+      if (restoringHistoryRef.current) return;
+
+      restoringHistoryRef.current = true;
+
+      const currentState =
+        window.history.state || {};
+
+      window.history.pushState(
+        {
+          ...currentState,
+          galleryProtected: true,
+          galleryBase: true,
+          galleryViewer: false,
+        },
+        "",
+        window.location.href
+      );
+
+      window.setTimeout(() => {
+        restoringHistoryRef.current = false;
+      }, 120);
+    }, []);
 
   /*
    * ============================================================
    * OPEN PHOTO
    *
-   * Push exactly ONE history state for the viewer.
-   * Navigating between photos does NOT push more states.
+   * Creates exactly ONE temporary viewer history
+   * state.
    *
+   * Opening other photos does not push additional
+   * history entries.
    * ============================================================
    */
 
@@ -132,6 +199,7 @@ export default function Gallery() {
 
     setViewerDirection(0);
     setSwipeOffset(0);
+    setIsSwiping(false);
     setIsViewerReady(false);
 
     setSelected(photo);
@@ -149,6 +217,19 @@ export default function Gallery() {
         {
           ...(window.history.state || {}),
           galleryProtected: true,
+          galleryBase: false,
+          galleryViewer: true,
+          photoId: photo.id,
+        },
+        "",
+        window.location.href
+      );
+    } else {
+      window.history.replaceState(
+        {
+          ...(window.history.state || {}),
+          galleryProtected: true,
+          galleryBase: false,
           galleryViewer: true,
           photoId: photo.id,
         },
@@ -160,44 +241,56 @@ export default function Gallery() {
 
   /*
    * ============================================================
-   * CLOSE VIEWER
+   * CLOSE VIEWER VISUALLY
    *
-   * Clicking close should remove the temporary viewer state.
+   * Used by browser Back and history navigation.
    *
-   * Browser Back / swipe-back is handled separately by popstate.
+   * Does NOT call history.back().
+   * ============================================================
+   */
+
+  const closeViewerUI = useCallback(() => {
+    setIsViewerReady(false);
+    setSwipeOffset(0);
+    setIsSwiping(false);
+    setSelected(null);
+  }, []);
+
+  /*
+   * ============================================================
+   * CLOSE PHOTO MANUALLY
    *
+   * Clicking X or outside the image:
+   *
+   * Viewer closes.
+   * Temporary viewer history state is removed.
+   * Gallery remains protected.
    * ============================================================
    */
 
   const closePhoto = useCallback(() => {
     if (!selectedRef.current) return;
 
-    setIsViewerReady(false);
-    setSwipeOffset(0);
-    setSelected(null);
+    closeViewerUI();
 
-    if (
-      viewerHistoryActiveRef.current &&
-      !historyLockRef.current
-    ) {
+    if (viewerHistoryActiveRef.current) {
+      closingViewerRef.current = true;
       viewerHistoryActiveRef.current = false;
-      historyLockRef.current = true;
 
       window.history.back();
 
       window.setTimeout(() => {
-        historyLockRef.current = false;
-      }, 100);
+        closingViewerRef.current = false;
+      }, 150);
     }
-  }, []);
+  }, [closeViewerUI]);
 
   /*
    * ============================================================
    * CHANGE PHOTO
    *
-   * Replaces the current viewer history state.
-   * Does not create duplicate history entries.
-   *
+   * Replace current viewer state.
+   * No duplicate browser history entries.
    * ============================================================
    */
 
@@ -206,10 +299,12 @@ export default function Gallery() {
       if (!photos.length) return;
 
       const normalizedIndex =
-        ((nextIndex % photos.length) + photos.length) %
+        ((nextIndex % photos.length) +
+          photos.length) %
         photos.length;
 
-      const nextPhoto = photos[normalizedIndex];
+      const nextPhoto =
+        photos[normalizedIndex];
 
       if (!nextPhoto) return;
 
@@ -222,6 +317,7 @@ export default function Gallery() {
           {
             ...(window.history.state || {}),
             galleryProtected: true,
+            galleryBase: false,
             galleryViewer: true,
             photoId: nextPhoto.id,
           },
@@ -237,88 +333,135 @@ export default function Gallery() {
     (event) => {
       event?.stopPropagation();
 
-      if (!photos.length || selectedIndex < 0) return;
+      if (
+        !photos.length ||
+        selectedIndex < 0
+      ) {
+        return;
+      }
 
-      goToPhoto(selectedIndex + 1, 1);
+      goToPhoto(
+        selectedIndex + 1,
+        1
+      );
     },
-    [photos.length, selectedIndex, goToPhoto]
+    [
+      photos.length,
+      selectedIndex,
+      goToPhoto,
+    ]
   );
 
   const previousPhoto = useCallback(
     (event) => {
       event?.stopPropagation();
 
-      if (!photos.length || selectedIndex < 0) return;
+      if (
+        !photos.length ||
+        selectedIndex < 0
+      ) {
+        return;
+      }
 
-      goToPhoto(selectedIndex - 1, -1);
+      goToPhoto(
+        selectedIndex - 1,
+        -1
+      );
     },
-    [photos.length, selectedIndex, goToPhoto]
+    [
+      photos.length,
+      selectedIndex,
+      goToPhoto,
+    ]
   );
 
   /*
    * ============================================================
    * PROTECTED BROWSER BACK / MOBILE SWIPE-BACK
    *
-   * This is the important navigation logic.
+   * PRIORITY:
    *
-   * If photo viewer is open:
-   *     Back -> close viewer -> remain Gallery
+   * 1. Viewer open
+   *    -> Close viewer
    *
-   * If Gallery is already visible:
-   *     Back -> consume navigation -> remain Gallery
+   * 2. Gallery visible
+   *    -> Consume navigation
+   *    -> Stay on Gallery
    *
    * ============================================================
    */
 
   useEffect(() => {
-    const handlePopState = () => {
+    const handlePopState = (event) => {
+      const nextState =
+        event.state || {};
+
       /*
-       * PRIORITY 1:
+       * --------------------------------------------------------
+       * MANUAL CLOSE
        *
-       * A photo viewer is open.
+       * We intentionally called history.back()
+       * after clicking the close button.
        *
-       * Browser Back / Android Back /
-       * iPhone swipe-back should ONLY close viewer.
+       * The UI is already closed.
+       * --------------------------------------------------------
        */
 
-      if (selectedRef.current) {
-        viewerHistoryActiveRef.current = false;
+      if (closingViewerRef.current) {
+        closingViewerRef.current = false;
 
-        setIsViewerReady(false);
-        setSwipeOffset(0);
-        setSelected(null);
+        window.history.replaceState(
+          {
+            ...nextState,
+            galleryProtected: true,
+            galleryBase: true,
+            galleryViewer: false,
+          },
+          "",
+          window.location.href
+        );
 
         return;
       }
 
       /*
-       * PRIORITY 2:
+       * --------------------------------------------------------
+       * PRIORITY 1:
+       * VIEWER IS OPEN
        *
-       * Gallery itself is protected.
-       *
-       * Restore the current Gallery route/state.
+       * Back / Android Back / browser Back /
+       * iOS history navigation closes only viewer.
+       * --------------------------------------------------------
        */
 
-      if (historyLockRef.current) return;
+      if (selectedRef.current) {
+        viewerHistoryActiveRef.current = false;
 
-      historyLockRef.current = true;
+        closeViewerUI();
 
-      window.history.pushState(
-        {
-          ...(window.history.state || {}),
-          galleryProtected: true,
-          galleryBase: true,
-        },
-        "",
-        window.location.href
-      );
+        return;
+      }
 
-      window.setTimeout(() => {
-        historyLockRef.current = false;
-      }, 80);
+      /*
+       * --------------------------------------------------------
+       * PRIORITY 2:
+       * GALLERY IS PROTECTED
+       *
+       * The user attempted to leave the Gallery.
+       *
+       * Restore a protected Gallery history entry.
+       * --------------------------------------------------------
+       */
+
+      if (!nextState.galleryViewer) {
+        restoreGalleryProtection();
+      }
     };
 
-    window.addEventListener("popstate", handlePopState);
+    window.addEventListener(
+      "popstate",
+      handlePopState
+    );
 
     return () => {
       window.removeEventListener(
@@ -326,11 +469,14 @@ export default function Gallery() {
         handlePopState
       );
     };
-  }, []);
+  }, [
+    closeViewerUI,
+    restoreGalleryProtection,
+  ]);
 
   /*
    * ============================================================
-   * VIEWER KEYBOARD
+   * KEYBOARD
    * ============================================================
    */
 
@@ -340,7 +486,8 @@ export default function Gallery() {
     const previousOverflow =
       document.body.style.overflow;
 
-    document.body.style.overflow = "hidden";
+    document.body.style.overflow =
+      "hidden";
 
     const handleKey = (event) => {
       if (event.key === "Escape") {
@@ -381,16 +528,16 @@ export default function Gallery() {
    * ============================================================
    * MOBILE PHOTO SWIPE
    *
-   * Swipe LEFT  -> Next photo
-   * Swipe RIGHT -> Previous photo
-   *
+   * LEFT  -> NEXT
+   * RIGHT -> PREVIOUS
    * ============================================================
    */
 
   const handleTouchStart = (event) => {
     if (!event.touches?.length) return;
 
-    const touch = event.touches[0];
+    const touch =
+      event.touches[0];
 
     touchStartRef.current = {
       x: touch.clientX,
@@ -409,7 +556,8 @@ export default function Gallery() {
   const handleTouchMove = (event) => {
     if (!isSwiping) return;
 
-    const touch = event.touches?.[0];
+    const touch =
+      event.touches?.[0];
 
     if (!touch) return;
 
@@ -419,19 +567,32 @@ export default function Gallery() {
     };
 
     const deltaX =
-      touch.clientX - touchStartRef.current.x;
+      touch.clientX -
+      touchStartRef.current.x;
 
     const deltaY =
-      touch.clientY - touchStartRef.current.y;
+      touch.clientY -
+      touchStartRef.current.y;
 
     /*
-     * Only use horizontal movement.
+     * Only capture deliberate horizontal swipes.
      */
 
-    if (Math.abs(deltaX) > Math.abs(deltaY)) {
+    if (
+      Math.abs(deltaX) >
+      Math.abs(deltaY)
+    ) {
       event.preventDefault();
 
-      setSwipeOffset(deltaX * 0.7);
+      setSwipeOffset(
+        Math.max(
+          -180,
+          Math.min(
+            180,
+            deltaX * 0.72
+          )
+        )
+      );
     }
   };
 
@@ -447,7 +608,8 @@ export default function Gallery() {
       touchStartRef.current.time;
 
     const velocity =
-      Math.abs(deltaX) / Math.max(elapsed, 1);
+      Math.abs(deltaX) /
+      Math.max(elapsed, 1);
 
     const shouldChangePhoto =
       Math.abs(deltaX) > 70 ||
@@ -471,7 +633,9 @@ export default function Gallery() {
    * ============================================================
    */
 
-  const handlePointerMove = (event) => {
+  const handlePointerMove = (
+    event
+  ) => {
     if (window.innerWidth < 1024) return;
 
     setCursor({
@@ -512,7 +676,8 @@ export default function Gallery() {
   ];
 
   const viewerProgress =
-    selectedIndex >= 0 && photos.length
+    selectedIndex >= 0 &&
+    photos.length
       ? ((selectedIndex + 1) /
           photos.length) *
         100
@@ -533,16 +698,14 @@ export default function Gallery() {
         sm:pt-32
         lg:px-10
       "
-      onPointerMove={handlePointerMove}
+      onPointerMove={
+        handlePointerMove
+      }
     >
-      {/* ======================================================
-          BACKGROUND UNIVERSE
-      ====================================================== */}
+      {/* BACKGROUND */}
 
       <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
         <div className="absolute inset-0 bg-[#020202]" />
-
-        {/* Desktop cursor glow */}
 
         <div
           className="
@@ -566,8 +729,6 @@ export default function Gallery() {
           }}
         />
 
-        {/* Main atmosphere */}
-
         <div
           className="
             absolute
@@ -584,48 +745,14 @@ export default function Gallery() {
           "
         />
 
-        <div
-          className="
-            absolute
-            -left-48
-            top-[60%]
-            hidden
-            h-[500px]
-            w-[500px]
-            rounded-full
-            bg-amber-100/[0.015]
-            blur-[130px]
-            sm:block
-          "
-        />
-
-        <div
-          className="
-            absolute
-            -right-48
-            top-[15%]
-            hidden
-            h-[500px]
-            w-[500px]
-            rounded-full
-            bg-blue-300/[0.014]
-            blur-[130px]
-            sm:block
-          "
-        />
-
         <div className="gallery-grid absolute inset-0 opacity-[0.018]" />
 
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_30%,transparent_18%,rgba(0,0,0,.78)_100%)]" />
 
         <div className="gallery-noise absolute inset-0 opacity-[0.018]" />
-
-        <div className="absolute left-0 right-0 top-0 h-56 bg-gradient-to-b from-black via-black/40 to-transparent" />
       </div>
 
-      {/* ======================================================
-          TOP IDENTIFIER
-      ====================================================== */}
+      {/* HEADER */}
 
       <header className="relative mx-auto max-w-7xl">
         <div className="flex items-center justify-between">
@@ -664,10 +791,6 @@ export default function Gallery() {
           </div>
         </div>
 
-        {/* ====================================================
-            HERO
-        ==================================================== */}
-
         <div className="mt-16 sm:mt-20 lg:mt-24">
           <div className="grid gap-10 lg:grid-cols-[1fr_auto] lg:items-end">
             <div>
@@ -675,7 +798,8 @@ export default function Gallery() {
                 <span className="h-px w-8 bg-white/20" />
 
                 <p className="font-mono text-[6px] uppercase tracking-[0.45em] text-white/15">
-                  ARCHIVE 001 / PERSONAL COLLECTION
+                  ARCHIVE 001 /
+                  PERSONAL COLLECTION
                 </p>
               </div>
 
@@ -701,13 +825,14 @@ export default function Gallery() {
 
               <div className="mt-8 max-w-xl">
                 <p className="font-serif text-[17px] leading-[1.8] text-white/30 sm:text-xl">
-                  Some moments disappear the second
-                  they happen. Others stay somewhere
-                  inside us.
+                  Some moments disappear the
+                  second they happen. Others stay
+                  somewhere inside us.
                 </p>
 
                 <p className="mt-2 font-serif text-[17px] italic leading-[1.8] text-white/55 sm:text-xl">
-                  These are the ones worth keeping.
+                  These are the ones worth
+                  keeping.
                 </p>
               </div>
             </div>
@@ -719,10 +844,9 @@ export default function Gallery() {
                 </p>
 
                 <p className="mt-1 font-display text-4xl leading-none text-white/60 sm:text-5xl">
-                  {String(photos.length).padStart(
-                    2,
-                    "0"
-                  )}
+                  {String(
+                    photos.length
+                  ).padStart(2, "0")}
                 </p>
               </div>
 
@@ -758,15 +882,9 @@ export default function Gallery() {
         </div>
       </header>
 
-      {/* ======================================================
-          MEMORY FIELD
-      ====================================================== */}
+      {/* PHOTO GRID */}
 
       <section className="relative mx-auto mt-20 max-w-7xl sm:mt-28 lg:mt-32">
-        <div className="pointer-events-none absolute left-1/2 top-[40%] hidden h-[800px] w-[800px] -translate-x-1/2 rounded-full border border-white/[0.018] lg:block" />
-
-        <div className="pointer-events-none absolute left-1/2 top-[40%] hidden h-[560px] w-[560px] -translate-x-1/2 rounded-full border border-dashed border-white/[0.012] lg:block" />
-
         <div
           className="
             grid
@@ -780,410 +898,203 @@ export default function Gallery() {
             lg:gap-y-32
           "
         >
-          {photos.map((photo, index) => {
-            const isHovered =
-              hovered === index;
+          {photos.map(
+            (photo, index) => {
+              const isHovered =
+                hovered === index;
 
-            return (
-              <article
-                key={photo.id}
-                className={`
-                  relative
-                  ${layouts[
-                    index % layouts.length
-                  ]}
-                `}
-              >
-                {/* Memory index */}
-
-                <div
+              return (
+                <article
+                  key={photo.id}
                   className={`
-                    absolute
-                    -top-8
-                    left-0
-                    z-30
-                    flex
-                    items-center
-                    gap-2
-                    transition-all
-                    duration-500
-                    ${
-                      isHovered
-                        ? "translate-x-2 opacity-100"
-                        : "opacity-40"
-                    }
-                  `}
-                >
-                  <CircleDot
-                    size={7}
-                    strokeWidth={1}
-                    className="text-white/20"
-                  />
-
-                  <span className="font-mono text-[5px] uppercase tracking-[0.4em] text-white/20">
-                    MEMORY
-                  </span>
-
-                  <span className="font-display text-lg leading-none text-white/20">
-                    {String(index + 1).padStart(
-                      2,
-                      "0"
-                    )}
-                  </span>
-                </div>
-
-                {/* Photo */}
-
-                <button
-                  type="button"
-                  onClick={() => openPhoto(photo)}
-                  onMouseEnter={() =>
-                    setHovered(index)
-                  }
-                  onMouseLeave={() =>
-                    setHovered(null)
-                  }
-                  onFocus={() =>
-                    setHovered(index)
-                  }
-                  onBlur={() =>
-                    setHovered(null)
-                  }
-                  className={`
-                    group
                     relative
-                    block
-                    w-full
-                    text-left
-                    ${rotations[
-                      index % rotations.length
-                    ]}
                     ${
-                      isHovered
-                        ? "z-30 lg:scale-[1.025] lg:rotate-0"
-                        : "z-10"
+                      layouts[
+                        index %
+                          layouts.length
+                      ]
                     }
-                    transition-transform
-                    duration-700
-                    ease-[cubic-bezier(.22,1,.36,1)]
                   `}
                 >
-                  {/* Glow */}
-
-                  <div
-                    className={`
-                      pointer-events-none
-                      absolute
-                      -inset-8
-                      rounded-[40px]
-                      bg-violet-200/[0.025]
-                      blur-3xl
-                      transition-opacity
-                      duration-700
-                      ${
-                        isHovered
-                          ? "opacity-100"
-                          : "opacity-0"
-                      }
-                    `}
-                  />
-
-                  {/* Polaroid */}
-
-                  <div
-                    className="
-                      relative
-                      overflow-hidden
-                      rounded-[3px]
-                      border
-                      border-black/10
-                      bg-[#e9e6df]
-                      p-2
-                      pb-20
-                      shadow-[0_25px_70px_rgba(0,0,0,.65)]
-                      transition-shadow
-                      duration-700
-                      sm:p-3
-                      sm:pb-24
-                      lg:group-hover:shadow-[0_35px_100px_rgba(0,0,0,.85)]
-                    "
-                  >
-                    <div className="paper-noise pointer-events-none absolute inset-0 opacity-[0.045]" />
-
-                    <div className="pointer-events-none absolute inset-x-0 top-0 h-20 bg-gradient-to-b from-white/30 to-transparent opacity-30" />
-
-                    {/* Image */}
-
-                    <div className="relative aspect-[4/5] overflow-hidden bg-black">
-                      <img
-                        src={photo.image}
-                        alt={photo.title}
-                        loading={
-                          index < 2
-                            ? "eager"
-                            : "lazy"
-                        }
-                        decoding="async"
-                        draggable="false"
-                        className={`
-                          h-full
-                          w-full
-                          object-cover
-                          transition-transform
-                          duration-[1400ms]
-                          ease-[cubic-bezier(.22,1,.36,1)]
-                          ${
-                            isHovered
-                              ? "lg:scale-[1.08]"
-                              : "scale-100"
-                          }
-                        `}
-                      />
-
-                      {/* Image overlay */}
-
-                      <div
-                        className={`
-                          pointer-events-none
-                          absolute
-                          inset-0
-                          bg-gradient-to-t
-                          from-black/75
-                          via-transparent
-                          to-black/25
-                          transition-opacity
-                          duration-700
-                          ${
-                            isHovered
-                              ? "opacity-30"
-                              : "opacity-60"
-                          }
-                        `}
-                      />
-
-                      {/* Film frame */}
-
-                      <div
-                        className={`
-                          pointer-events-none
-                          absolute
-                          inset-3
-                          border
-                          transition-all
-                          duration-700
-                          ${
-                            isHovered
-                              ? "border-white/35"
-                              : "border-white/0"
-                          }
-                        `}
-                      />
-
-                      {/* Scan */}
-
-                      <span
-                        className={`
-                          pointer-events-none
-                          absolute
-                          left-0
-                          top-0
-                          h-px
-                          w-full
-                          bg-gradient-to-r
-                          from-transparent
-                          via-white/70
-                          to-transparent
-                          ${
-                            isHovered
-                              ? "animate-photoScan"
-                              : "opacity-0"
-                          }
-                        `}
-                      />
-
-                      {/* Center focus */}
-
-                      <div
-                        className={`
-                          pointer-events-none
-                          absolute
-                          left-1/2
-                          top-1/2
-                          -translate-x-1/2
-                          -translate-y-1/2
-                          transition-all
-                          duration-500
-                          ${
-                            isHovered
-                              ? "scale-100 opacity-100"
-                              : "scale-75 opacity-0"
-                          }
-                        `}
-                      >
-                        <span className="absolute left-1/2 top-1/2 h-6 w-px -translate-x-1/2 -translate-y-1/2 bg-white/50" />
-
-                        <span className="absolute left-1/2 top-1/2 h-px w-6 -translate-x-1/2 -translate-y-1/2 bg-white/50" />
-
-                        <span className="absolute left-1/2 top-1/2 h-10 w-10 -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/20" />
-                      </div>
-
-                      {/* Frame number */}
-
-                      <div className="absolute right-3 top-3">
-                        <span className="font-mono text-[5px] tracking-[0.3em] text-white/35">
-                          {String(index + 1).padStart(
-                            2,
-                            "0"
-                          )}
-                        </span>
-                      </div>
-
-                      {/* Camera indicator */}
-
-                      <div className="absolute bottom-3 left-3 flex items-center gap-2">
-                        <Camera
-                          size={9}
-                          strokeWidth={1}
-                          className="text-white/30"
-                        />
-
-                        <span className="font-mono text-[5px] tracking-[0.25em] text-white/30">
-                          ARCHIVE
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Polaroid information */}
-
-                    <div
-                      className="
-                        absolute
-                        bottom-0
-                        left-0
-                        right-0
-                        flex
-                        items-end
-                        justify-between
-                        px-4
-                        pb-4
-                        sm:px-5
-                        sm:pb-5
-                      "
-                    >
-                      <div>
-                        <p className="font-serif text-sm text-black/75 sm:text-base">
-                          {photo.title}
-                        </p>
-
-                        <p className="mt-1 font-mono text-[5px] uppercase tracking-[0.35em] text-black/30">
-                          {photo.date}
-                        </p>
-                      </div>
-
-                      <div className="text-right">
-                        <p className="font-mono text-[5px] uppercase tracking-[0.25em] text-black/20">
-                          FRAME
-                        </p>
-
-                        <p className="font-display text-xl leading-none text-black/20">
-                          {String(index + 1).padStart(
-                            2,
-                            "0"
-                          )}
-                        </p>
-                      </div>
-                    </div>
-
-                    {/* Frame corners */}
-
-                    <span className="absolute left-2 top-2 h-4 w-4 border-l border-t border-black/10" />
-
-                    <span className="absolute right-2 top-2 h-4 w-4 border-r border-t border-black/10" />
-
-                    <span className="absolute bottom-2 left-2 h-4 w-4 border-b border-l border-black/10" />
-
-                    <span className="absolute bottom-2 right-2 h-4 w-4 border-b border-r border-black/10" />
-                  </div>
-
-                  {/* Open memory */}
-
                   <div
                     className={`
                       absolute
-                      -bottom-10
-                      left-1/2
-                      -translate-x-1/2
-                      whitespace-nowrap
+                      -top-8
+                      left-0
+                      z-30
+                      flex
+                      items-center
+                      gap-2
                       transition-all
                       duration-500
                       ${
                         isHovered
-                          ? "translate-y-0 opacity-100"
-                          : "translate-y-2 opacity-0"
+                          ? "translate-x-2 opacity-100"
+                          : "opacity-40"
                       }
                     `}
                   >
-                    <span className="flex items-center gap-2 font-mono text-[5px] uppercase tracking-[0.4em] text-white/40">
-                      Open memory
+                    <CircleDot
+                      size={7}
+                      strokeWidth={1}
+                      className="text-white/20"
+                    />
 
-                      <ArrowUpRight
-                        size={9}
-                        strokeWidth={1}
-                      />
+                    <span className="font-mono text-[5px] uppercase tracking-[0.4em] text-white/20">
+                      MEMORY
+                    </span>
+
+                    <span className="font-display text-lg leading-none text-white/20">
+                      {String(
+                        index + 1
+                      ).padStart(2, "0")}
                     </span>
                   </div>
-                </button>
-              </article>
-            );
-          })}
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      openPhoto(photo)
+                    }
+                    onMouseEnter={() =>
+                      setHovered(index)
+                    }
+                    onMouseLeave={() =>
+                      setHovered(null)
+                    }
+                    onFocus={() =>
+                      setHovered(index)
+                    }
+                    onBlur={() =>
+                      setHovered(null)
+                    }
+                    className={`
+                      group
+                      relative
+                      block
+                      w-full
+                      text-left
+                      ${
+                        rotations[
+                          index %
+                            rotations.length
+                        ]
+                      }
+                      ${
+                        isHovered
+                          ? "z-30 lg:scale-[1.025] lg:rotate-0"
+                          : "z-10"
+                      }
+                      transition-transform
+                      duration-700
+                      ease-[cubic-bezier(.22,1,.36,1)]
+                    `}
+                  >
+                    <div
+                      className="
+                        relative
+                        overflow-hidden
+                        rounded-[3px]
+                        border
+                        border-black/10
+                        bg-[#e9e6df]
+                        p-2
+                        pb-20
+                        shadow-[0_25px_70px_rgba(0,0,0,.65)]
+                        sm:p-3
+                        sm:pb-24
+                      "
+                    >
+                      <div className="paper-noise pointer-events-none absolute inset-0 opacity-[0.045]" />
+
+                      <div className="relative aspect-[4/5] overflow-hidden bg-black">
+                        <img
+                          src={photo.image}
+                          alt={photo.title}
+                          loading={
+                            index < 2
+                              ? "eager"
+                              : "lazy"
+                          }
+                          decoding="async"
+                          draggable="false"
+                          className={`
+                            h-full
+                            w-full
+                            object-cover
+                            transition-transform
+                            duration-[1400ms]
+                            ease-[cubic-bezier(.22,1,.36,1)]
+                            ${
+                              isHovered
+                                ? "lg:scale-[1.08]"
+                                : "scale-100"
+                            }
+                          `}
+                        />
+
+                        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/75 via-transparent to-black/25" />
+
+                        <div className="absolute right-3 top-3">
+                          <span className="font-mono text-[5px] tracking-[0.3em] text-white/35">
+                            {String(
+                              index + 1
+                            ).padStart(
+                              2,
+                              "0"
+                            )}
+                          </span>
+                        </div>
+
+                        <div className="absolute bottom-3 left-3 flex items-center gap-2">
+                          <Camera
+                            size={9}
+                            strokeWidth={1}
+                            className="text-white/30"
+                          />
+
+                          <span className="font-mono text-[5px] tracking-[0.25em] text-white/30">
+                            ARCHIVE
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="absolute bottom-0 left-0 right-0 flex items-end justify-between px-4 pb-4 sm:px-5 sm:pb-5">
+                        <div>
+                          <p className="font-serif text-sm text-black/75 sm:text-base">
+                            {photo.title}
+                          </p>
+
+                          <p className="mt-1 font-mono text-[5px] uppercase tracking-[0.35em] text-black/30">
+                            {photo.date}
+                          </p>
+                        </div>
+
+                        <div className="text-right">
+                          <p className="font-mono text-[5px] uppercase tracking-[0.25em] text-black/20">
+                            FRAME
+                          </p>
+
+                          <p className="font-display text-xl leading-none text-black/20">
+                            {String(
+                              index + 1
+                            ).padStart(
+                              2,
+                              "0"
+                            )}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </button>
+                </article>
+              );
+            }
+          )}
         </div>
       </section>
 
-      {/* ======================================================
-          ARCHIVE END
-      ====================================================== */}
-
-      <footer className="relative mx-auto mt-36 max-w-7xl sm:mt-48">
-        <div className="flex items-center gap-4">
-          <span className="h-px flex-1 bg-white/[0.06]" />
-
-          <div className="text-center">
-            <div className="mx-auto flex h-9 w-9 items-center justify-center rounded-full border border-white/[0.08]">
-              <span className="font-display text-[10px] tracking-[-0.05em] text-white/25">
-                KD
-              </span>
-            </div>
-
-            <p className="mt-4 font-mono text-[5px] uppercase tracking-[0.5em] text-white/15">
-              END OF ARCHIVE
-            </p>
-
-            <p className="mt-2 font-serif text-sm italic text-white/20">
-              Some memories deserve another look.
-            </p>
-          </div>
-
-          <span className="h-px flex-1 bg-white/[0.06]" />
-        </div>
-      </footer>
-
-      {/* ======================================================
-          MOBILE HINT
-      ====================================================== */}
-
-      <div className="mt-16 flex items-center justify-center gap-3 sm:mt-20">
-        <span className="h-px w-8 bg-white/[0.06]" />
-
-        <span className="font-mono text-[5px] uppercase tracking-[0.45em] text-white/10">
-          Tap a photograph
-        </span>
-
-        <span className="h-px w-8 bg-white/[0.06]" />
-      </div>
-
-      {/* ======================================================
-          CINEMATIC PHOTO VIEWER
-      ====================================================== */}
+      {/* VIEWER */}
 
       {selected && (
         <div
@@ -1208,9 +1119,7 @@ export default function Gallery() {
           `}
           onClick={closePhoto}
         >
-          {/* ==================================================
-              VIEWER BACKGROUND
-          ================================================== */}
+          {/* BACKGROUND */}
 
           <div className="pointer-events-none absolute inset-0 overflow-hidden">
             <img
@@ -1234,33 +1143,11 @@ export default function Gallery() {
             <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_45%,rgba(139,92,246,.08),transparent_45%)]" />
 
             <div className="viewer-noise absolute inset-0 opacity-[0.025]" />
-
-            {/* Orbital glow */}
-
-            <div className="absolute left-1/2 top-1/2 h-[700px] w-[700px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/[0.018]" />
-
-            <div className="absolute left-1/2 top-1/2 h-[500px] w-[500px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-dashed border-white/[0.012]" />
           </div>
 
-          {/* ==================================================
-              TOP BAR
-          ================================================== */}
+          {/* TOP BAR */}
 
-          <div
-            className="
-              absolute
-              left-4
-              right-4
-              top-4
-              z-[320]
-              flex
-              items-start
-              justify-between
-              sm:left-8
-              sm:right-8
-              sm:top-8
-            "
-          >
+          <div className="absolute left-4 right-4 top-4 z-[320] flex items-start justify-between sm:left-8 sm:right-8 sm:top-8">
             <div>
               <div className="flex items-center gap-2">
                 <Sparkles
@@ -1274,7 +1161,7 @@ export default function Gallery() {
                 </p>
               </div>
 
-              <p className="mt-3 max-w-[220px] font-display text-xl leading-none text-white/75 sm:max-w-none sm:text-3xl">
+              <p className="mt-3 font-display text-xl leading-none text-white/75 sm:text-3xl">
                 {selected.title}
               </p>
 
@@ -1297,7 +1184,6 @@ export default function Gallery() {
                 closePhoto();
               }}
               className="
-                group
                 flex
                 h-11
                 w-11
@@ -1327,9 +1213,7 @@ export default function Gallery() {
             </button>
           </div>
 
-          {/* ==================================================
-              IMAGE
-          ================================================== */}
+          {/* IMAGE */}
 
           <div
             className="
@@ -1345,18 +1229,20 @@ export default function Gallery() {
             onClick={(event) =>
               event.stopPropagation()
             }
-            onTouchStart={handleTouchStart}
-            onTouchMove={handleTouchMove}
-            onTouchEnd={handleTouchEnd}
+            onTouchStart={
+              handleTouchStart
+            }
+            onTouchMove={
+              handleTouchMove
+            }
+            onTouchEnd={
+              handleTouchEnd
+            }
             style={{
               touchAction: "pan-y",
             }}
           >
-            {/* Image glow */}
-
             <div className="pointer-events-none absolute -inset-10 rounded-full bg-violet-200/[0.025] blur-3xl" />
-
-            {/* Image */}
 
             <img
               src={selected.image}
@@ -1382,11 +1268,13 @@ export default function Gallery() {
                 }
               `}
               style={{
-                transform: `translateX(${swipeOffset}px)`,
+                transform: `
+                  translateX(
+                    ${swipeOffset}px
+                  )
+                `,
               }}
             />
-
-            {/* Film corners */}
 
             <span className="pointer-events-none absolute -left-2 -top-2 h-7 w-7 border-l border-t border-white/25 sm:-left-4 sm:-top-4 sm:h-10 sm:w-10" />
 
@@ -1395,15 +1283,9 @@ export default function Gallery() {
             <span className="pointer-events-none absolute -bottom-2 -left-2 h-7 w-7 border-b border-l border-white/25 sm:-bottom-4 sm:-left-4 sm:h-10 sm:w-10" />
 
             <span className="pointer-events-none absolute -bottom-2 -right-2 h-7 w-7 border-b border-r border-white/25 sm:-bottom-4 sm:-right-4 sm:h-10 sm:w-10" />
-
-            {/* Scan line */}
-
-            <span className="pointer-events-none absolute left-0 top-0 h-px w-full animate-viewerScan bg-gradient-to-r from-transparent via-white/50 to-transparent" />
           </div>
 
-          {/* ==================================================
-              PREVIOUS
-          ================================================== */}
+          {/* PREVIOUS */}
 
           {photos.length > 1 && (
             <button
@@ -1445,9 +1327,7 @@ export default function Gallery() {
             </button>
           )}
 
-          {/* ==================================================
-              NEXT
-          ================================================== */}
+          {/* NEXT */}
 
           {photos.length > 1 && (
             <button
@@ -1489,27 +1369,12 @@ export default function Gallery() {
             </button>
           )}
 
-          {/* ==================================================
-              BOTTOM HUD
-          ================================================== */}
+          {/* BOTTOM HUD */}
 
-          <div
-            className="
-              absolute
-              bottom-5
-              left-1/2
-              z-[320]
-              w-[min(88vw,420px)]
-              -translate-x-1/2
-              text-center
-              sm:bottom-8
-            "
-          >
+          <div className="absolute bottom-5 left-1/2 z-[320] w-[min(88vw,420px)] -translate-x-1/2 text-center sm:bottom-8">
             <p className="font-mono text-[5px] uppercase tracking-[0.4em] text-white/20">
               {selected.date}
             </p>
-
-            {/* Progress */}
 
             <div className="mt-4 h-px w-full overflow-hidden bg-white/10">
               <div
@@ -1537,11 +1402,9 @@ export default function Gallery() {
             </div>
           </div>
 
-          {/* ==================================================
-              MOBILE SWIPE HINT
-          ================================================== */}
+          {/* MOBILE SWIPE HINT */}
 
-          <div className="absolute bottom-7 left-1/2 z-[320] hidden -translate-x-1/2 items-center gap-2 sm:hidden">
+          <div className="absolute bottom-20 left-1/2 z-[320] flex -translate-x-1/2 items-center gap-2 sm:hidden">
             <MoveHorizontal
               size={11}
               strokeWidth={1}
@@ -1553,7 +1416,7 @@ export default function Gallery() {
             </span>
           </div>
 
-          {/* Desktop keyboard hint */}
+          {/* DESKTOP HINT */}
 
           <div className="absolute bottom-7 right-8 hidden items-center gap-2 sm:flex">
             <Maximize2
@@ -1563,72 +1426,16 @@ export default function Gallery() {
             />
 
             <span className="font-mono text-[5px] uppercase tracking-[0.3em] text-white/15">
-              ARROWS TO NAVIGATE • ESC TO CLOSE
+              ARROWS TO NAVIGATE • ESC TO
+              CLOSE
             </span>
           </div>
         </div>
       )}
 
-      {/* ======================================================
-          CSS
-      ====================================================== */}
+      {/* CSS */}
 
       <style>{`
-        @keyframes photoScan {
-          0% {
-            transform: translateX(-100%);
-            opacity: 0;
-          }
-
-          20% {
-            opacity: 1;
-          }
-
-          80% {
-            opacity: 1;
-          }
-
-          100% {
-            transform: translateX(100%);
-            opacity: 0;
-          }
-        }
-
-        @keyframes viewerScan {
-          0% {
-            transform: translateY(-20%);
-            opacity: 0;
-          }
-
-          15% {
-            opacity: 0.45;
-          }
-
-          50% {
-            opacity: 0.2;
-          }
-
-          85% {
-            opacity: 0.45;
-          }
-
-          100% {
-            transform: translateY(120%);
-            opacity: 0;
-          }
-        }
-
-        .animate-photoScan {
-          animation:
-            photoScan 1.15s
-            cubic-bezier(.22,1,.36,1);
-        }
-
-        .animate-viewerScan {
-          animation:
-            viewerScan 3.5s linear infinite;
-        }
-
         .gallery-grid {
           background-image:
             linear-gradient(
@@ -1674,19 +1481,9 @@ export default function Gallery() {
           .paper-noise {
             opacity: .025;
           }
-
-          .animate-viewerScan {
-            animation-duration:
-              5s;
-          }
         }
 
         @media (prefers-reduced-motion: reduce) {
-          .animate-photoScan,
-          .animate-viewerScan {
-            animation: none;
-          }
-
           *,
           *::before,
           *::after {
