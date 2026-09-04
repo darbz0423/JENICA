@@ -13,26 +13,21 @@ import { useNavigate } from "react-router-dom";
 const TARGET_POINTS = 120;
 const MAX_POINTS = 1400;
 
-/*
-  Smaller distances = more accurate drawing.
+const MIN_POINT_DISTANCE = 1.15;
+const MOBILE_MIN_POINT_DISTANCE = 1.45;
 
-  Mobile needs a slightly larger value than desktop because
-  touch events can generate a very high number of points.
-*/
-const MIN_POINT_DISTANCE = 1.2;
-const MOBILE_MIN_POINT_DISTANCE = 1.8;
+const MAX_SEGMENT_DISTANCE = 6;
+const MOBILE_MAX_SEGMENT_DISTANCE = 7.5;
 
-/*
-  Maximum distance between rendered points.
-
-  When the pointer moves quickly, we interpolate intermediate
-  points so the line does not skip across the canvas.
-*/
-const MAX_SEGMENT_DISTANCE = 7;
-const MOBILE_MAX_SEGMENT_DISTANCE = 9;
-
-const PROGRESS_UPDATE_INTERVAL = 100;
+const PROGRESS_UPDATE_INTERVAL = 80;
 const NODE_INTERVAL = 28;
+
+/*
+  Prevent one extremely large queue from causing
+  a long frame on slower mobile devices.
+*/
+const MAX_POINTS_PER_FRAME_MOBILE = 180;
+const MAX_POINTS_PER_FRAME_DESKTOP = 320;
 
 const STAR_SENTENCES = [
   "A quiet star made for the moments that are impossible to forget.",
@@ -78,11 +73,19 @@ export default function Create() {
   const canvasRef = useRef(null);
   const ctxRef = useRef(null);
 
-  const rectRef = useRef({
+  /*
+    IMPORTANT:
+    All drawing coordinates are stored in CSS pixels.
+
+    The canvas backing store can have DPR scaling,
+    but pointer coordinates always remain in CSS pixels.
+
+    This makes mobile touch positioning accurate.
+  */
+  const canvasMetricsRef = useRef({
     width: 0,
     height: 0,
-    left: 0,
-    top: 0,
+    dpr: 1,
   });
 
   const isMobileRef = useRef(false);
@@ -97,24 +100,22 @@ export default function Create() {
   const drawingRef = useRef(false);
   const completedRef = useRef(false);
 
+  const activePointerIdRef = useRef(null);
+
   const pointCountRef = useRef(0);
 
   // =========================================================
   // PERFORMANCE
   // =========================================================
 
-  /*
-    Queue instead of keeping only one point.
-
-    This is the biggest accuracy improvement.
-    Fast movements no longer lose pointer positions.
-  */
   const pointQueueRef = useRef([]);
 
   const pointerFrameRef = useRef(null);
 
   const lastProgressUpdateRef = useRef(0);
   const revealTimeoutRef = useRef(null);
+
+  const resizeFrameRef = useRef(null);
 
   // =========================================================
   // UI STATE
@@ -129,22 +130,27 @@ export default function Create() {
   const [drawingImage, setDrawingImage] = useState("");
 
   // =========================================================
-  // DEVICE
+  // DEVICE DETECTION
   // =========================================================
 
   const updateDeviceType = useCallback(() => {
     if (typeof window === "undefined") return;
 
+    const coarsePointer =
+      window.matchMedia?.("(pointer: coarse)")?.matches ?? false;
+
     isMobileRef.current =
-      window.matchMedia?.("(pointer: coarse)").matches ||
+      coarsePointer ||
       window.innerWidth < 768;
   }, []);
 
   // =========================================================
-  // CANVAS BACKGROUND
+  // BACKGROUND
   // =========================================================
 
   const drawBackground = useCallback((ctx, width, height) => {
+    if (!ctx || width <= 0 || height <= 0) return;
+
     ctx.clearRect(0, 0, width, height);
 
     const gradient = ctx.createRadialGradient(
@@ -156,85 +162,149 @@ export default function Create() {
       Math.max(width, height) * 0.8
     );
 
-    gradient.addColorStop(0, "rgba(255,225,170,.055)");
-    gradient.addColorStop(0.3, "rgba(255,215,160,.018)");
-    gradient.addColorStop(1, "rgba(0,0,0,0)");
-
-    ctx.fillStyle = gradient;
-    ctx.fillRect(0, 0, width, height);
-
-    const centerGlow = ctx.createRadialGradient(
-      width / 2,
-      height / 2,
+    gradient.addColorStop(
       0,
-      width / 2,
-      height / 2,
-      Math.min(width, height) * 0.42
+      "rgba(255,225,170,.055)"
     );
 
-    centerGlow.addColorStop(0, "rgba(255,240,205,.035)");
-    centerGlow.addColorStop(1, "rgba(0,0,0,0)");
+    gradient.addColorStop(
+      0.3,
+      "rgba(255,215,160,.018)"
+    );
+
+    gradient.addColorStop(
+      1,
+      "rgba(0,0,0,0)"
+    );
+
+    ctx.fillStyle = gradient;
+
+    ctx.fillRect(
+      0,
+      0,
+      width,
+      height
+    );
+
+    const centerGlow =
+      ctx.createRadialGradient(
+        width / 2,
+        height / 2,
+        0,
+        width / 2,
+        height / 2,
+        Math.min(width, height) * 0.42
+      );
+
+    centerGlow.addColorStop(
+      0,
+      "rgba(255,240,205,.035)"
+    );
+
+    centerGlow.addColorStop(
+      1,
+      "rgba(0,0,0,0)"
+    );
 
     ctx.fillStyle = centerGlow;
-    ctx.fillRect(0, 0, width, height);
+
+    ctx.fillRect(
+      0,
+      0,
+      width,
+      height
+    );
   }, []);
 
   // =========================================================
   // DOT
   // =========================================================
 
-  const drawDot = useCallback((ctx, point, glow = false) => {
-    if (!ctx || !point) return;
+  const drawDot = useCallback(
+    (
+      ctx,
+      point,
+      enhanced = false
+    ) => {
+      if (!ctx || !point) return;
 
-    ctx.save();
+      ctx.save();
 
-    ctx.beginPath();
+      ctx.beginPath();
 
-    ctx.arc(
-      point.x,
-      point.y,
-      glow ? 2.1 : 1.65,
-      0,
-      Math.PI * 2
-    );
+      ctx.arc(
+        point.x,
+        point.y,
+        enhanced ? 2.05 : 1.55,
+        0,
+        Math.PI * 2
+      );
 
-    ctx.fillStyle = "rgba(255,240,210,.92)";
+      ctx.fillStyle =
+        "rgba(255,240,210,.94)";
 
-    if (glow) {
-      ctx.shadowColor = "rgba(255,225,170,.7)";
-      ctx.shadowBlur = 8;
-    }
+      if (enhanced) {
+        ctx.shadowColor =
+          "rgba(255,225,170,.65)";
 
-    ctx.fill();
+        ctx.shadowBlur = 8;
+      }
 
-    ctx.restore();
-  }, []);
+      ctx.fill();
+
+      ctx.restore();
+    },
+    []
+  );
 
   // =========================================================
-  // FAST DRAW SEGMENT
+  // DRAW SEGMENT
   // =========================================================
 
   const drawSegment = useCallback(
-    (ctx, previous, current, beforePrevious, enhanced = false) => {
-      if (!ctx || !previous || !current) return;
+    (
+      ctx,
+      previous,
+      current,
+      beforePrevious,
+      enhanced = false
+    ) => {
+      if (
+        !ctx ||
+        !previous ||
+        !current
+      ) {
+        return;
+      }
 
       ctx.save();
 
       ctx.lineCap = "round";
       ctx.lineJoin = "round";
 
+      /*
+        Final enhanced glow.
+        Only used after submission.
+      */
       if (enhanced) {
         ctx.beginPath();
 
-        ctx.strokeStyle = "rgba(255,220,160,.11)";
+        ctx.strokeStyle =
+          "rgba(255,220,160,.12)";
+
         ctx.lineWidth = 4;
 
-        ctx.shadowColor = "rgba(255,215,150,.18)";
-        ctx.shadowBlur = 8;
+        ctx.shadowColor =
+          "rgba(255,215,150,.2)";
+
+        ctx.shadowBlur = 9;
 
         if (beforePrevious) {
-          const midX = (previous.x + current.x) / 2;
-          const midY = (previous.y + current.y) / 2;
+          const midX =
+            (previous.x + current.x) / 2;
+
+          const midY =
+            (previous.y + current.y) / 2;
 
           ctx.moveTo(
             beforePrevious.x,
@@ -248,8 +318,15 @@ export default function Create() {
             midY
           );
         } else {
-          ctx.moveTo(previous.x, previous.y);
-          ctx.lineTo(current.x, current.y);
+          ctx.moveTo(
+            previous.x,
+            previous.y
+          );
+
+          ctx.lineTo(
+            current.x,
+            current.y
+          );
         }
 
         ctx.stroke();
@@ -259,12 +336,17 @@ export default function Create() {
 
       ctx.beginPath();
 
-      ctx.strokeStyle = "rgba(255,238,205,.9)";
-      ctx.lineWidth = 1.2;
+      ctx.strokeStyle =
+        "rgba(255,238,205,.92)";
+
+      ctx.lineWidth = 1.15;
 
       if (beforePrevious) {
-        const midX = (previous.x + current.x) / 2;
-        const midY = (previous.y + current.y) / 2;
+        const midX =
+          (previous.x + current.x) / 2;
+
+        const midY =
+          (previous.y + current.y) / 2;
 
         ctx.moveTo(
           beforePrevious.x,
@@ -278,8 +360,15 @@ export default function Create() {
           midY
         );
       } else {
-        ctx.moveTo(previous.x, previous.y);
-        ctx.lineTo(current.x, current.y);
+        ctx.moveTo(
+          previous.x,
+          previous.y
+        );
+
+        ctx.lineTo(
+          current.x,
+          current.y
+        );
       }
 
       ctx.stroke();
@@ -294,7 +383,12 @@ export default function Create() {
   // =========================================================
 
   const drawNode = useCallback(
-    (ctx, point, radius = 2.2, enhanced = false) => {
+    (
+      ctx,
+      point,
+      radius = 2,
+      enhanced = false
+    ) => {
       if (!ctx || !point) return;
 
       ctx.save();
@@ -309,10 +403,13 @@ export default function Create() {
         Math.PI * 2
       );
 
-      ctx.fillStyle = "rgba(255,245,220,.94)";
+      ctx.fillStyle =
+        "rgba(255,245,220,.95)";
 
       if (enhanced) {
-        ctx.shadowColor = "rgba(255,225,165,.7)";
+        ctx.shadowColor =
+          "rgba(255,225,165,.7)";
+
         ctx.shadowBlur = 8;
       }
 
@@ -329,23 +426,63 @@ export default function Create() {
 
   const redrawEverything = useCallback(
     (enhanced = false) => {
-      const canvas = canvasRef.current;
-      const ctx = ctxRef.current;
+      const canvas =
+        canvasRef.current;
+
+      const ctx =
+        ctxRef.current;
 
       if (!canvas || !ctx) return;
 
-      const rect = rectRef.current;
+      const {
+        width,
+        height,
+      } =
+        canvasMetricsRef.current;
+
+      if (
+        width <= 0 ||
+        height <= 0
+      ) {
+        return;
+      }
+
+      /*
+        Context transform must always remain
+        in CSS pixel coordinates.
+      */
+      const dpr =
+        canvasMetricsRef.current.dpr;
+
+      ctx.setTransform(
+        dpr,
+        0,
+        0,
+        dpr,
+        0,
+        0
+      );
 
       drawBackground(
         ctx,
-        rect.width,
-        rect.height
+        width,
+        height
       );
 
-      for (const stroke of strokesRef.current) {
-        if (!stroke.length) continue;
+      for (
+        const stroke of
+        strokesRef.current
+      ) {
+        if (
+          !stroke ||
+          stroke.length === 0
+        ) {
+          continue;
+        }
 
-        if (stroke.length === 1) {
+        if (
+          stroke.length === 1
+        ) {
           drawDot(
             ctx,
             stroke[0],
@@ -361,9 +498,16 @@ export default function Create() {
           false
         );
 
-        for (let i = 1; i < stroke.length; i++) {
-          const previous = stroke[i - 1];
-          const current = stroke[i];
+        for (
+          let i = 1;
+          i < stroke.length;
+          i++
+        ) {
+          const previous =
+            stroke[i - 1];
+
+          const current =
+            stroke[i];
 
           const beforePrevious =
             i > 1
@@ -380,12 +524,14 @@ export default function Create() {
 
           if (
             i % NODE_INTERVAL === 0 ||
-            i === stroke.length - 1
+            i ===
+              stroke.length - 1
           ) {
             drawNode(
               ctx,
               current,
-              i === stroke.length - 1
+              i ===
+              stroke.length - 1
                 ? 2.6
                 : 1.7,
               enhanced
@@ -403,66 +549,115 @@ export default function Create() {
   );
 
   // =========================================================
-  // RESIZE
+  // CANVAS RESIZE
   // =========================================================
 
   const resizeCanvas = useCallback(() => {
-    const canvas = canvasRef.current;
+    const canvas =
+      canvasRef.current;
 
     if (!canvas) return;
+
+    /*
+      Never resize the backing store while
+      the user is actively drawing.
+
+      Resizing clears canvas pixels and can
+      interrupt mobile drawing.
+    */
+    if (
+      drawingRef.current &&
+      currentStrokeRef.current
+    ) {
+      return;
+    }
 
     updateDeviceType();
 
     const rect =
       canvas.getBoundingClientRect();
 
-    /*
-      Keep DPR reasonable.
+    if (
+      rect.width <= 0 ||
+      rect.height <= 0
+    ) {
+      return;
+    }
 
-      Very high DPR is one of the biggest causes of
-      mobile canvas lag.
+    /*
+      Lower DPR on mobile improves performance.
+
+      Pointer accuracy is NOT affected because
+      coordinates remain CSS-pixel based.
     */
     const maxDpr =
       isMobileRef.current
-        ? 1.2
-        : 1.6;
+        ? 1.35
+        : 1.8;
 
     const dpr = Math.min(
       window.devicePixelRatio || 1,
       maxDpr
     );
 
-    rectRef.current = {
-      width: rect.width,
-      height: rect.height,
-      left: rect.left,
-      top: rect.top,
-    };
+    const width =
+      Math.round(rect.width);
 
-    const nextWidth = Math.max(
-      1,
-      Math.round(rect.width * dpr)
-    );
+    const height =
+      Math.round(rect.height);
 
-    const nextHeight = Math.max(
-      1,
-      Math.round(rect.height * dpr)
-    );
+    const backingWidth =
+      Math.max(
+        1,
+        Math.round(width * dpr)
+      );
 
-    canvas.width = nextWidth;
-    canvas.height = nextHeight;
+    const backingHeight =
+      Math.max(
+        1,
+        Math.round(height * dpr)
+      );
 
-    const ctx = canvas.getContext(
-      "2d",
-      {
-        alpha: true,
-        desynchronized: true,
-      }
-    );
+    const sizeChanged =
+      canvas.width !==
+        backingWidth ||
+      canvas.height !==
+        backingHeight;
+
+    if (!sizeChanged) {
+      canvasMetricsRef.current = {
+        width,
+        height,
+        dpr,
+      };
+
+      return;
+    }
+
+    canvas.width =
+      backingWidth;
+
+    canvas.height =
+      backingHeight;
+
+    const ctx =
+      canvas.getContext(
+        "2d",
+        {
+          alpha: true,
+          desynchronized: true,
+        }
+      );
 
     if (!ctx) return;
 
     ctxRef.current = ctx;
+
+    canvasMetricsRef.current = {
+      width,
+      height,
+      dpr,
+    };
 
     ctx.setTransform(
       dpr,
@@ -488,28 +683,60 @@ export default function Create() {
   useEffect(() => {
     resizeCanvas();
 
-    const canvas = canvasRef.current;
+    const canvas =
+      canvasRef.current;
 
     if (!canvas) return;
 
-    const resizeObserver =
-      new ResizeObserver(() => {
-        requestAnimationFrame(
-          resizeCanvas
+    const scheduleResize = () => {
+      if (
+        resizeFrameRef.current
+      ) {
+        cancelAnimationFrame(
+          resizeFrameRef.current
         );
-      });
+      }
+
+      resizeFrameRef.current =
+        requestAnimationFrame(() => {
+          resizeFrameRef.current =
+            null;
+
+          resizeCanvas();
+        });
+    };
+
+    const resizeObserver =
+      new ResizeObserver(
+        scheduleResize
+      );
 
     resizeObserver.observe(canvas);
 
     window.addEventListener(
       "resize",
-      updateDeviceType,
+      scheduleResize,
       { passive: true }
     );
 
     window.addEventListener(
       "orientationchange",
-      resizeCanvas,
+      scheduleResize,
+      { passive: true }
+    );
+
+    /*
+      Important for mobile browsers.
+
+      The visual viewport can change when:
+      - browser UI appears
+      - browser UI disappears
+      - keyboard opens
+      - mobile address bar changes
+    */
+    window.visualViewport?.addEventListener(
+      "resize",
+      scheduleResize,
       { passive: true }
     );
 
@@ -518,21 +745,38 @@ export default function Create() {
 
       window.removeEventListener(
         "resize",
-        updateDeviceType
+        scheduleResize
       );
 
       window.removeEventListener(
         "orientationchange",
-        resizeCanvas
+        scheduleResize
       );
 
-      if (pointerFrameRef.current) {
+      window.visualViewport?.removeEventListener(
+        "resize",
+        scheduleResize
+      );
+
+      if (
+        pointerFrameRef.current
+      ) {
         cancelAnimationFrame(
           pointerFrameRef.current
         );
       }
 
-      if (revealTimeoutRef.current) {
+      if (
+        resizeFrameRef.current
+      ) {
+        cancelAnimationFrame(
+          resizeFrameRef.current
+        );
+      }
+
+      if (
+        revealTimeoutRef.current
+      ) {
         window.clearTimeout(
           revealTimeoutRef.current
         );
@@ -540,25 +784,79 @@ export default function Create() {
     };
   }, [
     resizeCanvas,
-    updateDeviceType,
   ]);
 
   // =========================================================
-  // POINTER POSITION
+  // ACCURATE POINTER POSITION
   // =========================================================
 
   const getPointerPosition = useCallback(
     (event) => {
-      const rect = rectRef.current;
+      const canvas =
+        canvasRef.current;
 
+      if (!canvas || !event) {
+        return null;
+      }
+
+      /*
+        CRITICAL MOBILE FIX:
+
+        Get a FRESH rect when converting
+        pointer coordinates.
+
+        This prevents inaccurate drawing after:
+        - scrolling
+        - orientation changes
+        - browser toolbar movement
+        - layout shifts
+      */
+      const rect =
+        canvas.getBoundingClientRect();
+
+      if (
+        rect.width <= 0 ||
+        rect.height <= 0
+      ) {
+        return null;
+      }
+
+      /*
+        CSS pixel coordinate conversion.
+
+        This intentionally does NOT multiply by DPR.
+        Canvas context already handles DPR scaling.
+      */
+      const x =
+        event.clientX -
+        rect.left;
+
+      const y =
+        event.clientY -
+        rect.top;
+
+      /*
+        Clamp coordinates.
+
+        This prevents rare negative/outside
+        coordinates during pointer capture.
+      */
       return {
-        x:
-          event.clientX -
-          rect.left,
+        x: Math.max(
+          0,
+          Math.min(
+            rect.width,
+            x
+          )
+        ),
 
-        y:
-          event.clientY -
-          rect.top,
+        y: Math.max(
+          0,
+          Math.min(
+            rect.height,
+            y
+          )
+        ),
       };
     },
     []
@@ -570,18 +868,21 @@ export default function Create() {
 
   const updateProgress = useCallback(
     (force = false) => {
-      const now = performance.now();
+      const now =
+        performance.now();
 
       if (
         !force &&
         now -
-          lastProgressUpdateRef.current <
+          lastProgressUpdateRef
+            .current <
           PROGRESS_UPDATE_INTERVAL
       ) {
         return;
       }
 
-      lastProgressUpdateRef.current = now;
+      lastProgressUpdateRef.current =
+        now;
 
       const count =
         pointCountRef.current;
@@ -590,191 +891,206 @@ export default function Create() {
         Math.min(
           100,
           Math.round(
-            (count / TARGET_POINTS) *
+            (count /
+              TARGET_POINTS) *
               100
           )
         );
 
-      setProgress((previous) =>
-        previous === nextProgress
-          ? previous
-          : nextProgress
+      setProgress(
+        (previous) =>
+          previous ===
+          nextProgress
+            ? previous
+            : nextProgress
       );
     },
     []
   );
 
   // =========================================================
-  // ADD ONE POINT
-  //
-  // Lightweight and used by the queue processor.
+  // ADD POINT
   // =========================================================
 
-  const addPointToStroke = useCallback(
-    (point) => {
-      if (
-        !point ||
-        !drawingRef.current ||
-        completedRef.current
-      ) {
-        return;
-      }
+  const addPointToStroke =
+    useCallback(
+      (point) => {
+        if (
+          !point ||
+          !drawingRef.current ||
+          completedRef.current
+        ) {
+          return;
+        }
 
-      if (
-        pointCountRef.current >=
-        MAX_POINTS
-      ) {
-        drawingRef.current = false;
-
-        updateProgress(true);
-
-        return;
-      }
-
-      const stroke =
-        currentStrokeRef.current;
-
-      if (!stroke) return;
-
-      const last =
-        stroke[stroke.length - 1];
-
-      if (!last) return;
-
-      const dx =
-        point.x - last.x;
-
-      const dy =
-        point.y - last.y;
-
-      const distanceSquared =
-        dx * dx +
-        dy * dy;
-
-      const minDistance =
-        isMobileRef.current
-          ? MOBILE_MIN_POINT_DISTANCE
-          : MIN_POINT_DISTANCE;
-
-      const minDistanceSquared =
-        minDistance *
-        minDistance;
-
-      if (
-        distanceSquared <
-        minDistanceSquared
-      ) {
-        return;
-      }
-
-      /*
-        Interpolate large jumps.
-
-        This fixes fast movement skipping.
-      */
-      const distance =
-        Math.sqrt(
-          distanceSquared
-        );
-
-      const maxSegmentDistance =
-        isMobileRef.current
-          ? MOBILE_MAX_SEGMENT_DISTANCE
-          : MAX_SEGMENT_DISTANCE;
-
-      const steps =
-        Math.max(
-          1,
-          Math.ceil(
-            distance /
-              maxSegmentDistance
-          )
-        );
-
-      const ctx =
-        ctxRef.current;
-
-      for (
-        let step = 1;
-        step <= steps;
-        step++
-      ) {
         if (
           pointCountRef.current >=
           MAX_POINTS
         ) {
-          break;
+          drawingRef.current =
+            false;
+
+          updateProgress(true);
+
+          return;
         }
 
-        const t =
-          step / steps;
+        const stroke =
+          currentStrokeRef.current;
 
-        const nextPoint = {
-          x:
-            last.x +
-            dx * t,
+        if (
+          !stroke ||
+          stroke.length === 0
+        ) {
+          return;
+        }
 
-          y:
-            last.y +
-            dy * t,
-        };
-
-        const currentLast =
+        const last =
           stroke[
             stroke.length - 1
           ];
 
-        stroke.push(
-          nextPoint
-        );
+        const dx =
+          point.x -
+          last.x;
 
-        pointCountRef.current += 1;
+        const dy =
+          point.y -
+          last.y;
 
-        const index =
-          stroke.length - 1;
+        const distanceSquared =
+          dx * dx +
+          dy * dy;
 
-        const beforePrevious =
-          index >= 2
-            ? stroke[index - 2]
-            : null;
+        const minDistance =
+          isMobileRef.current
+            ? MOBILE_MIN_POINT_DISTANCE
+            : MIN_POINT_DISTANCE;
 
-        if (ctx) {
-          drawSegment(
-            ctx,
-            currentLast,
-            nextPoint,
-            beforePrevious,
-            false
+        const minDistanceSquared =
+          minDistance *
+          minDistance;
+
+        if (
+          distanceSquared <
+          minDistanceSquared
+        ) {
+          return;
+        }
+
+        const distance =
+          Math.sqrt(
+            distanceSquared
           );
 
+        const maxSegmentDistance =
+          isMobileRef.current
+            ? MOBILE_MAX_SEGMENT_DISTANCE
+            : MAX_SEGMENT_DISTANCE;
+
+        /*
+          Interpolation keeps fast swipes
+          connected without requiring excessive
+          raw pointer storage.
+        */
+        const steps =
+          Math.max(
+            1,
+            Math.ceil(
+              distance /
+                maxSegmentDistance
+            )
+          );
+
+        const ctx =
+          ctxRef.current;
+
+        const startX =
+          last.x;
+
+        const startY =
+          last.y;
+
+        for (
+          let step = 1;
+          step <= steps;
+          step++
+        ) {
           if (
-            index %
-              NODE_INTERVAL ===
-            0
+            pointCountRef.current >=
+            MAX_POINTS
           ) {
-            drawNode(
+            break;
+          }
+
+          const t =
+            step / steps;
+
+          const nextPoint = {
+            x:
+              startX +
+              dx * t,
+
+            y:
+              startY +
+              dy * t,
+          };
+
+          const previousPoint =
+            stroke[
+              stroke.length - 1
+            ];
+
+          stroke.push(
+            nextPoint
+          );
+
+          pointCountRef.current +=
+            1;
+
+          const index =
+            stroke.length - 1;
+
+          const beforePrevious =
+            index >= 2
+              ? stroke[
+                  index - 2
+                ]
+              : null;
+
+          if (ctx) {
+            drawSegment(
               ctx,
+              previousPoint,
               nextPoint,
-              1.8,
+              beforePrevious,
               false
             );
+
+            if (
+              index %
+                NODE_INTERVAL ===
+              0
+            ) {
+              drawNode(
+                ctx,
+                nextPoint,
+                1.8,
+                false
+              );
+            }
           }
         }
-      }
-
-      updateProgress();
-    },
-    [
-      drawSegment,
-      drawNode,
-      updateProgress,
-    ]
-  );
+      },
+      [
+        drawSegment,
+        drawNode,
+        updateProgress,
+      ]
+    );
 
   // =========================================================
-  // PROCESS QUEUE
-  //
-  // Processes all collected pointer positions once per frame.
+  // PROCESS POINTER QUEUE
   // =========================================================
 
   const processPointQueue =
@@ -798,19 +1114,46 @@ export default function Create() {
       pointQueueRef.current =
         [];
 
-      /*
-        Process every collected point.
+      const maxPoints =
+        isMobileRef.current
+          ? MAX_POINTS_PER_FRAME_MOBILE
+          : MAX_POINTS_PER_FRAME_DESKTOP;
 
-        This is much more accurate than
-        processing only the newest point.
+      /*
+        Process enough points for accuracy,
+        but avoid blocking one animation frame.
       */
-      for (const point of queue) {
-        addPointToStroke(point);
+      const amount =
+        Math.min(
+          queue.length,
+          maxPoints
+        );
+
+      for (
+        let i = 0;
+        i < amount;
+        i++
+      ) {
+        addPointToStroke(
+          queue[i]
+        );
+      }
+
+      /*
+        If there are remaining points,
+        preserve them in original order.
+      */
+      if (
+        queue.length > amount
+      ) {
+        pointQueueRef.current =
+          queue.slice(amount);
       }
 
       if (
-        pointQueueRef.current.length >
-        0
+        pointQueueRef.current
+          .length > 0 &&
+        drawingRef.current
       ) {
         pointerFrameRef.current =
           requestAnimationFrame(
@@ -834,12 +1177,28 @@ export default function Create() {
           return;
         }
 
+        /*
+          Ignore secondary pointers.
+          Prevents accidental multi-touch drawing.
+        */
+        if (
+          activePointerIdRef.current !==
+            null &&
+          activePointerIdRef.current !==
+            event.pointerId
+        ) {
+          return;
+        }
+
         event.preventDefault();
 
         const point =
           getPointerPosition(event);
 
         if (!point) return;
+
+        activePointerIdRef.current =
+          event.pointerId;
 
         drawingRef.current =
           true;
@@ -855,7 +1214,8 @@ export default function Create() {
         currentStrokeRef.current =
           newStroke;
 
-        pointCountRef.current += 1;
+        pointCountRef.current +=
+          1;
 
         pointQueueRef.current =
           [];
@@ -881,7 +1241,7 @@ export default function Create() {
             event.pointerId
           );
         } catch {
-          // Pointer capture unsupported.
+          // Ignore unsupported capture.
         }
       },
       [
@@ -893,8 +1253,6 @@ export default function Create() {
 
   // =========================================================
   // POINTER MOVE
-  //
-  // Collect ALL useful points.
   // =========================================================
 
   const handlePointerMove =
@@ -907,44 +1265,59 @@ export default function Create() {
           return;
         }
 
+        if (
+          activePointerIdRef.current !==
+          event.pointerId
+        ) {
+          return;
+        }
+
         event.preventDefault();
 
-        /*
-          Use coalesced events when available.
-
-          Instead of taking only the last event,
-          we keep every movement point.
-        */
         const nativeEvent =
           event.nativeEvent;
 
-        const coalescedEvents =
-          typeof nativeEvent
-            ?.getCoalescedEvents ===
-          "function"
+        /*
+          Correct and safe coalesced-event check.
+        */
+        const canUseCoalescedEvents =
+          nativeEvent &&
+          typeof nativeEvent.getCoalescedEvents ===
+            "function";
+
+        const events =
+          canUseCoalescedEvents
             ? nativeEvent.getCoalescedEvents()
             : null;
 
         if (
-          coalescedEvents &&
-          coalescedEvents.length > 0
+          events &&
+          events.length > 0
         ) {
           for (
-            const coalescedEvent of
-            coalescedEvents
+            const movementEvent of
+            events
           ) {
-            pointQueueRef.current.push(
+            const point =
               getPointerPosition(
-                coalescedEvent
-              )
-            );
+                movementEvent
+              );
+
+            if (point) {
+              pointQueueRef.current.push(
+                point
+              );
+            }
           }
         } else {
-          pointQueueRef.current.push(
-            getPointerPosition(
-              event
-            )
-          );
+          const point =
+            getPointerPosition(event);
+
+          if (point) {
+            pointQueueRef.current.push(
+              point
+            );
+          }
         }
 
         if (
@@ -1003,16 +1376,20 @@ export default function Create() {
   const handlePointerUp =
     useCallback(
       (event) => {
-        /*
-          Add the final pointer position.
+        if (
+          activePointerIdRef.current !==
+          event.pointerId
+        ) {
+          return;
+        }
 
-          This fixes the common issue where
-          the final part of the line disappears.
-        */
         if (
           drawingRef.current &&
           !completedRef.current
         ) {
+          /*
+            Always capture final exact position.
+          */
           const finalPoint =
             getPointerPosition(event);
 
@@ -1029,6 +1406,9 @@ export default function Create() {
           false;
 
         currentStrokeRef.current =
+          null;
+
+        activePointerIdRef.current =
           null;
 
         pointQueueRef.current =
@@ -1063,11 +1443,8 @@ export default function Create() {
         return;
       }
 
-      const count =
-        pointCountRef.current;
-
       if (
-        count <
+        pointCountRef.current <
         TARGET_POINTS
       ) {
         setHint(true);
@@ -1084,13 +1461,16 @@ export default function Create() {
       currentStrokeRef.current =
         null;
 
+      activePointerIdRef.current =
+        null;
+
       pointQueueRef.current =
         [];
 
       updateProgress(true);
 
       /*
-        Only now do the expensive glow redraw.
+        Expensive glow happens once only.
       */
       redrawEverything(true);
 
@@ -1099,13 +1479,10 @@ export default function Create() {
 
       if (canvas) {
         try {
-          const image =
+          setDrawingImage(
             canvas.toDataURL(
               "image/png"
-            );
-
-          setDrawingImage(
-            image
+            )
           );
         } catch (error) {
           console.error(
@@ -1169,6 +1546,9 @@ export default function Create() {
 
       drawingRef.current =
         false;
+
+      activePointerIdRef.current =
+        null;
 
       strokesRef.current =
         [];
@@ -1292,8 +1672,7 @@ export default function Create() {
                 height: `${star.size}px`,
                 opacity:
                   0.12 +
-                  (star.id % 8) /
-                    18,
+                  (star.id % 8) / 18,
                 animationDelay: `${star.delay}s`,
                 "--duration": `${star.duration}s`,
               }}
@@ -1588,13 +1967,6 @@ export default function Create() {
             onPointerCancel={
               handlePointerUp
             }
-            onPointerLeave={(event) => {
-              if (
-                drawingRef.current
-              ) {
-                handlePointerUp(event);
-              }
-            }}
             className="
               relative
               block
@@ -1871,27 +2243,12 @@ export default function Create() {
                 active:scale-95
               `}
             >
-              <span
-                className="
-                  absolute
-                  inset-0
-                  -translate-x-full
-                  bg-white
-                  transition-transform
-                  duration-500
-                  group-hover:translate-x-0
-                "
-              />
-
               <Send
                 size={11}
                 strokeWidth={1.2}
                 className="
                   relative
                   z-10
-                  transition-transform
-                  duration-300
-                  group-hover:translate-x-0.5
                 "
               />
 
@@ -1899,8 +2256,6 @@ export default function Create() {
                 className="
                   relative
                   z-10
-                  transition-colors
-                  group-hover:text-black
                 "
               >
                 {progress >= 100
@@ -2016,7 +2371,6 @@ export default function Create() {
                 border
                 border-amber-100/[0.14]
                 bg-[#020202]
-                shadow-[0_0_80px_rgba(255,225,170,.08)]
               "
             >
               <div
@@ -2244,37 +2598,15 @@ export default function Create() {
                 active:scale-95
               "
             >
-              <span
-                className="
-                  absolute
-                  inset-0
-                  -translate-x-full
-                  bg-white
-                  transition-transform
-                  duration-500
-                  group-hover:translate-x-0
-                "
-              />
-
-              <span
-                className="
-                  relative
-                  z-10
-                  transition-colors
-                  group-hover:text-black
-                "
-              >
+              <span>
                 Continue
               </span>
 
               <ArrowRight
                 size={12}
                 className="
-                  relative
-                  z-10
-                  transition-all
+                  transition-transform
                   group-hover:translate-x-1
-                  group-hover:text-black
                 "
               />
             </button>
@@ -2304,8 +2636,7 @@ export default function Create() {
 
       <style>{`
         @keyframes activityTwinkle {
-          0%,
-          100% {
+          0%, 100% {
             opacity: .1;
             transform: scale(.7);
           }
@@ -2317,11 +2648,9 @@ export default function Create() {
         }
 
         @keyframes guidePulse {
-          0%,
-          100% {
+          0%, 100% {
             transform: scale(.96);
-            box-shadow:
-              0 0 0 rgba(255,225,170,0);
+            box-shadow: 0 0 0 rgba(255,225,170,0);
           }
 
           50% {
@@ -2364,8 +2693,7 @@ export default function Create() {
             transform:
               translateY(45px)
               scale(.92);
-            filter:
-              blur(10px);
+            filter: blur(10px);
           }
 
           65% {
@@ -2373,8 +2701,7 @@ export default function Create() {
             transform:
               translateY(-5px)
               scale(1.015);
-            filter:
-              blur(0);
+            filter: blur(0);
           }
 
           100% {
@@ -2382,8 +2709,7 @@ export default function Create() {
             transform:
               translateY(0)
               scale(1);
-            filter:
-              blur(0);
+            filter: blur(0);
           }
         }
 
@@ -2406,6 +2732,7 @@ export default function Create() {
           -webkit-user-select: none;
           user-select: none;
           -webkit-touch-callout: none;
+          overscroll-behavior: contain;
         }
 
         @media (max-width: 767px) {

@@ -26,7 +26,6 @@ export default function Letters() {
   const isUnmountingRef = useRef(false);
   const isRestoringRef = useRef(false);
   const isClosingFromPopRef = useRef(false);
-  const hasGuardRef = useRef(false);
 
   const letters = birthdayData.letters || [];
 
@@ -43,24 +42,6 @@ export default function Letters() {
   /*
    * ============================================================
    * CREATE PROTECTED LETTERS PAGE STATE
-   *
-   * History structure:
-   *
-   * Previous Route
-   *      ↓
-   * Letters Base
-   *      ↓
-   * Letters Guard
-   *
-   * Opening a modal:
-   *
-   * Letters Base
-   *      ↓
-   * Letters Guard
-   *      ↓
-   * Letter Modal
-   *
-   * The guard protects the Letters page from accidental Back.
    * ============================================================
    */
 
@@ -69,10 +50,6 @@ export default function Letters() {
 
     const currentState = window.history.state || {};
     const currentLettersState = currentState[HISTORY_KEY];
-
-    /*
-     * Mark the current route as the Letters base state.
-     */
 
     if (!currentLettersState?.base) {
       window.history.replaceState(
@@ -89,13 +66,8 @@ export default function Letters() {
       );
     }
 
-    /*
-     * Create exactly ONE guard state.
-     */
-
     const stateAfterBase = window.history.state || {};
-    const lettersStateAfterBase =
-      stateAfterBase[HISTORY_KEY];
+    const lettersStateAfterBase = stateAfterBase[HISTORY_KEY];
 
     if (!lettersStateAfterBase?.guard) {
       window.history.pushState(
@@ -112,27 +84,18 @@ export default function Letters() {
       );
     }
 
-    hasGuardRef.current = true;
-
     return () => {
       isUnmountingRef.current = true;
-      hasGuardRef.current = false;
     };
   }, []);
 
   /*
    * ============================================================
-   * BACK / SWIPE-BACK / BROWSER HISTORY PROTECTION
+   * PROTECTED BACK / SWIPE-BACK NAVIGATION
    *
    * PRIORITY:
-   *
-   * 1. Modal open
-   *    → close modal only.
-   *
-   * 2. Modal closed
-   *    → restore guard.
-   *
-   * The user remains on Letters.
+   * 1. Close open letter.
+   * 2. Restore Letters guard.
    * ============================================================
    */
 
@@ -145,13 +108,9 @@ export default function Letters() {
       const lettersState = state[HISTORY_KEY];
 
       /*
-       * ========================================================
-       * PRIORITY 1
-       *
-       * MODAL IS OPEN
-       *
-       * Back/swipe-back closes the letter and stays on Letters.
-       * ========================================================
+       * --------------------------------------------------------
+       * PRIORITY 1 — MODAL OPEN
+       * --------------------------------------------------------
        */
 
       if (currentOpened) {
@@ -160,16 +119,11 @@ export default function Letters() {
         setOpened(null);
         openedRef.current = null;
 
-        /*
-         * If Back landed on the base state, restore the guard.
-         */
-
         window.setTimeout(() => {
           if (isUnmountingRef.current) return;
 
           const currentState = window.history.state || {};
-          const currentLettersState =
-            currentState[HISTORY_KEY];
+          const currentLettersState = currentState[HISTORY_KEY];
 
           if (!currentLettersState?.guard) {
             isRestoringRef.current = true;
@@ -199,14 +153,9 @@ export default function Letters() {
       }
 
       /*
-       * ========================================================
-       * PRIORITY 2
-       *
-       * MAIN LETTERS PAGE PROTECTION
-       *
-       * If Back reaches the Letters base entry,
-       * restore one guard entry.
-       * ========================================================
+       * --------------------------------------------------------
+       * PRIORITY 2 — MAIN PAGE PROTECTION
+       * --------------------------------------------------------
        */
 
       if (isRestoringRef.current) return;
@@ -233,31 +182,23 @@ export default function Letters() {
       }
     };
 
-    window.addEventListener(
-      "popstate",
-      handlePopState
-    );
+    window.addEventListener("popstate", handlePopState);
 
     return () => {
-      window.removeEventListener(
-        "popstate",
-        handlePopState
-      );
+      window.removeEventListener("popstate", handlePopState);
     };
   }, []);
 
   /*
    * ============================================================
-   * LOCK BODY SCROLL WHILE LETTER IS OPEN
+   * LOCK BODY SCROLL
    * ============================================================
    */
 
   useEffect(() => {
     if (!opened) return;
 
-    const previousOverflow =
-      document.body.style.overflow;
-
+    const previousOverflow = document.body.style.overflow;
     const previousOverscrollBehavior =
       document.body.style.overscrollBehavior;
 
@@ -265,9 +206,7 @@ export default function Letters() {
     document.body.style.overscrollBehavior = "none";
 
     return () => {
-      document.body.style.overflow =
-        previousOverflow;
-
+      document.body.style.overflow = previousOverflow;
       document.body.style.overscrollBehavior =
         previousOverscrollBehavior;
     };
@@ -276,8 +215,6 @@ export default function Letters() {
   /*
    * ============================================================
    * OPEN LETTER
-   *
-   * Push exactly ONE modal history entry.
    * ============================================================
    */
 
@@ -289,8 +226,7 @@ export default function Letters() {
     setOpened(letter);
     openedRef.current = letter;
 
-    const currentState =
-      window.history.state || {};
+    const currentState = window.history.state || {};
 
     window.history.pushState(
       {
@@ -307,41 +243,21 @@ export default function Letters() {
     );
 
     if (navigator.vibrate) {
-      navigator.vibrate(10);
+      navigator.vibrate([8, 25, 10]);
     }
   };
 
   /*
    * ============================================================
    * CLOSE LETTER
-   *
-   * Normal closing:
-   *
-   * - X button
-   * - Backdrop
-   * - Escape
-   * - Mobile edge swipe
-   *
-   * If modal history exists:
-   * go Back one entry.
-   *
-   * popstate performs the actual close.
    * ============================================================
    */
 
   const closeLetter = () => {
     if (!openedRef.current) return;
 
-    const currentState =
-      window.history.state || {};
-
-    const lettersState =
-      currentState[HISTORY_KEY];
-
-    /*
-     * Modal entry exists.
-     * Back removes it cleanly.
-     */
+    const currentState = window.history.state || {};
+    const lettersState = currentState[HISTORY_KEY];
 
     if (
       lettersState?.modal &&
@@ -350,10 +266,6 @@ export default function Letters() {
       window.history.back();
       return;
     }
-
-    /*
-     * Fallback.
-     */
 
     setOpened(null);
     openedRef.current = null;
@@ -376,10 +288,7 @@ export default function Letters() {
       }
     };
 
-    window.addEventListener(
-      "keydown",
-      handleKeyDown
-    );
+    window.addEventListener("keydown", handleKeyDown);
 
     return () => {
       window.removeEventListener(
@@ -392,9 +301,6 @@ export default function Letters() {
   /*
    * ============================================================
    * MOBILE EDGE SWIPE
-   *
-   * Provides an additional natural close gesture while a letter
-   * is open. Browser/system Back is still handled by popstate.
    * ============================================================
    */
 
@@ -414,21 +320,15 @@ export default function Letters() {
     const handleTouchEnd = (event) => {
       if (!openedRef.current) return;
 
-      const touch =
-        event.changedTouches[0];
+      const touch = event.changedTouches[0];
 
-      const deltaX =
-        touch.clientX - startX;
+      const deltaX = touch.clientX - startX;
+      const deltaY = touch.clientY - startY;
 
-      const deltaY =
-        touch.clientY - startY;
-
-      const startedNearLeftEdge =
-        startX <= 45;
+      const startedNearLeftEdge = startX <= 45;
 
       const isHorizontal =
-        Math.abs(deltaX) >
-        Math.abs(deltaY);
+        Math.abs(deltaX) > Math.abs(deltaY);
 
       if (
         startedNearLeftEdge &&
@@ -465,70 +365,143 @@ export default function Letters() {
   }, []);
 
   return (
-    <main className="relative min-h-screen overflow-hidden bg-[#030303] px-4 pb-32 pt-24 text-white sm:px-6 sm:pt-28 md:px-10 md:pb-40 md:pt-32">
+    <main className="relative min-h-screen overflow-hidden bg-[#020202] px-4 pb-32 pt-24 text-white selection:bg-white selection:text-black sm:px-6 sm:pt-28 md:px-10 md:pb-40 md:pt-32">
       {/* =========================================================
-          PERFORMANCE-FRIENDLY BACKGROUND
+          CINEMATIC ANIMATION SYSTEM
+      ========================================================= */}
+
+      <style>{`
+        @keyframes lettersFloat {
+          0%, 100% {
+            transform: translate3d(-50%, -50%, 0) scale(1);
+          }
+          50% {
+            transform: translate3d(-50%, calc(-50% - 30px), 0) scale(1.08);
+          }
+        }
+
+        @keyframes lettersDrift {
+          0%, 100% {
+            transform: translate3d(0, 0, 0);
+          }
+          50% {
+            transform: translate3d(35px, -28px, 0);
+          }
+        }
+
+        @keyframes lettersScan {
+          from {
+            transform: translateY(-100%);
+          }
+          to {
+            transform: translateY(100vh);
+          }
+        }
+
+        @keyframes lettersReveal {
+          from {
+            opacity: 0;
+            transform: translateY(28px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+
+        @keyframes paperReveal {
+          from {
+            opacity: 0;
+            transform: translateY(30px) scale(0.985);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+          }
+        }
+
+        @keyframes pulseGlow {
+          0%, 100% {
+            opacity: 0.2;
+          }
+          50% {
+            opacity: 0.55;
+          }
+        }
+
+        .letters-reveal {
+          animation: lettersReveal 1s cubic-bezier(.16,1,.3,1) both;
+        }
+
+        .letters-reveal-delay {
+          animation: lettersReveal 1s .12s cubic-bezier(.16,1,.3,1) both;
+        }
+
+        .paper-reveal {
+          animation: paperReveal .8s cubic-bezier(.16,1,.3,1) both;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          *,
+          *::before,
+          *::after {
+            animation-duration: 0.01ms !important;
+            animation-iteration-count: 1 !important;
+            scroll-behavior: auto !important;
+          }
+        }
+      `}</style>
+
+      {/* =========================================================
+          CINEMATIC BACKGROUND
       ========================================================= */}
 
       <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
-        <div className="absolute inset-0 bg-[#030303]" />
+        <div className="absolute inset-0 bg-[#020202]" />
 
+        {/* Central cinematic bloom */}
         <div
-          className="
-            absolute
-            left-1/2
-            top-[32%]
-            h-[420px]
-            w-[420px]
-            -translate-x-1/2
-            rounded-full
-            bg-white/[0.018]
-            blur-[90px]
-          "
+          className="absolute left-1/2 top-[38%] h-[520px] w-[520px] rounded-full bg-white/[0.025] blur-[120px]"
+          style={{
+            animation:
+              "lettersFloat 14s ease-in-out infinite",
+          }}
         />
 
+        {/* Violet atmosphere */}
         <div
-          className="
-            absolute
-            -right-40
-            top-[48%]
-            h-[300px]
-            w-[300px]
-            rounded-full
-            bg-amber-200/[0.018]
-            blur-[90px]
-          "
+          className="absolute -left-40 top-[18%] h-[420px] w-[420px] rounded-full bg-violet-500/[0.025] blur-[130px]"
+          style={{
+            animation:
+              "lettersDrift 16s ease-in-out infinite",
+          }}
         />
 
+        {/* Warm archive atmosphere */}
         <div
-          className="
-            absolute
-            -left-40
-            top-[20%]
-            h-[300px]
-            w-[300px]
-            rounded-full
-            bg-violet-300/[0.015]
-            blur-[90px]
-          "
+          className="absolute -right-40 top-[52%] h-[440px] w-[440px] rounded-full bg-amber-200/[0.018] blur-[140px]"
+          style={{
+            animation:
+              "lettersDrift 19s ease-in-out infinite reverse",
+          }}
         />
 
-        <div
-          className="
-            absolute
-            inset-0
-            bg-[radial-gradient(circle_at_50%_35%,transparent_20%,rgba(0,0,0,.7)_100%)]
-          "
-        />
+        {/* Deep vignette */}
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_32%,transparent_0%,rgba(0,0,0,.2)_42%,rgba(0,0,0,.82)_100%)]" />
 
+        {/* Film grain */}
+        <div className="absolute inset-0 opacity-[0.035] [background-image:radial-gradient(rgba(255,255,255,.65)_0.45px,transparent_0.45px)] [background-size:5px_5px]" />
+
+        {/* Analog scanlines */}
+        <div className="absolute inset-0 opacity-[0.018] [background-image:linear-gradient(rgba(255,255,255,.25)_1px,transparent_1px)] [background-size:100%_5px]" />
+
+        {/* Slow cinematic scan */}
         <div
-          className="
-            absolute
-            inset-0
-            opacity-[0.025]
-            [background-image:linear-gradient(rgba(255,255,255,.12)_1px,transparent_1px)]
-            [background-size:100%_6px]
-          "
+          className="absolute left-0 right-0 h-[35vh] bg-gradient-to-b from-transparent via-white/[0.015] to-transparent"
+          style={{
+            animation:
+              "lettersScan 18s linear infinite",
+          }}
         />
       </div>
 
@@ -536,35 +509,45 @@ export default function Letters() {
           TOP NAV
       ========================================================= */}
 
-      <div className="mx-auto flex max-w-7xl items-center justify-between">
+      <div className="letters-reveal mx-auto flex max-w-7xl items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-full border border-white/[0.09] bg-white/[0.025]">
+          <div className="relative flex h-10 w-10 items-center justify-center">
+            <span className="absolute inset-0 rotate-45 border border-white/[0.1]" />
+
+            <span className="absolute -inset-2 rounded-full border border-white/[0.035]" />
+
             <Mail
               size={13}
               strokeWidth={1}
-              className="text-white/45"
+              className="relative text-white/50"
             />
           </div>
 
           <div>
-            <p className="font-mono text-[6px] uppercase tracking-[0.45em] text-white/25">
+            <p className="font-mono text-[6px] uppercase tracking-[0.5em] text-white/30">
               MEMORY UNIVERSE
             </p>
 
-            <p className="mt-1 font-mono text-[5px] tracking-[0.3em] text-white/10">
-              PRIVATE ARCHIVE
+            <p className="mt-1 font-mono text-[5px] tracking-[0.35em] text-white/12">
+              PRIVATE CORRESPONDENCE ARCHIVE
             </p>
           </div>
         </div>
 
-        <div className="hidden items-center gap-3 sm:flex">
-          <span className="font-mono text-[5px] uppercase tracking-[0.4em] text-white/15">
+        <div className="hidden items-center gap-4 sm:flex">
+          <span className="font-mono text-[5px] uppercase tracking-[0.45em] text-white/20">
             CORRESPONDENCE
           </span>
 
-          <span className="h-1 w-1 rounded-full bg-white/20" />
+          <span
+            className="h-1 w-1 rounded-full bg-white/40"
+            style={{
+              animation:
+                "pulseGlow 2.5s ease-in-out infinite",
+            }}
+          />
 
-          <span className="font-mono text-[5px] tracking-[0.3em] text-white/10">
+          <span className="font-mono text-[5px] tracking-[0.3em] text-white/15">
             {String(letters.length).padStart(2, "0")} FRAGMENTS
           </span>
         </div>
@@ -574,56 +557,63 @@ export default function Letters() {
           HERO
       ========================================================= */}
 
-      <header className="relative mx-auto max-w-5xl pt-16 text-center sm:pt-20 md:pt-24">
-        <div className="mx-auto mb-8 flex h-14 w-14 items-center justify-center">
-          <div className="relative flex h-10 w-10 items-center justify-center">
-            <span className="absolute inset-0 rotate-45 border border-white/[0.12]" />
+      <header className="letters-reveal-delay relative mx-auto max-w-5xl pt-20 text-center sm:pt-24 md:pt-28">
+        <div className="mx-auto mb-10 flex h-16 w-16 items-center justify-center">
+          <div className="relative flex h-11 w-11 items-center justify-center">
+            <span className="absolute inset-0 rotate-45 border border-white/[0.15]" />
 
-            <span className="absolute -inset-2 rounded-full border border-dashed border-white/[0.06]" />
+            <span className="absolute -inset-3 rounded-full border border-dashed border-white/[0.06]" />
+
+            <span className="absolute -inset-6 rounded-full border border-white/[0.025]" />
 
             <Feather
-              size={15}
+              size={16}
               strokeWidth={1}
-              className="relative rotate-[-12deg] text-white/45"
+              className="relative rotate-[-12deg] text-white/55"
             />
           </div>
         </div>
 
-        <div className="flex items-center justify-center gap-3">
-          <span className="h-px w-8 bg-gradient-to-r from-transparent to-white/20 sm:w-14" />
+        <div className="flex items-center justify-center gap-4">
+          <span className="h-px w-10 bg-gradient-to-r from-transparent to-white/30 sm:w-20" />
 
-          <span className="font-mono text-[6px] uppercase tracking-[0.55em] text-white/25">
+          <span className="font-mono text-[6px] uppercase tracking-[0.6em] text-white/30">
             LETTERS FROM THE HEART
           </span>
 
-          <span className="h-px w-8 bg-gradient-to-l from-transparent to-white/20 sm:w-14" />
+          <span className="h-px w-10 bg-gradient-to-l from-transparent to-white/30 sm:w-20" />
         </div>
 
-        <h1 className="mt-8 font-display text-[4.6rem] leading-[0.76] tracking-[-0.065em] text-white sm:text-8xl md:text-[9.5rem]">
+        <h1 className="mt-10 font-display text-[5rem] leading-[0.72] tracking-[-0.075em] text-white sm:text-8xl md:text-[10rem]">
           Words
           <br />
-          <span className="text-white/20">
+
+          <span className="relative inline-block text-white/[0.18]">
             for you.
+
+            <span className="absolute bottom-[-12px] left-1/2 h-px w-[65%] -translate-x-1/2 bg-gradient-to-r from-transparent via-white/20 to-transparent" />
           </span>
         </h1>
 
-        <p className="mx-auto mt-9 max-w-md px-3 font-serif text-[15px] leading-[1.9] text-white/35 sm:text-lg">
+        <p className="mx-auto mt-12 max-w-md px-3 font-serif text-[15px] leading-[2] text-white/40 sm:text-lg">
           Three little pieces of my heart,
           <br />
-          written for the person who means so much to me.
+          preserved between moments,
+          <br />
+          written only for you.
         </p>
 
-        <div className="mt-8 flex items-center justify-center gap-3">
-          <span className="h-1 w-1 rounded-full bg-white/50 shadow-[0_0_8px_rgba(255,255,255,.5)]" />
+        <div className="mt-10 flex items-center justify-center gap-4">
+          <span className="h-1 w-1 rounded-full bg-white/60 shadow-[0_0_12px_rgba(255,255,255,.8)]" />
 
-          <span className="font-mono text-[5px] uppercase tracking-[0.5em] text-white/15">
+          <span className="font-mono text-[5px] uppercase tracking-[0.55em] text-white/18">
             SEALED WITH LOVE
           </span>
 
           <Heart
             size={8}
             fill="currentColor"
-            className="text-white/20"
+            className="text-white/25"
           />
         </div>
       </header>
@@ -632,12 +622,16 @@ export default function Letters() {
           LETTER CARDS
       ========================================================= */}
 
-      <section className="relative mx-auto mt-16 max-w-7xl sm:mt-20 md:mt-28">
-        <div className="pointer-events-none absolute left-1/2 top-1/2 hidden h-[620px] w-[620px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/[0.025] md:block" />
+      <section className="relative mx-auto mt-20 max-w-7xl sm:mt-24 md:mt-32">
+        {/* Orbital archive geometry */}
 
-        <div className="pointer-events-none absolute left-1/2 top-1/2 hidden h-[440px] w-[440px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-dashed border-white/[0.018] md:block" />
+        <div className="pointer-events-none absolute left-1/2 top-1/2 hidden h-[760px] w-[760px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/[0.018] md:block" />
 
-        <div className="grid gap-4 md:grid-cols-3 md:gap-5">
+        <div className="pointer-events-none absolute left-1/2 top-1/2 hidden h-[560px] w-[560px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-dashed border-white/[0.025] md:block" />
+
+        <div className="pointer-events-none absolute left-1/2 top-1/2 hidden h-[360px] w-[360px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/[0.03] md:block" />
+
+        <div className="grid gap-5 md:grid-cols-3 md:gap-6">
           {letters.map((letter, index) => {
             const isActive =
               activeCard === index;
@@ -649,70 +643,88 @@ export default function Letters() {
                   group
                   relative
                   overflow-hidden
-                  rounded-[22px]
+                  rounded-[26px]
                   border
-                  bg-[#080808]
-                  transition-transform
-                  duration-500
+                  bg-[#070707]
+                  transition-all
+                  duration-700
+                  hover:-translate-y-2
+                  hover:shadow-[0_35px_90px_rgba(0,0,0,.6)]
                   ${
                     isActive
-                      ? "border-white/[0.15]"
-                      : "border-white/[0.07]"
+                      ? "border-white/[0.18]"
+                      : "border-white/[0.075]"
                   }
                 `}
               >
-                <div className="pointer-events-none absolute left-6 right-6 top-0 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent opacity-50 transition-opacity duration-500 group-hover:opacity-100" />
+                {/* Card light */}
 
-                <div className="pointer-events-none absolute right-[-80px] top-[-80px] h-40 w-40 rounded-full bg-white/[0.025] blur-[45px]" />
+                <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_-10%,rgba(255,255,255,.09),transparent_42%)] opacity-0 transition-opacity duration-700 group-hover:opacity-100" />
 
-                <div className="relative flex min-h-[430px] flex-col p-6 sm:p-7">
+                <div className="pointer-events-none absolute left-6 right-6 top-0 h-px bg-gradient-to-r from-transparent via-white/40 to-transparent opacity-30 transition-opacity duration-700 group-hover:opacity-100" />
+
+                <div className="pointer-events-none absolute right-[-90px] top-[-90px] h-48 w-48 rounded-full bg-white/[0.025] blur-[55px] transition-all duration-700 group-hover:bg-white/[0.055]" />
+
+                {/* Archive number */}
+
+                <div className="pointer-events-none absolute bottom-[-40px] right-[-10px] font-display text-[10rem] leading-none tracking-[-0.1em] text-white/[0.018] transition-all duration-700 group-hover:text-white/[0.04]">
+                  0{index + 1}
+                </div>
+
+                <div className="relative flex min-h-[455px] flex-col p-6 sm:p-7">
                   <div className="flex items-start justify-between">
-                    <div className="flex h-11 w-11 items-center justify-center rounded-[14px] border border-white/[0.09] bg-white/[0.025] transition-all duration-500 group-hover:border-white/[0.18] group-hover:bg-white/[0.06]">
+                    <div className="relative flex h-12 w-12 items-center justify-center">
+                      <span className="absolute inset-0 rotate-45 border border-white/[0.1] transition-all duration-700 group-hover:scale-110 group-hover:border-white/[0.2]" />
+
                       <Mail
                         size={15}
                         strokeWidth={1}
-                        className="text-white/40"
+                        className="relative text-white/45"
                       />
                     </div>
 
                     <div className="text-right">
-                      <span className="font-mono text-[6px] tracking-[0.3em] text-white/10">
+                      <span className="font-mono text-[6px] tracking-[0.35em] text-white/12">
                         ARCHIVE
                       </span>
 
-                      <p className="mt-1 font-mono text-[9px] tracking-[0.2em] text-white/25">
+                      <p className="mt-1 font-mono text-[10px] tracking-[0.25em] text-white/30">
                         0{index + 1}
                       </p>
                     </div>
                   </div>
 
-                  <div className="mt-10 flex items-center gap-2">
-                    <span className="h-1 w-1 rounded-full bg-white/40" />
+                  <div className="mt-12 flex items-center gap-2.5">
+                    <span className="h-1 w-1 rounded-full bg-white/45" />
 
-                    <span className="font-mono text-[6px] uppercase tracking-[0.4em] text-white/20">
+                    <span className="font-mono text-[6px] uppercase tracking-[0.45em] text-white/22">
                       PRIVATE LETTER
                     </span>
                   </div>
 
-                  <h2 className="mt-5 max-w-[270px] font-serif text-[2rem] leading-[0.98] tracking-[-0.025em] text-white/85 transition-colors duration-500 group-hover:text-white sm:text-[2.2rem]">
+                  <h2 className="mt-6 max-w-[280px] font-serif text-[2.15rem] leading-[0.94] tracking-[-0.035em] text-white/88 transition-all duration-500 group-hover:text-white sm:text-[2.4rem]">
                     {letter.title}
                   </h2>
 
-                  <p className="mt-5 max-w-[260px] font-serif text-sm italic leading-[1.7] text-white/25 transition-colors duration-500 group-hover:text-white/45">
+                  <p className="mt-6 max-w-[270px] font-serif text-sm italic leading-[1.8] text-white/28 transition-colors duration-500 group-hover:text-white/50">
                     {letter.subtitle}
                   </p>
 
                   <div className="mt-auto">
-                    <div className="mb-6 flex items-center gap-3">
-                      <span className="h-px w-10 bg-white/[0.08]" />
+                    <div className="mb-7 flex items-center gap-3">
+                      <span className="h-px w-12 bg-white/[0.09]" />
 
-                      <Sparkles
-                        size={9}
-                        strokeWidth={1}
-                        className="text-white/20"
-                      />
+                      <div className="relative">
+                        <span className="absolute inset-[-8px] rounded-full bg-white/[0.04] blur-md" />
 
-                      <span className="h-px flex-1 bg-white/[0.05]" />
+                        <Sparkles
+                          size={10}
+                          strokeWidth={1}
+                          className="relative text-white/25"
+                        />
+                      </div>
+
+                      <span className="h-px flex-1 bg-white/[0.06]" />
                     </div>
 
                     <button
@@ -723,24 +735,26 @@ export default function Letters() {
                           index
                         )
                       }
-                      className="flex w-full items-center justify-between rounded-xl border border-white/[0.08] bg-white/[0.025] px-4 py-3.5 text-left transition-all duration-300 hover:border-white/[0.2] hover:bg-white/[0.06] active:scale-[0.98]"
+                      className="relative flex w-full items-center justify-between overflow-hidden rounded-xl border border-white/[0.09] bg-white/[0.025] px-4 py-4 text-left transition-all duration-500 hover:border-white/[0.22] hover:bg-white/[0.07] active:scale-[0.98]"
                     >
-                      <span className="flex items-center gap-2.5">
+                      <span className="pointer-events-none absolute inset-0 translate-y-full bg-gradient-to-t from-white/[0.06] to-transparent transition-transform duration-500 group-hover:translate-y-0" />
+
+                      <span className="relative flex items-center gap-3">
                         <Lock
                           size={10}
                           strokeWidth={1}
-                          className="text-white/25"
+                          className="text-white/30"
                         />
 
-                        <span className="font-mono text-[6px] uppercase tracking-[0.35em] text-white/35">
+                        <span className="font-mono text-[6px] uppercase tracking-[0.4em] text-white/40">
                           Open this letter
                         </span>
                       </span>
 
                       <ArrowUpRight
-                        size={13}
+                        size={14}
                         strokeWidth={1}
-                        className="text-white/25 transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
+                        className="relative text-white/30 transition-transform duration-500 group-hover:translate-x-1 group-hover:-translate-y-1"
                       />
                     </button>
                   </div>
@@ -752,46 +766,50 @@ export default function Letters() {
       </section>
 
       {/* =========================================================
-          BETWEEN SECTION
+          CINEMATIC DIVIDER
       ========================================================= */}
 
-      <div className="mx-auto mt-16 flex max-w-5xl items-center justify-center gap-4 sm:mt-20">
-        <span className="h-px flex-1 bg-white/[0.05]" />
+      <div className="mx-auto mt-20 flex max-w-5xl items-center justify-center gap-5 sm:mt-24">
+        <span className="h-px flex-1 bg-gradient-to-r from-transparent to-white/[0.08]" />
 
-        <div className="text-center">
+        <div className="relative text-center">
+          <span className="absolute left-1/2 top-1/2 h-12 w-12 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white/[0.025] blur-xl" />
+
           <Heart
-            size={11}
+            size={12}
             fill="currentColor"
-            className="mx-auto text-white/20"
+            className="relative mx-auto text-white/25"
           />
 
-          <p className="mt-3 font-mono text-[5px] uppercase tracking-[0.5em] text-white/10">
+          <p className="mt-4 font-mono text-[5px] uppercase tracking-[0.55em] text-white/13">
             Written only for you
           </p>
         </div>
 
-        <span className="h-px flex-1 bg-white/[0.05]" />
+        <span className="h-px flex-1 bg-gradient-to-l from-transparent to-white/[0.08]" />
       </div>
 
       {/* =========================================================
           FOOTER
       ========================================================= */}
 
-      <footer className="mx-auto mt-12 max-w-xl text-center sm:mt-16">
-        <p className="font-serif text-sm italic leading-[1.8] text-white/20 sm:text-base">
+      <footer className="mx-auto mt-14 max-w-xl text-center sm:mt-20">
+        <p className="font-serif text-[15px] italic leading-[2] text-white/25 sm:text-lg">
           Some words are meant to be read once.
           <br />
-          Some are meant to be kept forever.
+          Some are meant to become part of you.
+          <br />
+          And some are meant to be kept forever.
         </p>
 
-        <div className="mt-6 flex items-center justify-center gap-3">
-          <span className="h-px w-8 bg-white/[0.06]" />
+        <div className="mt-8 flex items-center justify-center gap-4">
+          <span className="h-px w-10 bg-white/[0.07]" />
 
-          <span className="font-mono text-[5px] tracking-[0.45em] text-white/10">
+          <span className="font-mono text-[5px] tracking-[0.5em] text-white/12">
             MEMORY ARCHIVE // LOVE
           </span>
 
-          <span className="h-px w-8 bg-white/[0.06]" />
+          <span className="h-px w-10 bg-white/[0.07]" />
         </div>
       </footer>
 
@@ -801,153 +819,193 @@ export default function Letters() {
 
       {opened && (
         <div
-          className="fixed inset-0 z-[100] overflow-y-auto bg-[#010101]/95 px-3 py-5 sm:px-5 sm:py-8"
+          className="fixed inset-0 z-[100] overflow-y-auto bg-[#010101]/96 px-3 py-5 backdrop-blur-sm sm:px-5 sm:py-8"
           onClick={closeLetter}
         >
-          <div className="pointer-events-none fixed inset-0">
-            <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_25%,rgba(255,255,255,.045),transparent_45%)]" />
+          {/* Cinematic modal atmosphere */}
 
-            <div className="absolute inset-0 bg-[linear-gradient(to_bottom,rgba(0,0,0,.15),rgba(0,0,0,.8))]" />
+          <div className="pointer-events-none fixed inset-0 overflow-hidden">
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_18%,rgba(255,255,255,.065),transparent_42%)]" />
+
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_80%,rgba(0,0,0,.1),rgba(0,0,0,.9))]" />
+
+            <div className="absolute inset-0 opacity-[0.025] [background-image:radial-gradient(rgba(255,255,255,.6)_0.45px,transparent_0.45px)] [background-size:5px_5px]" />
           </div>
+
+          {/* Close */}
 
           <button
             type="button"
             onClick={closeLetter}
             aria-label="Close letter"
-            className="fixed right-4 top-4 z-[120] flex h-11 w-11 items-center justify-center rounded-full border border-white/[0.12] bg-black/70 text-white/45 backdrop-blur-xl transition-all duration-300 hover:border-white/30 hover:bg-white hover:text-black active:scale-90 sm:right-7 sm:top-7"
+            className="fixed right-4 top-4 z-[120] flex h-11 w-11 items-center justify-center rounded-full border border-white/[0.12] bg-black/70 text-white/45 backdrop-blur-xl transition-all duration-300 hover:scale-105 hover:border-white/30 hover:bg-white hover:text-black active:scale-90 sm:right-7 sm:top-7"
           >
             <X
-              size={15}
+              size={16}
               strokeWidth={1.2}
             />
           </button>
 
+          {/* Archive info */}
+
           <div className="fixed left-4 top-5 z-[120] sm:left-7 sm:top-7">
-            <p className="font-mono text-[5px] uppercase tracking-[0.4em] text-white/20">
+            <p className="font-mono text-[5px] uppercase tracking-[0.45em] text-white/25">
               LOVE ARCHIVE
             </p>
 
-            <p className="mt-1 font-mono text-[6px] tracking-[0.25em] text-white/10">
+            <p className="mt-1 font-mono text-[6px] tracking-[0.3em] text-white/12">
               LETTER 0{opened.id} / 0
               {letters.length}
             </p>
           </div>
 
+          {/* Letter */}
+
           <article
             onClick={(event) =>
               event.stopPropagation()
             }
-            className="relative mx-auto my-14 max-w-3xl overflow-hidden rounded-[2px] bg-[#eee7d9] text-[#171512] shadow-[0_30px_100px_rgba(0,0,0,.8)] sm:my-20 sm:rounded-[3px]"
+            className="paper-reveal relative mx-auto my-16 max-w-3xl overflow-hidden rounded-[2px] bg-[#eee7d9] text-[#171512] shadow-[0_40px_150px_rgba(0,0,0,.9)] sm:my-24 sm:rounded-[3px]"
           >
-            <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-transparent via-black/20 to-transparent" />
+            {/* Paper edges */}
 
-            <div className="absolute inset-x-0 bottom-0 h-1 bg-gradient-to-r from-transparent via-black/10 to-transparent" />
+            <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-black/30 to-transparent" />
 
-            <div className="pointer-events-none absolute inset-0 opacity-[0.045] [background-image:radial-gradient(#000_0.5px,transparent_0.5px)] [background-size:6px_6px]" />
+            <div className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-black/20 to-transparent" />
 
-            <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_15%,rgba(255,255,255,.55),transparent_45%)]" />
+            {/* Paper grain */}
 
-            <div className="relative px-6 py-12 sm:px-12 sm:py-16 md:px-20 md:py-20">
+            <div className="pointer-events-none absolute inset-0 opacity-[0.055] [background-image:radial-gradient(#000_0.5px,transparent_0.5px)] [background-size:6px_6px]" />
+
+            {/* Paper lighting */}
+
+            <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_10%,rgba(255,255,255,.8),transparent_42%)]" />
+
+            <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(105deg,rgba(0,0,0,.025),transparent_30%,rgba(255,255,255,.18)_55%,transparent_80%)]" />
+
+            <div className="relative px-6 py-14 sm:px-12 sm:py-20 md:px-20 md:py-24">
+              {/* Letter header */}
+
               <div className="flex items-start justify-between gap-6">
                 <div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2.5">
                     <Heart
                       size={9}
                       fill="currentColor"
-                      className="text-black/25"
+                      className="text-black/30"
                     />
 
-                    <p className="font-mono text-[6px] uppercase tracking-[0.5em] text-black/30">
+                    <p className="font-mono text-[6px] uppercase tracking-[0.55em] text-black/35">
                       PRIVATE CORRESPONDENCE
                     </p>
                   </div>
 
-                  <p className="mt-2 font-mono text-[5px] uppercase tracking-[0.35em] text-black/15">
+                  <p className="mt-3 font-mono text-[5px] uppercase tracking-[0.4em] text-black/20">
                     MEMORY UNIVERSE // LETTER 0
                     {opened.id}
                   </p>
                 </div>
 
-                <div className="relative flex h-10 w-10 shrink-0 items-center justify-center">
-                  <span className="absolute inset-0 rotate-45 border border-black/[0.09]" />
+                <div className="relative flex h-11 w-11 shrink-0 items-center justify-center">
+                  <span className="absolute inset-0 rotate-45 border border-black/[0.12]" />
 
                   <Feather
-                    size={15}
+                    size={16}
                     strokeWidth={1}
-                    className="rotate-[-15deg] text-black/25"
+                    className="relative rotate-[-15deg] text-black/30"
                   />
                 </div>
               </div>
 
-              <div className="mt-12 flex items-center gap-3">
-                <span className="h-px w-8 bg-black/10" />
+              <div className="mt-14 flex items-center gap-3">
+                <span className="h-px w-10 bg-black/15" />
 
-                <span className="font-mono text-[6px] uppercase tracking-[0.35em] text-black/20">
+                <span className="font-mono text-[6px] uppercase tracking-[0.4em] text-black/25">
                   Written from the heart
                 </span>
               </div>
 
-              <h2 className="mt-8 max-w-2xl font-serif text-[2.7rem] leading-[0.92] tracking-[-0.035em] sm:text-5xl md:text-6xl">
+              <h2 className="mt-9 max-w-2xl font-serif text-[3rem] leading-[0.9] tracking-[-0.045em] sm:text-6xl md:text-7xl">
                 {opened.title}
               </h2>
 
-              <p className="mt-5 max-w-xl font-serif text-base italic leading-[1.7] text-black/40 sm:text-lg">
+              <p className="mt-6 max-w-xl font-serif text-base italic leading-[1.8] text-black/45 sm:text-lg">
                 {opened.subtitle}
               </p>
 
-              <div className="my-12 flex items-center gap-4 sm:my-14">
-                <span className="h-px flex-1 bg-black/10" />
+              {/* Divider */}
 
-                <div className="relative flex h-7 w-7 items-center justify-center">
-                  <span className="absolute inset-0 rotate-45 border border-black/10" />
+              <div className="my-14 flex items-center gap-5 sm:my-16">
+                <span className="h-px flex-1 bg-black/12" />
+
+                <div className="relative flex h-8 w-8 items-center justify-center">
+                  <span className="absolute inset-0 rotate-45 border border-black/12" />
 
                   <Heart
                     size={9}
                     fill="currentColor"
-                    className="relative text-black/25"
+                    className="relative text-black/30"
                   />
                 </div>
 
-                <span className="h-px flex-1 bg-black/10" />
+                <span className="h-px flex-1 bg-black/12" />
               </div>
 
-              <div className="whitespace-pre-line font-serif text-[17px] leading-[2] tracking-[0.005em] text-black/65 sm:text-[19px] sm:leading-[2.05] md:text-xl">
+              {/* Letter text */}
+
+              <div className="whitespace-pre-line font-serif text-[17px] leading-[2.05] tracking-[0.006em] text-black/65 sm:text-[19px] sm:leading-[2.15] md:text-xl">
                 {opened.text}
               </div>
 
-              <div className="mt-16 flex items-center gap-4">
-                <span className="h-px w-10 bg-black/10" />
+              {/* Closing divider */}
+
+              <div className="mt-20 flex items-center gap-4">
+                <span className="h-px w-12 bg-black/12" />
 
                 <Sparkles
                   size={10}
                   strokeWidth={1}
-                  className="text-black/20"
+                  className="text-black/25"
                 />
 
-                <span className="h-px flex-1 bg-black/10" />
+                <span className="h-px flex-1 bg-black/12" />
               </div>
 
-              <div className="mt-10">
-                <p className="font-serif text-sm italic text-black/30">
+              {/* Signature */}
+
+              <div className="mt-12">
+                <p className="font-serif text-sm italic text-black/35">
                   With all the love that words can hold,
                 </p>
 
-                <p className="mt-4 font-serif text-xl italic text-black/55 sm:text-2xl">
+                <p className="mt-5 font-serif text-2xl italic tracking-[-0.02em] text-black/60 sm:text-3xl">
                   {opened.signature}
                 </p>
               </div>
 
-              <div className="mt-14 flex justify-end">
-                <div className="relative flex h-16 w-16 rotate-[-8deg] items-center justify-center rounded-full border border-black/10">
-                  <span className="absolute inset-2 rounded-full border border-dashed border-black/10" />
+              {/* Seal */}
 
-                  <span className="font-serif text-xl italic tracking-[-0.05em] text-black/25">
+              <div className="mt-16 flex justify-end">
+                <div className="relative flex h-[72px] w-[72px] rotate-[-8deg] items-center justify-center rounded-full border border-black/15">
+                  <span className="absolute inset-2 rounded-full border border-dashed border-black/15" />
+
+                  <span className="absolute inset-[10px] rounded-full border border-black/[0.06]" />
+
+                  <span className="font-serif text-2xl italic tracking-[-0.05em] text-black/30">
                     KD
                   </span>
                 </div>
               </div>
             </div>
           </article>
+
+          {/* Mobile cinematic hint */}
+
+          <div className="relative z-10 mb-8 flex justify-center md:hidden">
+            <span className="font-mono text-[5px] uppercase tracking-[0.45em] text-white/20">
+              Swipe from edge or tap outside to close
+            </span>
+          </div>
         </div>
       )}
 
@@ -955,14 +1013,14 @@ export default function Letters() {
           MOBILE HINT
       ========================================================= */}
 
-      <div className="mt-12 flex items-center justify-center gap-3 md:hidden">
-        <span className="h-px w-8 bg-white/[0.05]" />
+      <div className="mt-14 flex items-center justify-center gap-3 md:hidden">
+        <span className="h-px w-8 bg-white/[0.06]" />
 
-        <span className="font-mono text-[5px] uppercase tracking-[0.45em] text-white/10">
+        <span className="font-mono text-[5px] uppercase tracking-[0.5em] text-white/12">
           Tap a letter to open
         </span>
 
-        <span className="h-px w-8 bg-white/[0.05]" />
+        <span className="h-px w-8 bg-white/[0.06]" />
       </div>
     </main>
   );

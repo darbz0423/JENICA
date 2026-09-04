@@ -17,7 +17,7 @@ export default function MusicPlayer({ enabled = true }) {
     }
 
     // Volume
-    audio.volume = 0.10;
+    audio.volume = 0.5;
 
     // Loop the song continuously
     audio.loop = true;
