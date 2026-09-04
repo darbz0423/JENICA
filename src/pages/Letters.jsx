@@ -11,6 +11,8 @@ import {
 import { birthdayData } from "../data/birthdayData";
 
 const HISTORY_KEY = "__memoryUniverseLetters";
+const PAGE_STATE = "page";
+const MODAL_STATE = "modal";
 
 export default function Letters() {
   const [opened, setOpened] = useState(null);
@@ -18,14 +20,36 @@ export default function Letters() {
 
   /*
    * ============================================================
-   * PROTECTED NAVIGATION REFS
+   * NAVIGATION REFS
    * ============================================================
    */
 
   const openedRef = useRef(null);
-  const isUnmountingRef = useRef(false);
-  const isRestoringRef = useRef(false);
-  const isClosingFromPopRef = useRef(false);
+
+  /*
+   * Prevents duplicate modal history entries.
+   */
+  const modalHistoryActiveRef = useRef(false);
+
+  /*
+   * Used when Browser Back / swipe-back closes the modal.
+   */
+  const closingFromHistoryRef = useRef(false);
+
+  /*
+   * Used when the close button intentionally calls history.back().
+   */
+  const programmaticBackRef = useRef(false);
+
+  /*
+   * Prevents rapid duplicate open actions.
+   */
+  const openingRef = useRef(false);
+
+  /*
+   * Prevents handlers from running after unmount.
+   */
+  const mountedRef = useRef(false);
 
   const letters = birthdayData.letters || [];
 
@@ -41,43 +65,60 @@ export default function Letters() {
 
   /*
    * ============================================================
-   * CREATE PROTECTED LETTERS PAGE STATE
+   * HISTORY HELPERS
+   * ============================================================
+   */
+
+  const getPageState = () => ({
+    ...(window.history.state || {}),
+    [HISTORY_KEY]: true,
+    type: PAGE_STATE,
+    modalOpen: false,
+    letterId: null,
+  });
+
+  const getModalState = (letter) => ({
+    ...(window.history.state || {}),
+    [HISTORY_KEY]: true,
+    type: MODAL_STATE,
+    modalOpen: true,
+    letterId: letter?.id ?? null,
+  });
+
+  /*
+   * ============================================================
+   * NORMALIZE LETTERS PAGE HISTORY STATE
+   *
+   * The Letters page always gets a stable base history state.
+   *
+   * IMPORTANT:
+   *
+   * Letters Page
+   *      ↓
+   * Modal State
+   *
+   * When swipe-back happens from the modal, it returns to this
+   * exact Letters page state.
    * ============================================================
    */
 
   useEffect(() => {
-    isUnmountingRef.current = false;
+    mountedRef.current = true;
 
     const currentState = window.history.state || {};
-    const currentLettersState = currentState[HISTORY_KEY];
 
-    if (!currentLettersState?.base) {
+    if (
+      !currentState[HISTORY_KEY] ||
+      currentState.type !== PAGE_STATE ||
+      currentState.modalOpen
+    ) {
       window.history.replaceState(
         {
           ...currentState,
-          [HISTORY_KEY]: {
-            base: true,
-            guard: false,
-            modal: false,
-          },
-        },
-        "",
-        window.location.href
-      );
-    }
-
-    const stateAfterBase = window.history.state || {};
-    const lettersStateAfterBase = stateAfterBase[HISTORY_KEY];
-
-    if (!lettersStateAfterBase?.guard) {
-      window.history.pushState(
-        {
-          ...stateAfterBase,
-          [HISTORY_KEY]: {
-            base: true,
-            guard: true,
-            modal: false,
-          },
+          [HISTORY_KEY]: true,
+          type: PAGE_STATE,
+          modalOpen: false,
+          letterId: null,
         },
         "",
         window.location.href
@@ -85,162 +126,111 @@ export default function Letters() {
     }
 
     return () => {
-      isUnmountingRef.current = true;
+      mountedRef.current = false;
     };
   }, []);
 
   /*
    * ============================================================
-   * PROTECTED BACK / SWIPE-BACK NAVIGATION
-   *
-   * PRIORITY:
-   * 1. Close open letter.
-   * 2. Restore Letters guard.
-   * ============================================================
-   */
-
-  useEffect(() => {
-    const handlePopState = (event) => {
-      if (isUnmountingRef.current) return;
-
-      const currentOpened = openedRef.current;
-      const state = event.state || {};
-      const lettersState = state[HISTORY_KEY];
-
-      /*
-       * --------------------------------------------------------
-       * PRIORITY 1 — MODAL OPEN
-       * --------------------------------------------------------
-       */
-
-      if (currentOpened) {
-        isClosingFromPopRef.current = true;
-
-        setOpened(null);
-        openedRef.current = null;
-
-        window.setTimeout(() => {
-          if (isUnmountingRef.current) return;
-
-          const currentState = window.history.state || {};
-          const currentLettersState = currentState[HISTORY_KEY];
-
-          if (!currentLettersState?.guard) {
-            isRestoringRef.current = true;
-
-            window.history.pushState(
-              {
-                ...currentState,
-                [HISTORY_KEY]: {
-                  base: true,
-                  guard: true,
-                  modal: false,
-                },
-              },
-              "",
-              window.location.href
-            );
-
-            window.setTimeout(() => {
-              isRestoringRef.current = false;
-            }, 50);
-          }
-
-          isClosingFromPopRef.current = false;
-        }, 0);
-
-        return;
-      }
-
-      /*
-       * --------------------------------------------------------
-       * PRIORITY 2 — MAIN PAGE PROTECTION
-       * --------------------------------------------------------
-       */
-
-      if (isRestoringRef.current) return;
-
-      if (!lettersState?.guard) {
-        isRestoringRef.current = true;
-
-        window.history.pushState(
-          {
-            ...state,
-            [HISTORY_KEY]: {
-              base: true,
-              guard: true,
-              modal: false,
-            },
-          },
-          "",
-          window.location.href
-        );
-
-        window.setTimeout(() => {
-          isRestoringRef.current = false;
-        }, 50);
-      }
-    };
-
-    window.addEventListener("popstate", handlePopState);
-
-    return () => {
-      window.removeEventListener("popstate", handlePopState);
-    };
-  }, []);
-
-  /*
-   * ============================================================
-   * LOCK BODY SCROLL
+   * LOCK BODY SCROLL WHILE LETTER IS OPEN
    * ============================================================
    */
 
   useEffect(() => {
     if (!opened) return;
 
-    const previousOverflow = document.body.style.overflow;
+    const previousOverflow =
+      document.body.style.overflow;
+
     const previousOverscrollBehavior =
       document.body.style.overscrollBehavior;
+
+    const previousHtmlOverscrollBehavior =
+      document.documentElement.style.overscrollBehavior;
 
     document.body.style.overflow = "hidden";
     document.body.style.overscrollBehavior = "none";
 
+    document.documentElement.style.overscrollBehavior =
+      "none";
+
     return () => {
-      document.body.style.overflow = previousOverflow;
+      document.body.style.overflow =
+        previousOverflow;
+
       document.body.style.overscrollBehavior =
         previousOverscrollBehavior;
+
+      document.documentElement.style.overscrollBehavior =
+        previousHtmlOverscrollBehavior;
     };
   }, [opened]);
 
   /*
    * ============================================================
    * OPEN LETTER
+   *
+   * History:
+   *
+   * LETTERS PAGE
+   *      ↓
+   * LETTER MODAL
+   *
+   * Only ONE modal history entry is created.
    * ============================================================
    */
 
   const openLetter = (letter, index) => {
     if (!letter) return;
-    if (openedRef.current) return;
+
+    /*
+     * If a letter is already open, replace the content without
+     * creating another history entry.
+     */
+
+    if (openedRef.current) {
+      setActiveCard(index);
+      setOpened(letter);
+      openedRef.current = letter;
+
+      window.history.replaceState(
+        getModalState(letter),
+        "",
+        window.location.href
+      );
+
+      return;
+    }
+
+    /*
+     * Prevent accidental rapid double-clicks.
+     */
+
+    if (openingRef.current) return;
+
+    openingRef.current = true;
 
     setActiveCard(index);
     setOpened(letter);
     openedRef.current = letter;
 
-    const currentState = window.history.state || {};
+    /*
+     * Push exactly ONE modal state.
+     *
+     * The previous entry remains the Letters page.
+     */
 
     window.history.pushState(
-      {
-        ...currentState,
-        [HISTORY_KEY]: {
-          base: true,
-          guard: true,
-          modal: true,
-          letterId: letter.id,
-        },
-      },
+      getModalState(letter),
       "",
       window.location.href
     );
+
+    modalHistoryActiveRef.current = true;
+
+    window.setTimeout(() => {
+      openingRef.current = false;
+    }, 80);
 
     if (navigator.vibrate) {
       navigator.vibrate([8, 25, 10]);
@@ -250,27 +240,173 @@ export default function Letters() {
   /*
    * ============================================================
    * CLOSE LETTER
+   *
+   * Priority:
+   *
+   * 1. Close button / backdrop / Escape / edge swipe
+   *    → Go back from modal state.
+   *
+   * 2. popstate
+   *    → Actually closes the modal.
+   *
+   * Result:
+   *
+   * MODAL
+   *    ↓ BACK
+   * LETTERS PAGE
+   *
+   * It does NOT continue to Universe.
    * ============================================================
    */
 
   const closeLetter = () => {
     if (!openedRef.current) return;
 
-    const currentState = window.history.state || {};
-    const lettersState = currentState[HISTORY_KEY];
+    /*
+     * If Browser Back already triggered popstate,
+     * do not call history.back() again.
+     */
 
-    if (
-      lettersState?.modal &&
-      !isClosingFromPopRef.current
-    ) {
-      window.history.back();
+    if (closingFromHistoryRef.current) {
+      closingFromHistoryRef.current = false;
+      modalHistoryActiveRef.current = false;
+
+      setOpened(null);
+      openedRef.current = null;
+
       return;
     }
 
+    const currentState =
+      window.history.state || {};
+
+    /*
+     * Only go back when currently on our modal history state.
+     */
+
+    if (
+      currentState[HISTORY_KEY] &&
+      currentState.type === MODAL_STATE &&
+      currentState.modalOpen &&
+      modalHistoryActiveRef.current
+    ) {
+      programmaticBackRef.current = true;
+
+      window.history.back();
+
+      window.setTimeout(() => {
+        programmaticBackRef.current = false;
+      }, 200);
+
+      return;
+    }
+
+    /*
+     * Safety fallback.
+     */
+
     setOpened(null);
     openedRef.current = null;
-    isClosingFromPopRef.current = false;
+    modalHistoryActiveRef.current = false;
   };
+
+  /*
+   * ============================================================
+   * POPSTATE HANDLER
+   *
+   * MOBILE BACK / BROWSER BACK / SWIPE-BACK
+   *
+   * IMPORTANT FLOW:
+   *
+   * MODAL OPEN
+   *      ↓ Swipe Back
+   * MODAL HISTORY ENTRY REMOVED
+   *      ↓
+   * LETTERS PAGE STATE
+   *      ↓
+   * MODAL CLOSES
+   *
+   * The Letters page remains visible.
+   * ============================================================
+   */
+
+  useEffect(() => {
+    const handlePopState = (event) => {
+      if (!mountedRef.current) return;
+
+      const nextState = event.state || {};
+
+      /*
+       * ========================================================
+       * CASE 1 — MODAL IS CURRENTLY OPEN
+       *
+       * Browser Back / swipe-back should ONLY close the modal.
+       * ========================================================
+       */
+
+      if (openedRef.current) {
+        closingFromHistoryRef.current = true;
+
+        setOpened(null);
+        openedRef.current = null;
+
+        modalHistoryActiveRef.current = false;
+
+        window.setTimeout(() => {
+          closingFromHistoryRef.current = false;
+        }, 100);
+
+        return;
+      }
+
+      /*
+       * ========================================================
+       * CASE 2 — CLOSE BUTTON CALLED history.back()
+       *
+       * We are now correctly back on the Letters page.
+       * ========================================================
+       */
+
+      if (programmaticBackRef.current) {
+        modalHistoryActiveRef.current = false;
+
+        return;
+      }
+
+      /*
+       * ========================================================
+       * CASE 3 — ARRIVED AT LETTERS PAGE STATE
+       *
+       * Make sure modal remains closed.
+       * ========================================================
+       */
+
+      if (
+        nextState[HISTORY_KEY] &&
+        nextState.type === PAGE_STATE &&
+        !nextState.modalOpen
+      ) {
+        setOpened(null);
+        openedRef.current = null;
+
+        modalHistoryActiveRef.current = false;
+
+        return;
+      }
+    };
+
+    window.addEventListener(
+      "popstate",
+      handlePopState
+    );
+
+    return () => {
+      window.removeEventListener(
+        "popstate",
+        handlePopState
+      );
+    };
+  }, []);
 
   /*
    * ============================================================
@@ -288,7 +424,10 @@ export default function Letters() {
       }
     };
 
-    window.addEventListener("keydown", handleKeyDown);
+    window.addEventListener(
+      "keydown",
+      handleKeyDown
+    );
 
     return () => {
       window.removeEventListener(
@@ -301,6 +440,10 @@ export default function Letters() {
   /*
    * ============================================================
    * MOBILE EDGE SWIPE
+   *
+   * Additional manual swipe interaction.
+   *
+   * Native browser swipe-back is still handled through popstate.
    * ============================================================
    */
 
@@ -311,7 +454,10 @@ export default function Letters() {
     const handleTouchStart = (event) => {
       if (!openedRef.current) return;
 
-      const touch = event.touches[0];
+      const touch =
+        event.touches?.[0];
+
+      if (!touch) return;
 
       startX = touch.clientX;
       startY = touch.clientY;
@@ -320,21 +466,30 @@ export default function Letters() {
     const handleTouchEnd = (event) => {
       if (!openedRef.current) return;
 
-      const touch = event.changedTouches[0];
+      const touch =
+        event.changedTouches?.[0];
 
-      const deltaX = touch.clientX - startX;
-      const deltaY = touch.clientY - startY;
+      if (!touch) return;
 
-      const startedNearLeftEdge = startX <= 45;
+      const deltaX =
+        touch.clientX - startX;
+
+      const deltaY =
+        touch.clientY - startY;
+
+      const startedNearLeftEdge =
+        startX <= 45;
 
       const isHorizontal =
-        Math.abs(deltaX) > Math.abs(deltaY);
+        Math.abs(deltaX) >
+        Math.abs(deltaY);
 
-      if (
+      const validSwipe =
         startedNearLeftEdge &&
         isHorizontal &&
-        deltaX > 90
-      ) {
+        deltaX > 90;
+
+      if (validSwipe) {
         closeLetter();
       }
     };
@@ -375,8 +530,13 @@ export default function Letters() {
           0%, 100% {
             transform: translate3d(-50%, -50%, 0) scale(1);
           }
+
           50% {
-            transform: translate3d(-50%, calc(-50% - 30px), 0) scale(1.08);
+            transform: translate3d(
+              -50%,
+              calc(-50% - 30px),
+              0
+            ) scale(1.08);
           }
         }
 
@@ -384,8 +544,13 @@ export default function Letters() {
           0%, 100% {
             transform: translate3d(0, 0, 0);
           }
+
           50% {
-            transform: translate3d(35px, -28px, 0);
+            transform: translate3d(
+              35px,
+              -28px,
+              0
+            );
           }
         }
 
@@ -393,6 +558,7 @@ export default function Letters() {
           from {
             transform: translateY(-100%);
           }
+
           to {
             transform: translateY(100vh);
           }
@@ -403,6 +569,7 @@ export default function Letters() {
             opacity: 0;
             transform: translateY(28px);
           }
+
           to {
             opacity: 1;
             transform: translateY(0);
@@ -412,11 +579,16 @@ export default function Letters() {
         @keyframes paperReveal {
           from {
             opacity: 0;
-            transform: translateY(30px) scale(0.985);
+            transform:
+              translateY(30px)
+              scale(0.985);
           }
+
           to {
             opacity: 1;
-            transform: translateY(0) scale(1);
+            transform:
+              translateY(0)
+              scale(1);
           }
         }
 
@@ -424,30 +596,49 @@ export default function Letters() {
           0%, 100% {
             opacity: 0.2;
           }
+
           50% {
             opacity: 0.55;
           }
         }
 
         .letters-reveal {
-          animation: lettersReveal 1s cubic-bezier(.16,1,.3,1) both;
+          animation:
+            lettersReveal
+            1s
+            cubic-bezier(.16,1,.3,1)
+            both;
         }
 
         .letters-reveal-delay {
-          animation: lettersReveal 1s .12s cubic-bezier(.16,1,.3,1) both;
+          animation:
+            lettersReveal
+            1s
+            .12s
+            cubic-bezier(.16,1,.3,1)
+            both;
         }
 
         .paper-reveal {
-          animation: paperReveal .8s cubic-bezier(.16,1,.3,1) both;
+          animation:
+            paperReveal
+            .8s
+            cubic-bezier(.16,1,.3,1)
+            both;
         }
 
         @media (prefers-reduced-motion: reduce) {
           *,
           *::before,
           *::after {
-            animation-duration: 0.01ms !important;
-            animation-iteration-count: 1 !important;
-            scroll-behavior: auto !important;
+            animation-duration:
+              0.01ms !important;
+
+            animation-iteration-count:
+              1 !important;
+
+            scroll-behavior:
+              auto !important;
           }
         }
       `}</style>
@@ -459,7 +650,6 @@ export default function Letters() {
       <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
         <div className="absolute inset-0 bg-[#020202]" />
 
-        {/* Central cinematic bloom */}
         <div
           className="absolute left-1/2 top-[38%] h-[520px] w-[520px] rounded-full bg-white/[0.025] blur-[120px]"
           style={{
@@ -468,7 +658,6 @@ export default function Letters() {
           }}
         />
 
-        {/* Violet atmosphere */}
         <div
           className="absolute -left-40 top-[18%] h-[420px] w-[420px] rounded-full bg-violet-500/[0.025] blur-[130px]"
           style={{
@@ -477,7 +666,6 @@ export default function Letters() {
           }}
         />
 
-        {/* Warm archive atmosphere */}
         <div
           className="absolute -right-40 top-[52%] h-[440px] w-[440px] rounded-full bg-amber-200/[0.018] blur-[140px]"
           style={{
@@ -486,16 +674,12 @@ export default function Letters() {
           }}
         />
 
-        {/* Deep vignette */}
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_32%,transparent_0%,rgba(0,0,0,.2)_42%,rgba(0,0,0,.82)_100%)]" />
 
-        {/* Film grain */}
         <div className="absolute inset-0 opacity-[0.035] [background-image:radial-gradient(rgba(255,255,255,.65)_0.45px,transparent_0.45px)] [background-size:5px_5px]" />
 
-        {/* Analog scanlines */}
         <div className="absolute inset-0 opacity-[0.018] [background-image:linear-gradient(rgba(255,255,255,.25)_1px,transparent_1px)] [background-size:100%_5px]" />
 
-        {/* Slow cinematic scan */}
         <div
           className="absolute left-0 right-0 h-[35vh] bg-gradient-to-b from-transparent via-white/[0.015] to-transparent"
           style={{
@@ -548,7 +732,11 @@ export default function Letters() {
           />
 
           <span className="font-mono text-[5px] tracking-[0.3em] text-white/15">
-            {String(letters.length).padStart(2, "0")} FRAGMENTS
+            {String(letters.length).padStart(
+              2,
+              "0"
+            )}{" "}
+            FRAGMENTS
           </span>
         </div>
       </div>
@@ -623,8 +811,6 @@ export default function Letters() {
       ========================================================= */}
 
       <section className="relative mx-auto mt-20 max-w-7xl sm:mt-24 md:mt-32">
-        {/* Orbital archive geometry */}
-
         <div className="pointer-events-none absolute left-1/2 top-1/2 hidden h-[760px] w-[760px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/[0.018] md:block" />
 
         <div className="pointer-events-none absolute left-1/2 top-1/2 hidden h-[560px] w-[560px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-dashed border-white/[0.025] md:block" />
@@ -657,15 +843,11 @@ export default function Letters() {
                   }
                 `}
               >
-                {/* Card light */}
-
                 <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_-10%,rgba(255,255,255,.09),transparent_42%)] opacity-0 transition-opacity duration-700 group-hover:opacity-100" />
 
                 <div className="pointer-events-none absolute left-6 right-6 top-0 h-px bg-gradient-to-r from-transparent via-white/40 to-transparent opacity-30 transition-opacity duration-700 group-hover:opacity-100" />
 
                 <div className="pointer-events-none absolute right-[-90px] top-[-90px] h-48 w-48 rounded-full bg-white/[0.025] blur-[55px] transition-all duration-700 group-hover:bg-white/[0.055]" />
-
-                {/* Archive number */}
 
                 <div className="pointer-events-none absolute bottom-[-40px] right-[-10px] font-display text-[10rem] leading-none tracking-[-0.1em] text-white/[0.018] transition-all duration-700 group-hover:text-white/[0.04]">
                   0{index + 1}
@@ -819,11 +1001,9 @@ export default function Letters() {
 
       {opened && (
         <div
-          className="fixed inset-0 z-[100] overflow-y-auto bg-[#010101]/96 px-3 py-5 backdrop-blur-sm sm:px-5 sm:py-8"
+          className="fixed inset-0 z-[100] overflow-y-auto overscroll-contain bg-[#010101]/96 px-3 py-5 backdrop-blur-sm sm:px-5 sm:py-8"
           onClick={closeLetter}
         >
-          {/* Cinematic modal atmosphere */}
-
           <div className="pointer-events-none fixed inset-0 overflow-hidden">
             <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_18%,rgba(255,255,255,.065),transparent_42%)]" />
 
@@ -832,11 +1012,14 @@ export default function Letters() {
             <div className="absolute inset-0 opacity-[0.025] [background-image:radial-gradient(rgba(255,255,255,.6)_0.45px,transparent_0.45px)] [background-size:5px_5px]" />
           </div>
 
-          {/* Close */}
+          {/* Close button */}
 
           <button
             type="button"
-            onClick={closeLetter}
+            onClick={(event) => {
+              event.stopPropagation();
+              closeLetter();
+            }}
             aria-label="Close letter"
             className="fixed right-4 top-4 z-[120] flex h-11 w-11 items-center justify-center rounded-full border border-white/[0.12] bg-black/70 text-white/45 backdrop-blur-xl transition-all duration-300 hover:scale-105 hover:border-white/30 hover:bg-white hover:text-black active:scale-90 sm:right-7 sm:top-7"
           >
@@ -846,7 +1029,7 @@ export default function Letters() {
             />
           </button>
 
-          {/* Archive info */}
+          {/* Archive information */}
 
           <div className="fixed left-4 top-5 z-[120] sm:left-7 sm:top-7">
             <p className="font-mono text-[5px] uppercase tracking-[0.45em] text-white/25">
@@ -859,7 +1042,7 @@ export default function Letters() {
             </p>
           </div>
 
-          {/* Letter */}
+          {/* Letter paper */}
 
           <article
             onClick={(event) =>
@@ -867,17 +1050,11 @@ export default function Letters() {
             }
             className="paper-reveal relative mx-auto my-16 max-w-3xl overflow-hidden rounded-[2px] bg-[#eee7d9] text-[#171512] shadow-[0_40px_150px_rgba(0,0,0,.9)] sm:my-24 sm:rounded-[3px]"
           >
-            {/* Paper edges */}
-
             <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-black/30 to-transparent" />
 
             <div className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-black/20 to-transparent" />
 
-            {/* Paper grain */}
-
             <div className="pointer-events-none absolute inset-0 opacity-[0.055] [background-image:radial-gradient(#000_0.5px,transparent_0.5px)] [background-size:6px_6px]" />
-
-            {/* Paper lighting */}
 
             <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_10%,rgba(255,255,255,.8),transparent_42%)]" />
 
@@ -901,8 +1078,8 @@ export default function Letters() {
                   </div>
 
                   <p className="mt-3 font-mono text-[5px] uppercase tracking-[0.4em] text-black/20">
-                    MEMORY UNIVERSE // LETTER 0
-                    {opened.id}
+                    MEMORY UNIVERSE //
+                    LETTER 0{opened.id}
                   </p>
                 </div>
 
@@ -951,7 +1128,7 @@ export default function Letters() {
                 <span className="h-px flex-1 bg-black/12" />
               </div>
 
-              {/* Letter text */}
+              {/* Letter content */}
 
               <div className="whitespace-pre-line font-serif text-[17px] leading-[2.05] tracking-[0.006em] text-black/65 sm:text-[19px] sm:leading-[2.15] md:text-xl">
                 {opened.text}
@@ -999,7 +1176,7 @@ export default function Letters() {
             </div>
           </article>
 
-          {/* Mobile cinematic hint */}
+          {/* Mobile modal hint */}
 
           <div className="relative z-10 mb-8 flex justify-center md:hidden">
             <span className="font-mono text-[5px] uppercase tracking-[0.45em] text-white/20">

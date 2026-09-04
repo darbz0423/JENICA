@@ -25,12 +25,12 @@ export default function Memories() {
   const selectedRef = useRef(null);
 
   /*
-   * Prevents duplicate viewer history entries.
+   * Prevent duplicate viewer history entries.
    */
   const viewerHistoryActiveRef = useRef(false);
 
   /*
-   * Used when the viewer is being closed through popstate.
+   * Used when the viewer is closed through browser history.
    */
   const closingFromHistoryRef = useRef(false);
 
@@ -40,17 +40,17 @@ export default function Memories() {
   const programmaticBackRef = useRef(false);
 
   /*
-   * Prevents duplicate page restoration.
+   * Prevent duplicate protected-page restoration.
    */
   const restoringPageRef = useRef(false);
 
   /*
-   * Prevents multiple rapid open actions.
+   * Prevent rapid duplicate opens.
    */
   const openingRef = useRef(false);
 
   /*
-   * Used to keep the route protection active.
+   * Keeps navigation protection active only while mounted.
    */
   const mountedRef = useRef(false);
 
@@ -65,6 +65,58 @@ export default function Memories() {
   useEffect(() => {
     selectedRef.current = selected;
   }, [selected]);
+
+  /*
+   * ============================================================
+   * MOBILE VIEWPORT OVERFLOW PROTECTION
+   *
+   * Large fixed background glows, transforms, blur effects,
+   * images, and animations can create horizontal overflow on
+   * real mobile browsers.
+   *
+   * This prevents the empty horizontal space / sideways page.
+   * ============================================================
+   */
+
+  useEffect(() => {
+    const previousHtmlOverflowX =
+      document.documentElement.style.overflowX;
+
+    const previousBodyOverflowX =
+      document.body.style.overflowX;
+
+    const previousHtmlWidth =
+      document.documentElement.style.width;
+
+    const previousBodyWidth =
+      document.body.style.width;
+
+    document.documentElement.style.overflowX =
+      "hidden";
+
+    document.body.style.overflowX =
+      "hidden";
+
+    document.documentElement.style.width =
+      "100%";
+
+    document.body.style.width =
+      "100%";
+
+    return () => {
+      document.documentElement.style.overflowX =
+        previousHtmlOverflowX;
+
+      document.body.style.overflowX =
+        previousBodyOverflowX;
+
+      document.documentElement.style.width =
+        previousHtmlWidth;
+
+      document.body.style.width =
+        previousBodyWidth;
+    };
+  }, []);
 
   /*
    * ============================================================
@@ -90,16 +142,14 @@ export default function Memories() {
   /*
    * ============================================================
    * CREATE / NORMALIZE PROTECTED PAGE STATE
-   *
-   * The current Memories route always has a stable protected
-   * history state.
    * ============================================================
    */
 
   useEffect(() => {
     mountedRef.current = true;
 
-    const currentState = window.history.state || {};
+    const currentState =
+      window.history.state || {};
 
     if (
       !currentState[HISTORY_KEY] ||
@@ -132,20 +182,28 @@ export default function Memories() {
   useEffect(() => {
     if (!selected) return;
 
-    const previousBodyOverflow = document.body.style.overflow;
+    const previousBodyOverflow =
+      document.body.style.overflow;
+
     const previousBodyOverscroll =
       document.body.style.overscrollBehavior;
 
     const previousHtmlOverscroll =
       document.documentElement.style.overscrollBehavior;
 
-    document.body.style.overflow = "hidden";
-    document.body.style.overscrollBehavior = "none";
+    document.body.style.overflow =
+      "hidden";
 
-    document.documentElement.style.overscrollBehavior = "none";
+    document.body.style.overscrollBehavior =
+      "none";
+
+    document.documentElement.style.overscrollBehavior =
+      "none";
 
     return () => {
-      document.body.style.overflow = previousBodyOverflow;
+      document.body.style.overflow =
+        previousBodyOverflow;
+
       document.body.style.overscrollBehavior =
         previousBodyOverscroll;
 
@@ -157,8 +215,6 @@ export default function Memories() {
   /*
    * ============================================================
    * OPEN MEMORY
-   *
-   * Only one viewer history state is allowed.
    * ============================================================
    */
 
@@ -166,8 +222,9 @@ export default function Memories() {
     if (!memory) return;
 
     /*
-     * If another memory is already open, simply replace the
-     * visible content without creating another history entry.
+     * If another memory is already open,
+     * replace the visible content without
+     * adding another history entry.
      */
 
     if (selectedRef.current) {
@@ -183,7 +240,7 @@ export default function Memories() {
     }
 
     /*
-     * Prevent accidental rapid double-click history pushes.
+     * Prevent rapid double-click history pushes.
      */
 
     if (openingRef.current) return;
@@ -212,12 +269,6 @@ export default function Memories() {
   /*
    * ============================================================
    * CLOSE MEMORY
-   *
-   * Priority:
-   *
-   * 1. Close UI immediately.
-   * 2. If viewer history exists, return to the page state.
-   * 3. Do not push duplicate history states.
    * ============================================================
    */
 
@@ -225,9 +276,10 @@ export default function Memories() {
     if (!selectedRef.current) return;
 
     setSelected(null);
+    selectedRef.current = null;
 
     /*
-     * If popstate already closed the viewer, do not call back again.
+     * Already closing from popstate.
      */
 
     if (closingFromHistoryRef.current) {
@@ -237,10 +289,12 @@ export default function Memories() {
       return;
     }
 
-    const currentState = window.history.state || {};
+    const currentState =
+      window.history.state || {};
 
     /*
-     * Only go back if we are currently on our viewer state.
+     * If currently on the viewer history state,
+     * return to the page state.
      */
 
     if (
@@ -265,15 +319,10 @@ export default function Memories() {
    * ============================================================
    * POPSTATE PROTECTION
    *
-   * Priority:
+   * PRIORITY:
    *
-   * 1. Viewer open:
-   *    Browser Back / swipe-back closes viewer.
-   *
-   * 2. Main page:
-   *    Back navigation is consumed.
-   *
-   * This protects the current Memories route.
+   * 1. Viewer open → close viewer.
+   * 2. Protected Memories page → stay on page.
    * ============================================================
    */
 
@@ -281,27 +330,30 @@ export default function Memories() {
     const handlePopState = (event) => {
       if (!mountedRef.current) return;
 
-      const nextState = event.state || {};
-      const currentViewer = selectedRef.current;
+      const nextState =
+        event.state || {};
+
+      const currentViewer =
+        selectedRef.current;
 
       /*
        * ========================================================
-       * CASE 1 — VIEWER IS OPEN
+       * CASE 1 — VIEWER OPEN
        *
-       * Any Back action closes the viewer first.
+       * Back / swipe-back closes viewer first.
        * ========================================================
        */
 
       if (currentViewer) {
-        closingFromHistoryRef.current = true;
+        closingFromHistoryRef.current =
+          true;
 
         setSelected(null);
 
-        viewerHistoryActiveRef.current = false;
+        selectedRef.current = null;
 
-        /*
-         * We are now expected to be on the page history state.
-         */
+        viewerHistoryActiveRef.current =
+          false;
 
         return;
       }
@@ -310,22 +362,20 @@ export default function Memories() {
        * ========================================================
        * CASE 2 — PROGRAMMATIC CLOSE
        *
-       * The close button called history.back().
-       * The resulting page state is correct, so do nothing.
+       * The close button already called history.back().
        * ========================================================
        */
 
       if (programmaticBackRef.current) {
-        viewerHistoryActiveRef.current = false;
+        viewerHistoryActiveRef.current =
+          false;
 
         return;
       }
 
       /*
        * ========================================================
-       * CASE 3 — RETURNED TO OUR PROTECTED PAGE
-       *
-       * Ensure the viewer stays closed.
+       * CASE 3 — RETURNED TO OUR PAGE STATE
        * ========================================================
        */
 
@@ -336,7 +386,10 @@ export default function Memories() {
       ) {
         setSelected(null);
 
-        viewerHistoryActiveRef.current = false;
+        selectedRef.current = null;
+
+        viewerHistoryActiveRef.current =
+          false;
 
         return;
       }
@@ -345,17 +398,18 @@ export default function Memories() {
        * ========================================================
        * CASE 4 — USER TRIED TO LEAVE MEMORIES
        *
-       * Consume the navigation and restore the protected page.
-       *
-       * We push only one replacement state and avoid loops.
+       * Restore protected page.
        * ========================================================
        */
 
       if (restoringPageRef.current) return;
 
-      restoringPageRef.current = true;
+      restoringPageRef.current =
+        true;
 
       setSelected(null);
+
+      selectedRef.current = null;
 
       window.history.pushState(
         getPageState(),
@@ -363,14 +417,19 @@ export default function Memories() {
         window.location.href
       );
 
-      viewerHistoryActiveRef.current = false;
+      viewerHistoryActiveRef.current =
+        false;
 
       window.setTimeout(() => {
-        restoringPageRef.current = false;
+        restoringPageRef.current =
+          false;
       }, 150);
     };
 
-    window.addEventListener("popstate", handlePopState);
+    window.addEventListener(
+      "popstate",
+      handlePopState
+    );
 
     return () => {
       window.removeEventListener(
@@ -388,12 +447,18 @@ export default function Memories() {
 
   useEffect(() => {
     const handleKeyDown = (event) => {
-      if (event.key === "Escape" && selectedRef.current) {
+      if (
+        event.key === "Escape" &&
+        selectedRef.current
+      ) {
         closeMemory();
       }
     };
 
-    window.addEventListener("keydown", handleKeyDown);
+    window.addEventListener(
+      "keydown",
+      handleKeyDown
+    );
 
     return () => {
       window.removeEventListener(
@@ -407,8 +472,7 @@ export default function Memories() {
    * ============================================================
    * MOBILE EDGE SWIPE
    *
-   * This is only an additional close interaction.
-   * Browser history gestures are still handled through popstate.
+   * Only closes the opened viewer.
    * ============================================================
    */
 
@@ -419,7 +483,8 @@ export default function Memories() {
     const handleTouchStart = (event) => {
       if (!selectedRef.current) return;
 
-      const touch = event.touches?.[0];
+      const touch =
+        event.touches?.[0];
 
       if (!touch) return;
 
@@ -430,17 +495,23 @@ export default function Memories() {
     const handleTouchEnd = (event) => {
       if (!selectedRef.current) return;
 
-      const touch = event.changedTouches?.[0];
+      const touch =
+        event.changedTouches?.[0];
 
       if (!touch) return;
 
-      const deltaX = touch.clientX - startX;
-      const deltaY = touch.clientY - startY;
+      const deltaX =
+        touch.clientX - startX;
 
-      const startedNearLeftEdge = startX <= 45;
+      const deltaY =
+        touch.clientY - startY;
+
+      const startedNearLeftEdge =
+        startX <= 45;
 
       const horizontal =
-        Math.abs(deltaX) > Math.abs(deltaY);
+        Math.abs(deltaX) >
+        Math.abs(deltaY);
 
       const validSwipe =
         startedNearLeftEdge &&
@@ -478,19 +549,45 @@ export default function Memories() {
   }, []);
 
   return (
-    <main className="relative min-h-screen overflow-hidden px-5 pb-40 pt-28 md:px-12 md:pt-32">
+    <main
+      className="
+        relative
+        min-h-[100svh]
+        w-full
+        min-w-0
+        max-w-full
+        overflow-x-hidden
+        overflow-y-hidden
+        px-5
+        pb-40
+        pt-28
+        md:px-12
+        md:pt-32
+      "
+    >
       {/* =========================================================
           CINEMATIC BACKGROUND
       ========================================================= */}
 
-      <div className="pointer-events-none fixed inset-0 -z-30 overflow-hidden bg-[#020202]">
+      <div
+        className="
+          pointer-events-none
+          fixed
+          inset-0
+          -z-30
+          w-screen
+          max-w-[100vw]
+          overflow-hidden
+          bg-[#020202]
+        "
+      >
         <div
           className="
             absolute
             left-1/2
             top-[25%]
-            h-[700px]
-            w-[700px]
+            h-[min(700px,120vw)]
+            w-[min(700px,120vw)]
             -translate-x-1/2
             rounded-full
             bg-white/[0.025]
@@ -503,8 +600,8 @@ export default function Memories() {
             absolute
             -left-60
             top-[40%]
-            h-[500px]
-            w-[500px]
+            h-[min(500px,100vw)]
+            w-[min(500px,100vw)]
             rounded-full
             bg-amber-300/[0.025]
             blur-[150px]
@@ -516,8 +613,8 @@ export default function Memories() {
             absolute
             -right-60
             top-[15%]
-            h-[500px]
-            w-[500px]
+            h-[min(500px,100vw)]
+            w-[min(500px,100vw)]
             rounded-full
             bg-violet-400/[0.025]
             blur-[150px]
@@ -557,28 +654,32 @@ export default function Memories() {
           HEADER
       ========================================================= */}
 
-      <header className="relative mx-auto max-w-6xl">
-        <div className="flex items-center gap-4">
-          <span className="h-px w-12 bg-gradient-to-r from-transparent to-white/20" />
+      <header className="relative mx-auto w-full min-w-0 max-w-6xl">
+        <div className="flex min-w-0 items-center gap-4">
+          <span className="h-px w-8 shrink-0 bg-gradient-to-r from-transparent to-white/20 sm:w-12" />
 
           <p
             className="
+              min-w-0
               font-mono
               text-[7px]
               uppercase
-              tracking-[0.6em]
+              tracking-[0.45em]
               text-white/30
+              sm:tracking-[0.6em]
             "
           >
             MEMORY MUSEUM / 01
           </p>
 
-          <span className="h-px w-12 bg-gradient-to-l from-transparent to-white/20" />
+          <span className="h-px w-8 shrink-0 bg-gradient-to-l from-transparent to-white/20 sm:w-12" />
         </div>
 
-        <div className="relative mt-7">
+        <div className="relative mt-7 min-w-0">
           <h1
             className="
+              min-w-0
+              break-words
               font-display
               text-6xl
               font-light
@@ -638,7 +739,7 @@ export default function Memories() {
           </div>
         </div>
 
-        <div className="mt-9 flex items-center gap-4">
+        <div className="mt-9 flex min-w-0 items-center gap-4">
           <p
             className="
               max-w-xl
@@ -651,14 +752,15 @@ export default function Memories() {
           >
             Click one.
             <br className="sm:hidden" /> Don't just look at it.
+
             <span className="text-white/60">
               {" "}Enter it.
             </span>
           </p>
         </div>
 
-        <div className="mt-10 flex items-center gap-4">
-          <div className="flex items-center gap-2">
+        <div className="mt-10 flex min-w-0 items-center gap-4">
+          <div className="flex shrink-0 items-center gap-2">
             <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-white/60 shadow-[0_0_15px_rgba(255,255,255,.8)]" />
 
             <span
@@ -666,25 +768,32 @@ export default function Memories() {
                 font-mono
                 text-[6px]
                 uppercase
-                tracking-[0.4em]
+                tracking-[0.35em]
                 text-white/20
+                sm:tracking-[0.4em]
               "
             >
               ARCHIVE ONLINE
             </span>
           </div>
 
-          <span className="h-px w-8 bg-white/[0.06]" />
+          <span className="h-px w-8 shrink-0 bg-white/[0.06]" />
 
           <span
             className="
+              min-w-0
               font-mono
               text-[6px]
-              tracking-[0.3em]
+              tracking-[0.25em]
               text-white/15
+              sm:tracking-[0.3em]
             "
           >
-            {String(memories.length).padStart(2, "0")} FRAGMENTS
+            {String(memories.length).padStart(
+              2,
+              "0"
+            )}{" "}
+            FRAGMENTS
           </span>
         </div>
       </header>
@@ -693,7 +802,7 @@ export default function Memories() {
           MEMORY CONSTELLATION
       ========================================================= */}
 
-      <section className="relative mx-auto mt-20 max-w-6xl md:mt-28">
+      <section className="relative mx-auto mt-20 w-full min-w-0 max-w-6xl md:mt-28">
         <div
           className="
             pointer-events-none
@@ -730,22 +839,36 @@ export default function Memories() {
           "
         />
 
-        <div className="grid gap-10 md:grid-cols-2 md:gap-x-16 md:gap-y-28">
+        <div className="grid w-full min-w-0 max-w-full gap-10 md:grid-cols-2 md:gap-x-16 md:gap-y-28">
           {memories.map((memory, index) => {
-            const isHovered = hovered === index;
+            const isHovered =
+              hovered === index;
 
             return (
               <button
                 key={memory.id}
                 type="button"
-                onClick={() => openMemory(memory)}
-                onMouseEnter={() => setHovered(index)}
-                onMouseLeave={() => setHovered(null)}
-                onFocus={() => setHovered(index)}
-                onBlur={() => setHovered(null)}
+                onClick={() =>
+                  openMemory(memory)
+                }
+                onMouseEnter={() =>
+                  setHovered(index)
+                }
+                onMouseLeave={() =>
+                  setHovered(null)
+                }
+                onFocus={() =>
+                  setHovered(index)
+                }
+                onBlur={() =>
+                  setHovered(null)
+                }
                 className={`
                   group
                   relative
+                  w-full
+                  min-w-0
+                  max-w-full
                   text-left
                   ${
                     index % 2 === 1
@@ -757,6 +880,9 @@ export default function Memories() {
                 <div
                   className={`
                     relative
+                    w-full
+                    min-w-0
+                    max-w-full
                     overflow-hidden
                     rounded-[3px]
                     border
@@ -772,7 +898,7 @@ export default function Memories() {
                     }
                   `}
                 >
-                  <div className="relative aspect-[4/5] overflow-hidden">
+                  <div className="relative aspect-[4/5] w-full overflow-hidden">
                     <img
                       src={memory.image}
                       alt={memory.title}
@@ -780,8 +906,10 @@ export default function Memories() {
                       decoding="async"
                       draggable="false"
                       className="
+                        block
                         h-full
                         w-full
+                        max-w-full
                         scale-[1.01]
                         object-cover
                         grayscale-[25%]
@@ -826,17 +954,22 @@ export default function Memories() {
                     <div
                       className="
                         absolute
-                        left-6
-                        right-6
-                        top-6
+                        left-4
+                        right-4
+                        top-4
                         flex
+                        min-w-0
                         items-center
                         justify-between
+                        sm:left-6
+                        sm:right-6
+                        sm:top-6
                       "
                     >
                       <div
                         className="
                           flex
+                          min-w-0
                           items-center
                           gap-2
                           rounded-full
@@ -851,15 +984,17 @@ export default function Memories() {
                         <CalendarDays
                           size={9}
                           strokeWidth={1}
-                          className="text-white/40"
+                          className="shrink-0 text-white/40"
                         />
 
                         <span
                           className="
+                            truncate
                             font-mono
                             text-[7px]
-                            tracking-[0.25em]
+                            tracking-[0.2em]
                             text-white/50
+                            sm:tracking-[0.25em]
                           "
                         >
                           {memory.date}
@@ -868,36 +1003,44 @@ export default function Memories() {
 
                       <span
                         className="
+                          ml-3
+                          shrink-0
                           font-mono
                           text-[7px]
                           tracking-[0.3em]
                           text-white/30
                         "
                       >
-                        {String(index + 1).padStart(2, "0")}
+                        {String(
+                          index + 1
+                        ).padStart(2, "0")}
                       </span>
                     </div>
 
-                    <div className="absolute bottom-0 left-0 right-0 p-7">
-                      <div className="flex items-end justify-between gap-5">
-                        <div>
+                    <div className="absolute bottom-0 left-0 right-0 min-w-0 p-6 sm:p-7">
+                      <div className="flex min-w-0 items-end justify-between gap-4 sm:gap-5">
+                        <div className="min-w-0">
                           <p
                             className="
+                              truncate
                               font-mono
                               text-[7px]
                               uppercase
-                              tracking-[0.4em]
+                              tracking-[0.35em]
                               text-white/30
                               transition-colors
                               group-hover:text-white/60
+                              sm:tracking-[0.4em]
                             "
                           >
-                            {memory.category || "MEMORY"}
+                            {memory.category ||
+                              "MEMORY"}
                           </p>
 
                           <h2
                             className="
                               mt-3
+                              break-words
                               font-display
                               text-3xl
                               font-light
@@ -945,6 +1088,7 @@ export default function Memories() {
                   <div
                     className="
                       flex
+                      min-w-0
                       items-center
                       justify-between
                       border-t
@@ -969,6 +1113,7 @@ export default function Memories() {
                       size={11}
                       strokeWidth={1}
                       className="
+                        shrink-0
                         text-white/15
                         transition-all
                         duration-500
@@ -988,10 +1133,10 @@ export default function Memories() {
           END MARKER
       ========================================================= */}
 
-      <div className="mx-auto mt-28 flex max-w-6xl items-center gap-4">
-        <span className="h-px flex-1 bg-white/[0.05]" />
+      <div className="mx-auto mt-28 flex w-full min-w-0 max-w-6xl items-center gap-4">
+        <span className="h-px min-w-0 flex-1 bg-white/[0.05]" />
 
-        <div className="flex items-center gap-3">
+        <div className="flex shrink-0 items-center gap-3">
           <Sparkles
             size={10}
             strokeWidth={1}
@@ -1001,17 +1146,19 @@ export default function Memories() {
           <span
             className="
               font-mono
-              text-[6px]
+              text-[5px]
               uppercase
-              tracking-[0.5em]
+              tracking-[0.35em]
               text-white/15
+              sm:text-[6px]
+              sm:tracking-[0.5em]
             "
           >
             Every memory leaves a trace
           </span>
         </div>
 
-        <span className="h-px flex-1 bg-white/[0.05]" />
+        <span className="h-px min-w-0 flex-1 bg-white/[0.05]" />
       </div>
 
       {/* =========================================================
@@ -1024,9 +1171,12 @@ export default function Memories() {
             fixed
             inset-0
             z-[100]
+            w-full
+            max-w-[100vw]
+            overflow-x-hidden
             overflow-y-auto
             bg-[#010101]/95
-            p-4
+            p-3
             backdrop-blur-2xl
             overscroll-contain
             sm:p-6
@@ -1039,8 +1189,8 @@ export default function Memories() {
               fixed
               left-1/2
               top-1/2
-              h-[700px]
-              w-[700px]
+              h-[min(700px,120vw)]
+              w-[min(700px,120vw)]
               -translate-x-1/2
               -translate-y-1/2
               rounded-full
@@ -1058,8 +1208,8 @@ export default function Memories() {
             aria-label="Close memory"
             className="
               fixed
-              right-5
-              top-5
+              right-4
+              top-4
               z-30
               flex
               h-11
@@ -1083,16 +1233,23 @@ export default function Memories() {
               sm:top-8
             "
           >
-            <X size={16} strokeWidth={1} />
+            <X
+              size={16}
+              strokeWidth={1}
+            />
           </button>
 
           <div
-            onClick={(event) => event.stopPropagation()}
+            onClick={(event) =>
+              event.stopPropagation()
+            }
             className="
               relative
               mx-auto
-              my-12
+              my-10
               grid
+              w-full
+              min-w-0
               max-w-6xl
               overflow-hidden
               rounded-[3px]
@@ -1104,14 +1261,16 @@ export default function Memories() {
               md:grid-cols-[1.15fr_.85fr]
             "
           >
-            <div className="relative min-h-[55vh] overflow-hidden md:min-h-[75vh]">
+            <div className="relative min-h-[48svh] w-full min-w-0 overflow-hidden md:min-h-[75vh]">
               <img
                 src={selected.image}
                 alt={selected.title}
                 draggable="false"
                 className="
+                  block
                   h-full
                   w-full
+                  max-w-full
                   object-cover
                   transition-transform
                   duration-[2000ms]
@@ -1142,12 +1301,16 @@ export default function Memories() {
                     font-mono
                     text-[6px]
                     uppercase
-                    tracking-[0.4em]
+                    tracking-[0.35em]
                     text-white/40
                     backdrop-blur-md
+                    sm:tracking-[0.4em]
                   "
                 >
-                  MEMORY {String(selected.id).padStart(2, "0")}
+                  MEMORY{" "}
+                  {String(
+                    selected.id
+                  ).padStart(2, "0")}
                 </span>
               </div>
             </div>
@@ -1156,24 +1319,26 @@ export default function Memories() {
               className="
                 relative
                 flex
+                min-w-0
                 flex-col
                 justify-center
-                p-8
+                p-7
                 sm:p-12
                 md:p-14
                 lg:p-20
               "
             >
-              <div className="relative">
-                <div className="flex items-center gap-3">
-                  <span className="h-px w-8 bg-white/20" />
+              <div className="relative min-w-0">
+                <div className="flex min-w-0 items-center gap-3">
+                  <span className="h-px w-8 shrink-0 bg-white/20" />
 
                   <p
                     className="
+                      truncate
                       font-mono
                       text-[7px]
                       uppercase
-                      tracking-[0.45em]
+                      tracking-[0.4em]
                       text-white/30
                     "
                   >
@@ -1184,6 +1349,7 @@ export default function Memories() {
                 <h2
                   className="
                     mt-7
+                    break-words
                     font-display
                     text-5xl
                     font-light
@@ -1196,20 +1362,21 @@ export default function Memories() {
                   {selected.title}
                 </h2>
 
-                <div className="my-10 flex items-center gap-4">
-                  <span className="h-px flex-1 bg-white/[0.08]" />
+                <div className="my-10 flex min-w-0 items-center gap-4">
+                  <span className="h-px min-w-0 flex-1 bg-white/[0.08]" />
 
                   <Sparkles
                     size={11}
                     strokeWidth={1}
-                    className="text-white/25"
+                    className="shrink-0 text-white/25"
                   />
 
-                  <span className="h-px flex-1 bg-white/[0.08]" />
+                  <span className="h-px min-w-0 flex-1 bg-white/[0.08]" />
                 </div>
 
                 <p
                   className="
+                    break-words
                     font-serif
                     text-xl
                     leading-[1.9]
@@ -1221,14 +1388,14 @@ export default function Memories() {
                 </p>
 
                 <div className="mt-12 border-t border-white/[0.08] pt-6">
-                  <div className="flex items-center justify-between">
-                    <div>
+                  <div className="flex min-w-0 items-center justify-between gap-5">
+                    <div className="min-w-0">
                       <p
                         className="
                           font-mono
                           text-[6px]
                           uppercase
-                          tracking-[0.4em]
+                          tracking-[0.35em]
                           text-white/20
                         "
                       >
@@ -1245,7 +1412,9 @@ export default function Memories() {
                         "
                       >
                         MEMORY #
-                        {String(selected.id).padStart(2, "0")}
+                        {String(
+                          selected.id
+                        ).padStart(2, "0")}
                       </p>
                     </div>
 
@@ -1254,6 +1423,7 @@ export default function Memories() {
                         flex
                         h-10
                         w-10
+                        shrink-0
                         items-center
                         justify-center
                         rounded-full
@@ -1270,22 +1440,23 @@ export default function Memories() {
                   </div>
                 </div>
 
-                <div className="mt-10 flex items-center gap-3 md:hidden">
-                  <span className="h-px flex-1 bg-white/[0.08]" />
+                <div className="mt-10 flex min-w-0 items-center gap-3 md:hidden">
+                  <span className="h-px min-w-0 flex-1 bg-white/[0.08]" />
 
                   <span
                     className="
+                      shrink-0
                       font-mono
                       text-[5px]
                       uppercase
-                      tracking-[0.35em]
+                      tracking-[0.25em]
                       text-white/20
                     "
                   >
                     Swipe back to close
                   </span>
 
-                  <span className="h-px flex-1 bg-white/[0.08]" />
+                  <span className="h-px min-w-0 flex-1 bg-white/[0.08]" />
                 </div>
               </div>
             </div>
@@ -1301,6 +1472,18 @@ export default function Memories() {
 
           to {
             transform: rotate(360deg);
+          }
+        }
+
+        html,
+        body {
+          max-width: 100%;
+          overflow-x: hidden;
+        }
+
+        @media (max-width: 640px) {
+          img {
+            max-width: 100%;
           }
         }
 
