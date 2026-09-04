@@ -3,7 +3,6 @@ import { useLocation, useNavigate } from "react-router-dom";
 
 import UniverseBackground from "../universe/UniverseBackground";
 import OrbitNavigation from "../universe/OrbitNavigation";
-import MusicPlayer from "../music/MusicPlayer";
 import ShootingStar from "../universe/ShootingStar";
 
 export default function UniverseLayout({
@@ -13,20 +12,7 @@ export default function UniverseLayout({
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Navigation state
   const [menuOpen, setMenuOpen] = useState(false);
-
-  /*
-   * ============================================================
-   * NAVIGATION TOGGLE
-   * ============================================================
-   *
-   * This keeps the navigation state controlled by this layout.
-   *
-   * We are NOT removing the existing navigation system.
-   * We are simply making sure the open/close functions are
-   * available and stable.
-   */
 
   const openNavigation = () => {
     setMenuOpen(true);
@@ -54,10 +40,7 @@ export default function UniverseLayout({
   }, [location.pathname]);
 
   /*
-   * Prevent the page underneath from scrolling while the
-   * navigation is open.
-   *
-   * This does NOT affect the night/day background.
+   * Prevent scrolling while navigation is open
    */
   useEffect(() => {
     if (menuOpen) {
@@ -72,7 +55,7 @@ export default function UniverseLayout({
   }, [menuOpen]);
 
   /*
-   * Allow ESC to close the navigation.
+   * ESC closes navigation
    */
   useEffect(() => {
     const handleKeyDown = (event) => {
@@ -84,7 +67,10 @@ export default function UniverseLayout({
     window.addEventListener("keydown", handleKeyDown);
 
     return () => {
-      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener(
+        "keydown",
+        handleKeyDown
+      );
     };
   }, []);
 
@@ -100,26 +86,17 @@ export default function UniverseLayout({
         ${celebration ? "celebration-world" : ""}
       `}
     >
-      {/* ================================================
-          BACKGROUND
-          ================================================ */}
-
+      {/* BACKGROUND */}
       <UniverseBackground
         celebration={celebration}
       />
 
-      {/* ================================================
-          PAGE CONTENT
-          ================================================ */}
-
+      {/* PAGE CONTENT */}
       <main className="relative z-30 min-h-screen w-full">
         {children}
       </main>
 
-      {/* ================================================
-          SHOOTING STAR
-          ================================================ */}
-
+      {/* SHOOTING STAR */}
       <div
         className="
           pointer-events-none
@@ -133,30 +110,11 @@ export default function UniverseLayout({
         />
       </div>
 
-      {/* ================================================
-          MUSIC PLAYER
-          ================================================ */}
-
-      <MusicPlayer />
-
-      {/* ================================================
-          NAVIGATION
-          
-          IMPORTANT:
-          Navigation state is controlled here.
-          ================================================ */}
-
+      {/* NAVIGATION */}
       <OrbitNavigation
         navigate={navigate}
         open={menuOpen}
         setOpen={setMenuOpen}
-
-        /*
-         * Additional controls.
-         *
-         * OrbitNavigation can use whichever one it needs.
-         * Existing props above are NOT removed.
-         */
         onOpen={openNavigation}
         onClose={closeNavigation}
         onToggle={toggleNavigation}

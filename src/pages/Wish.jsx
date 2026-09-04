@@ -34,6 +34,17 @@ const DESKTOP_STAR_COUNT = 48;
 const CHARGE_DURATION = 2400;
 
 /* ============================================================
+   PROGRESS CIRCLE CONFIG
+============================================================ */
+
+const CIRCLE_RADIUS = 58;
+
+const CIRCLE_CIRCUMFERENCE =
+  2 *
+  Math.PI *
+  CIRCLE_RADIUS;
+
+/* ============================================================
    STAR GENERATOR
 ============================================================ */
 
@@ -309,9 +320,7 @@ export default function Wish() {
             );
 
           /*
-           * IMPORTANT:
            * Reduce React renders.
-           * Updating every frame causes lag.
            */
 
           if (
@@ -401,12 +410,11 @@ export default function Wish() {
   ============================================================ */
 
   const progressOffset =
-    364.4 -
+    CIRCLE_CIRCUMFERENCE *
     (
-      364.4 *
-      energy
-    ) /
-      100;
+      1 -
+      energy / 100
+    );
 
   /* ============================================================
      RENDER
@@ -472,9 +480,7 @@ export default function Wish() {
 
         <div className="absolute inset-0 bg-[#010101]" />
 
-        {/* =================================================
-            CENTRAL NEBULA
-        ================================================= */}
+        {/* CENTRAL NEBULA */}
 
         <div
           className={`
@@ -512,9 +518,7 @@ export default function Wish() {
           `}
         />
 
-        {/* =================================================
-            GOLD ATMOSPHERE
-        ================================================= */}
+        {/* GOLD ATMOSPHERE */}
 
         {!isMobile && (
           <div
@@ -549,9 +553,7 @@ export default function Wish() {
           />
         )}
 
-        {/* =================================================
-            DESKTOP ATMOSPHERE ONLY
-        ================================================= */}
+        {/* DESKTOP ATMOSPHERE */}
 
         {!isMobile && (
           <>
@@ -609,9 +611,7 @@ export default function Wish() {
           </>
         )}
 
-        {/* =================================================
-            STARS
-        ================================================= */}
+        {/* STARS */}
 
         <div className="absolute inset-0">
 
@@ -675,13 +675,9 @@ export default function Wish() {
 
         </div>
 
-        {/* Desktop shooting stars */}
-
         {!isMobile && (
           <div className="absolute left-[18%] top-[24%] h-px w-14 rotate-[35deg] bg-gradient-to-r from-transparent via-white/25 to-transparent animate-[shootingStar_9s_ease-in-out_infinite]" />
         )}
-
-        {/* Horizon */}
 
         {!isMobile && (
           <div
@@ -711,8 +707,6 @@ export default function Wish() {
             `}
           />
         )}
-
-        {/* Vignette */}
 
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_20%,rgba(0,0,0,.25)_60%,rgba(0,0,0,.92)_100%)]" />
 
@@ -831,8 +825,6 @@ export default function Wish() {
           `}
         >
 
-          {/* Outer orbit */}
-
           <div
             className={`
               absolute
@@ -856,8 +848,6 @@ export default function Wish() {
             `}
           />
 
-          {/* Large orbit */}
-
           <div
             className={`
               absolute
@@ -878,8 +868,6 @@ export default function Wish() {
               }
             `}
           />
-
-          {/* Second orbit */}
 
           <div
             className={`
@@ -904,9 +892,7 @@ export default function Wish() {
             `}
           />
 
-          {/* =================================================
-              MOON
-          ================================================= */}
+          {/* MOON */}
 
           <div
             className={`
@@ -946,8 +932,6 @@ export default function Wish() {
             `}
           >
 
-            {/* Aura */}
-
             <div
               className={`
                 absolute
@@ -975,13 +959,9 @@ export default function Wish() {
               `}
             />
 
-            {/* Energy rings */}
-
             {isHolding && (
               <div className="absolute inset-[-12px] rounded-full border border-amber-100/25 animate-[energyRing_1.6s_ease-out_infinite]" />
             )}
-
-            {/* Moon */}
 
             <div
               className={`
@@ -1035,7 +1015,7 @@ export default function Wish() {
       </section>
 
       {/* =====================================================
-          SIMPLE RELEASE FLASH
+          RELEASE FLASH
       ===================================================== */}
 
       {releasing && (
@@ -1151,67 +1131,112 @@ export default function Wish() {
             "
           >
 
-            <div className="relative">
+            {/* =================================================
+                PERFECTLY ALIGNED PROGRESS CONTAINER
+            ================================================= */}
 
-              {/* Progress ring */}
+            <div
+              className="
+                relative
+
+                flex
+                h-[108px]
+                w-[108px]
+
+                items-center
+                justify-center
+
+                sm:h-[128px]
+                sm:w-[128px]
+              "
+            >
+
+              {/* PROGRESS RING */}
 
               <svg
                 className="
                   pointer-events-none
                   absolute
-                  -inset-[13px]
+                  inset-0
 
-                  h-[108px]
-                  w-[108px]
+                  h-full
+                  w-full
 
                   -rotate-90
-
-                  sm:-inset-[18px]
-                  sm:h-[128px]
-                  sm:w-[128px]
                 "
                 viewBox="0 0 128 128"
               >
 
-                <circle
-                  cx="64"
-                  cy="64"
-                  r="58"
-                  fill="none"
-                  stroke="rgba(255,255,255,.06)"
-                  strokeWidth="1"
-                />
+                {/* Background ring */}
 
                 <circle
                   cx="64"
                   cy="64"
-                  r="58"
+                  r={CIRCLE_RADIUS}
                   fill="none"
-                  stroke="rgba(255,235,190,.85)"
+                  stroke="rgba(255,255,255,.06)"
+                  strokeWidth="1.5"
+                />
+
+                {/* Loading progress */}
+
+                <circle
+                  cx="64"
+                  cy="64"
+                  r={CIRCLE_RADIUS}
+                  fill="none"
+                  stroke="rgba(255,235,190,.9)"
                   strokeWidth="2"
                   strokeLinecap="round"
-                  strokeDasharray="364.4"
+                  strokeDasharray={
+                    CIRCLE_CIRCUMFERENCE
+                  }
                   strokeDashoffset={
                     progressOffset
                   }
-                  className="transition-[stroke-dashoffset] duration-100 ease-linear"
+                  className="
+                    transition-[stroke-dashoffset]
+                    duration-100
+                    ease-linear
+                  "
                 />
 
               </svg>
 
-              {/* Glow */}
+              {/* GLOW */}
 
               {isHolding && (
-                <div className="pointer-events-none absolute inset-[-15px] rounded-full bg-amber-100/[0.06] blur-[15px]" />
+                <div
+                  className="
+                    pointer-events-none
+                    absolute
+
+                    left-1/2
+                    top-1/2
+
+                    h-[90px]
+                    w-[90px]
+
+                    -translate-x-1/2
+                    -translate-y-1/2
+
+                    rounded-full
+
+                    bg-amber-100/[0.06]
+
+                    blur-[18px]
+
+                    sm:h-[105px]
+                    sm:w-[105px]
+                  "
+                />
               )}
 
-              {/* Button */}
+              {/* BUTTON */}
 
               <button
                 type="button"
-                onPointerDown={(
-                  event
-                ) => {
+                onPointerDown={(event) => {
                   event.currentTarget
                     .setPointerCapture?.(
                       event.pointerId
@@ -1249,6 +1274,7 @@ export default function Wish() {
                 className={`
                   group
                   relative
+                  z-10
 
                   flex
 
@@ -1305,7 +1331,7 @@ export default function Wish() {
 
             </div>
 
-            {/* Instruction */}
+            {/* INSTRUCTION */}
 
             <div className="mt-6 text-center sm:mt-7">
 
@@ -1380,8 +1406,6 @@ export default function Wish() {
 
           <div className="absolute inset-0 bg-black/95 animate-[voidAppear_.7s_ease-out_forwards]" />
 
-          {/* Particles */}
-
           {!isMobile &&
             modalParticles.map(
               (particle) => (
@@ -1414,8 +1438,6 @@ export default function Wish() {
                 />
               )
             )}
-
-          {/* CARD */}
 
           <div
             className="
@@ -1655,6 +1677,7 @@ export default function Wish() {
           75%,
           100% {
             opacity: 0;
+
             transform:
               translate3d(-30px,-15px,0)
               rotate(35deg);
@@ -1666,6 +1689,7 @@ export default function Wish() {
 
           88% {
             opacity: 0;
+
             transform:
               translate3d(80px,40px,0)
               rotate(35deg);

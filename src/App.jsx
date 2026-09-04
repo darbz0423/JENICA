@@ -4,12 +4,12 @@ import {
   Navigate,
   Route,
   Routes,
-  useNavigate,
 } from "react-router-dom";
 
 import Opening from "./components/cinematic/Opening";
 import BootSequence from "./components/cinematic/BootSequence";
 import UniverseLayout from "./components/layout/UniverseLayout";
+import MusicPlayer from "./components/music/MusicPlayer";
 
 import Universe from "./pages/Universe";
 import Memories from "./pages/Memories";
@@ -36,9 +36,7 @@ function AppContent() {
     document.body.classList.add("memory-universe");
 
     return () => {
-      document.body.classList.remove(
-        "memory-universe"
-      );
+      document.body.classList.remove("memory-universe");
     };
   }, []);
 
@@ -51,105 +49,107 @@ function AppContent() {
   }
 
   return (
-    <Routes>
-      <Route
-        path="/"
-        element={<Navigate to="/universe" replace />}
-      />
+    <>
+      <MusicPlayer />
 
-      <Route
-        path="/universe"
-        element={
-          <UniverseLayout>
-            <Universe />
-          </UniverseLayout>
-        }
-      />
+      <Routes>
+        <Route
+          path="/"
+          element={<Navigate to="/universe" replace />}
+        />
 
-      <Route
-        path="/memories"
-        element={
-          <UniverseLayout>
-            <Memories />
-          </UniverseLayout>
-        }
-      />
+        <Route
+          path="/universe"
+          element={
+            <UniverseLayout>
+              <Universe />
+            </UniverseLayout>
+          }
+        />
 
-      <Route
-        path="/gallery"
-        element={
-          <UniverseLayout>
-            <Gallery />
-          </UniverseLayout>
-        }
-      />
+        <Route
+          path="/memories"
+          element={
+            <UniverseLayout>
+              <Memories />
+            </UniverseLayout>
+          }
+        />
 
-      <Route
-        path="/letters"
-        element={
-          <UniverseLayout>
-            <Letters />
-          </UniverseLayout>
-        }
-      />
+        <Route
+          path="/gallery"
+          element={
+            <UniverseLayout>
+              <Gallery />
+            </UniverseLayout>
+          }
+        />
 
-      <Route
-        path="/create"
-        element={
-          <UniverseLayout>
-            <Create />
-          </UniverseLayout>
-        }
-      />
+        <Route
+          path="/letters"
+          element={
+            <UniverseLayout>
+              <Letters />
+            </UniverseLayout>
+          }
+        />
 
-      <Route
-        path="/wish"
-        element={
-          <UniverseLayout>
-            <Wish />
-          </UniverseLayout>
-        }
-      />
+        <Route
+          path="/create"
+          element={
+            <UniverseLayout>
+              <Create />
+            </UniverseLayout>
+          }
+        />
 
-      <Route
-        path="/celebration"
-        element={
-          <UniverseLayout celebration>
-            <Celebration />
-          </UniverseLayout>
-        }
-      />
+        <Route
+          path="/wish"
+          element={
+            <UniverseLayout>
+              <Wish />
+            </UniverseLayout>
+          }
+        />
 
-      {/* EXISTING GAME ROUTE — UNCHANGED */}
-      <Route
-        path="/game"
-        element={
-          <UniverseLayout>
-            <MemoryGame />
-          </UniverseLayout>
-        }
-      />
+        <Route
+          path="/celebration"
+          element={
+            <UniverseLayout celebration>
+              <Celebration />
+            </UniverseLayout>
+          }
+        />
 
-      {/* MEMORY GAME — ADDED FOR NAVIGATION */}
-      <Route
-        path="/memorygame"
-        element={
-          <UniverseLayout>
-            <MemoryGame />
-          </UniverseLayout>
-        }
-      />
+        <Route
+          path="/game"
+          element={
+            <UniverseLayout>
+              <MemoryGame />
+            </UniverseLayout>
+          }
+        />
 
-      <Route
-        path="/finale"
-        element={<Finale />}
-      />
+        <Route
+          path="/memorygame"
+          element={
+            <UniverseLayout>
+              <MemoryGame />
+            </UniverseLayout>
+          }
+        />
 
-      <Route
-        path="*"
-        element={<Navigate to="/universe" replace />}
-      />
-    </Routes>
+        <Route
+          path="/finale"
+          element={<Finale />}
+        />
+
+        <Route
+          path="*"
+          element={<Navigate to="/universe" replace />}
+        />
+      </Routes>
+    </>
   );
 }
 

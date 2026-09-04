@@ -53,7 +53,7 @@ export const birthdayData = {
      {
       id: 4,
       title: "Outing",
-      date: "11.12.25",
+      date: "07.19.26",
       category: "beginning",
       description:
         "A day away from everything, where the waves were loud, the laughter was endless, and for a little while, nothing else mattered. Just us, the sea, and a memory worth keeping forever. ",
